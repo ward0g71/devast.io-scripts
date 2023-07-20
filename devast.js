@@ -1,4 +1,5 @@
 // github.com/ward0g71/etc/edit/main/devast.js
+// Spacebar = on/off aim
 // !new = new token
 
 
