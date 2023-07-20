@@ -22,6 +22,7 @@ class HackCon {
         this.showLandmines = false;
         this.showSpikes = false;
         this.showWires = false;
+        this.drawNamesOnMap = false;
 
         this.autoEat = false;
         this.hungryLevel = 150;
@@ -427,6 +428,7 @@ window.onload = () => {
     visuals.add(MOD, "showLandmines");
     visuals.add(MOD, "showSpikes");
     visuals.add(MOD, "showWires");
+    visuals.add(MOD, "drawNamesOnMap");
 
     var automation = MENU.addFolder("AUTOMATION");
     automation.add(MOD, "autoLoot");
@@ -14078,12 +14080,17 @@ try {
                     if (frameId === (PLAYER.frameId + 1)) angle = players[PLAYER.locatePlayer].angle;
                     else angle = PLAYER.x % PI2;
                     CanvasUtils.drawImageHd(arrowiconmap, _x, _y, angle, 0, 0, 1);
+
+                    if (MOD.drawNamesOnMap && PLAYER.nicknameLabel != null)
+                    ctx.drawImage(PLAYER.nicknameLabel, _x * scaleby - 3.5 * PLAYER.nickname.length, _y * scaleby - 35, 7 * PLAYER.nickname.length, 20);
                 }
             }
 
             var _x = window.Math.floor((wX / scaleby) + window.Math.min(window.Math.max(10, NmM * mvMnV), 400));
             var _y = window.Math.floor((wY / scaleby) + window.Math.min(window.Math.max(10, WWV * _buttonInv), 400));
             CanvasUtils.drawImageHd(arrowiconmap2, _x, _y, Mouse.angle, 0, 0, 1);
+
+            if (MOD.drawNamesOnMap) ctx.drawImage(World.players[World.PLAYER.id].nicknameLabel, _x * scaleby - 3.5 * World.players[World.PLAYER.id].nickname.length, _y * scaleby - 35, 7 * World.players[World.PLAYER.id].nickname.length, 20);
 
             if (World.PLAYER.badKarmaDelay > 0) {
                 var PLAYER = World.players[World.PLAYER.badKarma];
