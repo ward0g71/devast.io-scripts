@@ -9,7 +9,7 @@ function SendWSmsg(message) {
 
 class HackCon {
     constructor() {
-        this.showRealAngles = true;
+        this.showRealAngles = "withAim";
         this.mouseScale = true;
         this.DrawLines = false;
         this.linesOpacity = 1;
@@ -23,11 +23,12 @@ class HackCon {
         this.showWires = false;
 
         this.autoEat = false;
-        this.hungryLevel = 240;
+        this.hungryLevel = 150;
 
         this.autoLoot = false;
 
         this.AimBotEnable = false;
+        this.target = "players";
         this.mouseFovEnable = true;
         this.distanceCoefficient = 300;
         this.bulletSpeedCoefficient = 4;
@@ -50,12 +51,17 @@ class HackCon {
     }
 }
 
-class GetAllPlayersCon {
+class GetAllTargetsCon {
     constructor() {
         this.players = [];
+        this.ghouls = [];
 
         for (let player = 1; player < 121; player++) {
-            this.players[player] = new GetPlayer(player);
+            this.players[player] = new GetTarget(player);
+        }
+
+        for (let ghoul = 1; ghoul < 999; ghoul++) {
+            this.ghouls[ghoul] = new GetTarget(ghoul);
         }
 
         this.obstacles = [],
@@ -81,9 +87,13 @@ class GetAllPlayersCon {
       return this.players[pID];
     }
 
+    getGhoulByUid(uID) {
+        return this.ghouls[uID];
+      }
+
 };
 
-class GetPlayer {
+class GetTarget {
     constructor(id) {
       this.id = id, this.x = -1, this.y = -1, this.prevX = [], this.prevY = [], this.active = false, this.weapon = -1, this.gear = -1;
       for (let lastpos = 0; lastpos < 3; lastpos++) {
@@ -128,7 +138,7 @@ class AimbotCon {
     resolve() {
         switch (MOD.resolverType) {
             case 1:
-                const myPlayerResolverType1 = GetAllPlayers.getPlayerById(World.PLAYER.id);
+                const myPlayerResolverType1 = GetAllTargets.getPlayerById(World.PLAYER.id);
                 const targetResolverType1 = this.findNearestPlayerTo(myPlayerResolverType1, 2500);
 
                 if (targetResolverType1 === null) return this.lastAngle;
@@ -151,14 +161,14 @@ class AimbotCon {
                 return angleResolverType1;
 
             case 'linear':
-                const myPlayerResolverLinear = GetAllPlayers.getPlayerById(World.PLAYER.id);
+                const myPlayerResolverLinear = GetAllTargets.getPlayerById(World.PLAYER.id);
                 let targetLinear;
 
                 if (MOD.lockId > -1) {
-                    targetLinear = GetAllPlayers.getPlayerById(MOD.lockId);
+                    targetLinear = GetAllTargets.getPlayerById(MOD.lockId);
                 } else {
                     if (MOD.mouseFovEnable) {
-                        targetLinear = this.findNearestPlayerTo(GetAllPlayers.mouseMapCords, MOD.mouseFov);
+                        targetLinear = this.findNearestPlayerTo(GetAllTargets.mouseMapCords, MOD.mouseFov);
                     } else {
                         targetLinear = this.findNearestPlayerTo(myPlayerResolverLinear, 2500);
                     }
@@ -185,13 +195,13 @@ class AimbotCon {
                 this.lastAngle = angleResolverLinear;
 
                 if (MOD.visualizeResolving) {
-                    GetAllPlayers.lines[0].reset(myPlayerResolverLinear.x, myPlayerResolverLinear.y, targetXResolverLinear, targetYResolverLinear);
+                    GetAllTargets.lines[0].reset(myPlayerResolverLinear.x, myPlayerResolverLinear.y, targetXResolverLinear, targetYResolverLinear);
                 }
 
                 return angleResolverLinear;
 
             case 'smooth':
-                const myPlayerResolverSmooth = GetAllPlayers.getPlayerById(World.PLAYER.id);
+                const myPlayerResolverSmooth = GetAllTargets.getPlayerById(World.PLAYER.id);
                 const targetResolverSmooth = this.findNearestPlayerTo(myPlayerResolverSmooth, 2500);
 
                 if (targetResolverSmooth === null) return this.lastAngle;
@@ -202,7 +212,7 @@ class AimbotCon {
                 return angleResolverSmooth;
 
             case 'snap':
-                const myPlayerResolverSnap = GetAllPlayers.getPlayerById(World.PLAYER.id);
+                const myPlayerResolverSnap = GetAllTargets.getPlayerById(World.PLAYER.id);
                 const targetResolverSnap = this.findNearestPlayerTo(myPlayerResolverSnap, 2500);
 
                 if (targetResolverSnap === null) return this.lastAngle;
@@ -213,7 +223,7 @@ class AimbotCon {
                 return angleResolverSnap;
 
             case 'random':
-                const myPlayerResolverRandom = GetAllPlayers.getPlayerById(World.PLAYER.id);
+                const myPlayerResolverRandom = GetAllTargets.getPlayerById(World.PLAYER.id);
                 const targetResolverRandom = this.findNearestPlayerTo(myPlayerResolverRandom, 2500);
 
                 if (targetResolverRandom === null) return this.lastAngle;
@@ -224,7 +234,7 @@ class AimbotCon {
                 return angleResolverRandom;
 
             case 'reactive':
-                const myPlayerResolverReactive = GetAllPlayers.getPlayerById(World.PLAYER.id);
+                const myPlayerResolverReactive = GetAllTargets.getPlayerById(World.PLAYER.id);
                 const targetResolverReactive = this.findNearestPlayerTo(myPlayerResolverReactive, 2500);
 
                 if (targetResolverReactive === null) return this.lastAngle;
@@ -316,21 +326,40 @@ class AimbotCon {
     findNearestPlayerTo(cords, Fov) {
         let fov = Fov;
         let selected = null;
-
-        for (let allplayers = 1; allplayers < GetAllPlayers.players.length; allplayers++) {
-            const _0x2df7b4 = GetAllPlayers.getPlayerById(allplayers);
-
-            if (_0x2df7b4.active && _0x2df7b4.id !== World.PLAYER.id && (World.players[_0x2df7b4.id].team !== World.PLAYER.team || World.PLAYER.team === -1)) {
-                const distance = Math.sqrt((cords.x - _0x2df7b4.x) ** 2 + (cords.y - _0x2df7b4.y) ** 2);
-
-                if (distance < fov) {
-                    selected = _0x2df7b4;
-                    fov = distance;
+    
+        // Check players
+        if ((MOD.target === 'players') || (MOD.target === 'all')) {
+            for (let id = 1; id < GetAllTargets.players.length; id++) {
+                const player = GetAllTargets.getPlayerById(id);
+        
+                if (player.active && player.id !== World.PLAYER.id && (World.players[player.id].team !== World.PLAYER.team || World.PLAYER.team === -1)) {
+                    const distance = Math.sqrt((cords.x - player.x) ** 2 + (cords.y - player.y) ** 2);
+        
+                    if (distance < fov) {
+                        selected = player;
+                        fov = distance;
+                    }
+                }
+            }
+        }
+        if ((MOD.target === 'ghouls') || (MOD.target === 'all')) {
+            // Check ghouls
+            for (let uid = 1; uid < GetAllTargets.ghouls.length; uid++) {
+                const ghoul = GetAllTargets.getGhoulByUid(uid);
+        
+                if (ghoul.active) {
+                    const distance = Math.sqrt((cords.x - ghoul.x) ** 2 + (cords.y - ghoul.y) ** 2);
+        
+                    if (distance < fov) {
+                        selected = ghoul;
+                        fov = distance;
+                    }
                 }
             }
         }
 
         return selected;
+
     }
 }
 
@@ -355,35 +384,37 @@ class LinesCon {
 
 function AimbotRefresh() {
     if (World.PLAYER.id == 0) {
-      if (GetAllPlayers.lastId != 0) {
-        GetAllPlayers.lastId = 0;
-        for (let allplayers = 1; allplayers < 121; allplayers++) GetAllPlayers.getPlayerById(allplayers).setInactive();
+      if (GetAllTargets.lastId != 0) {
+        GetAllTargets.lastId = 0;
+        for (let allplayers = 1; allplayers < 121; allplayers++) GetAllTargets.getPlayerById(allplayers).setInactive();
       }
       return;
     }
-    GetAllPlayers.lastId = World.PLAYER.id;
+    GetAllTargets.lastId = World.PLAYER.id;
     if (MOD.AimBotEnable) {
         SendWSmsg([6, Aimbot.resolve()]), MOD.autoFire && Aimbot.wannaFire() && (SendWSmsg([4]), SendWSmsg([5]));
     }
 };
 
-var GetAllPlayers = new GetAllPlayersCon;
+var GetAllTargets = new GetAllTargetsCon;
 var MOD = new HackCon;
 var Aimbot = new AimbotCon;
 setInterval(AimbotRefresh, 50);
 
 window.addEventListener("keydown", event => {
-    if (event.keyCode === 32) MOD.AimBotEnable = !MOD.AimBotEnable;
+    if (chatvisible === 0) {
+        if (event.keyCode === 32) MOD.AimBotEnable = !MOD.AimBotEnable;
+    }
 });
 
 window.addEventListener("mousemove", event => {
-    GetAllPlayers.mousePosition.x = event.clientX, GetAllPlayers.mousePosition.y = event.clientY;
+    GetAllTargets.mousePosition.x = event.clientX, GetAllTargets.mousePosition.y = event.clientY;
 });
 
 window.onload = () => {
     MENU = new dat.GUI;
     var visuals = MENU.addFolder("VISUALS");
-    visuals.add(MOD, "showRealAngles");
+    visuals.add(MOD, "showRealAngles", ["always", "withAim"]);
     visuals.add(MOD, "mouseScale")
     visuals.add(MOD, "showPID");
     visuals.add(MOD, "ShowHP");
@@ -403,6 +434,7 @@ window.onload = () => {
 
     var aimbot = MENU.addFolder("AIMBOT");
     aimbot.add(MOD, "AimBotEnable");
+    aimbot.add(MOD, "target", ["players", "ghouls", "all"]);
     aimbot.add(MOD, "mouseFovEnable"),
     aimbot.add(MOD, "distanceCoefficient", 10, 1000, 10);
     aimbot.add(MOD, "bulletSpeedCoefficient", 1, 15, 0.25);
@@ -414,7 +446,7 @@ window.onload = () => {
     aimbot.add(MOD, "lockId", -1, 120, 1);
     aimbot.add(MOD, "mouseFov", 0, 3e3, 100)
     aimbot.add(MOD, "visualizeResolving");
-    aimbot.addColor(MOD, "visualizeResolvingColor").onChange(() => GetAllPlayers.lines[0].color = MOD.visualizeResolvingColor);
+    aimbot.addColor(MOD, "visualizeResolvingColor").onChange(() => GetAllTargets.lines[0].color = MOD.visualizeResolvingColor);
 
     var cfg = MENU.addFolder("CFG");
     cfg.add(HackCon, "save");
@@ -1386,7 +1418,8 @@ function onUnits(data, ui8) {
             if (update !== window.undefined) update(UNIT, ui16[isRef16 + 4], ui16[isRef16 + 5]);
 
             //here
-            if (ui8[isRef8] != 0 && ui8[isRef8 + 3] == 0) GetAllPlayers.getPlayerById(ui8[isRef8]).update(ui16[isRef16 + 6], ui16[isRef16 + 7]);
+            if (ui8[isRef8] != 0 && ui8[isRef8 + 3] == 0) GetAllTargets.getPlayerById(ui8[isRef8]).update(ui16[isRef16 + 6], ui16[isRef16 + 7]);
+            if (ui8[isRef8 + 1] != 0 && ui8[isRef8 + 3] == 13) GetAllTargets.getGhoulByUid(ui8[isRef8 + 1]).update(ui16[isRef16 + 6], ui16[isRef16 + 7]);
 
         }
 };
@@ -2980,8 +3013,9 @@ var World = (function() {
         UNIT.i = window.Math.max(0, window.Math.min(worldY, window.Math.floor(UNIT.y / Render.__TILE_SIZE__)));
         UNIT.j = window.Math.max(0, window.Math.min(worldX, window.Math.floor(UNIT.x / Render.__TILE_SIZE__)));
         if ((World.PLAYER.id === UNIT.pid) && (UNIT.id === 0)) {
-            if (MOD.showRealAngles) UNIT.angle = MathUtils.lerp(UNIT.angle, UNIT.nangle, UNIT.lerp * 2);
-            else UNIT.angle = Mouse.angle;;
+            if (MOD.showRealAngles === "always") UNIT.angle = MathUtils.lerp(UNIT.angle, UNIT.nangle, UNIT.lerp * 2);
+            else if ((MOD.showRealAngles === "withAim") && (MOD.AimBotEnable)) UNIT.angle = MathUtils.lerp(UNIT.angle, UNIT.nangle, UNIT.lerp * 2);
+            else UNIT.angle = Mouse.angle;
         } else {
             if (UNIT.pid === 0)
                 UNIT.angle = MathUtils.lerp(UNIT.angle, UNIT.nangle, UNIT.lerp / 2);
@@ -9280,6 +9314,7 @@ var Home = (function() {
         draw: draw
     };
 })();
+var chatvisible     = 0;
 var Game = (function() {
     function onError(state) {
         window.console.log("onError", state);
@@ -9297,7 +9332,6 @@ var Game = (function() {
         return NmW & isCraftOpen;
     };
 
-    var chatvisible     = 0;
     var NmW = 0;
     var isMapOpen       = 0;
     var isSettingsOpen  = 0;
@@ -17633,8 +17667,8 @@ try {
         function GetMouseCords() {
             let aplha = ctx.globalAlpha,
             width = ctx.lineWidth;
-            for (var lines = 0; lines < GetAllPlayers.lines.length; lines++) {
-              let pos = GetAllPlayers.lines[lines];
+            for (var lines = 0; lines < GetAllTargets.lines.length; lines++) {
+              let pos = GetAllTargets.lines[lines];
 
             var myPosition = {
                 x: scaleby * (pos.x1 + vertst),
@@ -17655,7 +17689,7 @@ try {
               ctx.stroke();
             }
             ctx.globalAlpha = aplha, ctx.lineWidth = width;
-            if (MOD.mouseFovEnable) GetAllPlayers.mouseMapCords = _getMapCordsFromScreenMouseCords(GetAllPlayers.mousePosition);
+            if (MOD.mouseFovEnable) GetAllTargets.mouseMapCords = _getMapCordsFromScreenMouseCords(GetAllTargets.mousePosition);
         };
 
         function _SetDetection(vW) {
