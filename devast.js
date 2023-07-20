@@ -1,4 +1,5 @@
 // github.com/ward0g71/etc/edit/main/devast.js
+// h = hide/show menu
 // Spacebar = on/off aim
 // !new = new token
 
@@ -453,6 +454,7 @@ window.onload = () => {
     cfg.add(HackCon, "load");
 };
 
+//---------------------------------------------------------------------------------------------------------------------------------------------//
 
 var lowerCase = window.navigator.userAgent.toLowerCase();
 var isTouchScreen = (((((((lowerCase.indexOf("isTouchScreen") !== -1) || (lowerCase.indexOf("android") !== -1)) || (lowerCase.indexOf("ipad") !== -1)) || (lowerCase.indexOf("iphone") !== -1)) || (lowerCase.indexOf("ipod") !== -1)) || (lowerCase.indexOf("kindle") !== -1)) || (lowerCase.indexOf("silk/") !== -1)) ? 1 : 0;
