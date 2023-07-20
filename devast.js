@@ -1,10 +1,6 @@
-// https://github.com/ward0g71/devastOpenDist
+// github.com/ward0g71/etc/edit/main/devast.js
+// !new = new token
 
-/*
-commands in chat:
-!new = new token
-!afk = server not gona kick you out
-*/
 
 function SendWSmsg(message) {
     if (window.ws != null && window.ws.readyState == WebSocket.OPEN) window.ws.send(JSON.stringify(message));
@@ -44981,3 +44977,5 @@ waitHTMLAndRun();
         value: !0
     })
 });
+
+// github.com/ward0g71/etc/edit/main/devast.js
