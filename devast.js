@@ -24,6 +24,9 @@ class HackCon {
         this.showWires = false;
         this.drawNamesOnMap = false;
 
+        this.changeMyModel = false;
+        this.myPlayerModel = 0;
+
         this.autoEat = false;
         this.hungryLevel = 150;
 
@@ -450,6 +453,10 @@ window.onload = () => {
     aimbot.add(MOD, "mouseFov", 0, 3e3, 100)
     aimbot.add(MOD, "visualizeResolving");
     aimbot.addColor(MOD, "visualizeResolvingColor").onChange(() => GetAllTargets.lines[0].color = MOD.visualizeResolvingColor);
+
+    var skinchanger = MENU.addFolder("SKINCHANGER");
+    skinchanger.add(MOD, "changeMyModel"), 
+    skinchanger.add(MOD, "myPlayerModel", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
 
     var cfg = MENU.addFolder("CFG");
     cfg.add(HackCon, "save");
@@ -3770,6 +3777,180 @@ var ENTITIES = [{
         },
         rightArm: {
             src: "img/day-right-arm4.png",
+            img: {
+                isLoaded: 0
+            }
+        }
+    }, {
+        head: {
+            src: "img/day-ghoul.png",
+            img: {
+                isLoaded: 0
+            }
+        },
+        leftArm: {
+            angle: 0,
+            x: 28,
+            y: -50,
+            src: "img/day-ghoul-left-arm.png",
+            img: {
+                isLoaded: 0
+            }
+        },
+        rightArm: {
+            src: "img/day-ghoul-right-arm.png",
+            img: {
+                isLoaded: 0
+            }
+        }
+    }, {
+        head: {
+            src: "img/day-ghoul3.png",
+            img: {
+                isLoaded: 0
+            }
+        },
+        leftArm: {
+            src: "img/day-ghoul3-left-arm.png",
+            img: {
+                isLoaded: 0
+            }
+        },
+        rightArm: {
+            src: "img/day-ghoul3-right-arm.png",
+            img: {
+                isLoaded: 0
+            }
+        }
+    }, {
+        head: {
+            src: "img/day-ghoul4.png",
+            img: {
+                isLoaded: 0
+            }
+        },
+        leftArm: {
+            src: "img/day-ghoul4-left-arm.png",
+            img: {
+                isLoaded: 0
+            }
+        },
+        rightArm: {
+            src: "img/day-ghoul4-right-arm.png",
+            img: {
+                isLoaded: 0
+            }
+        }
+    }, {
+        head: {
+            src: "img/day-ghoul2.png",
+            img: {
+                isLoaded: 0
+            }
+        },
+        leftArm: {
+            src: "img/day-ghoul2-left-arm.png",
+            img: {
+                isLoaded: 0
+            }
+        },
+        rightArm: {
+            src: "img/day-ghoul2-right-arm.png",
+            img: {
+                isLoaded: 0
+            }
+        }
+    }, {
+        head: {
+            src: "img/day-ghoul1.png",
+            img: {
+                isLoaded: 0
+            }
+        },
+        leftArm: {
+            src: "img/day-ghoul1-left-arm.png",
+            img: {
+                isLoaded: 0
+            }
+        },
+        rightArm: {
+            src: "img/day-ghoul1-right-arm.png",
+            img: {
+                isLoaded: 0
+            }
+        }
+    }, {
+        head: {
+            src: "img/day-ghoul5.png",
+            img: {
+                isLoaded: 0
+            }
+        },
+        leftArm: {
+            src: "img/day-ghoul5-left-arm.png",
+            img: {
+                isLoaded: 0
+            }
+        },
+        rightArm: {
+            src: "img/day-ghoul5-right-arm.png",
+            img: {
+                isLoaded: 0
+            }
+        }
+    }, {
+        head: {
+            src: "img/day-lapabot.png",
+            img: {
+                isLoaded: 0
+            }
+        },
+        leftArm: {
+            src: "img/day-lapabot-left-arm.png",
+            img: {
+                isLoaded: 0
+            }
+        },
+        rightArm: {
+            src: "img/day-lapabot-right-arm.png",
+            img: {
+                isLoaded: 0
+            }
+        }
+    }, {
+        head: {
+            src: "img/day-hal-bot.png",
+            img: {
+                isLoaded: 0
+            }
+        },
+        leftArm: {
+            src: "img/day-hal-bot-left-arm.png",
+            img: {
+                isLoaded: 0
+            }
+        },
+        rightArm: {
+            src: "img/day-hal-bot-right-arm.png",
+            img: {
+                isLoaded: 0
+            }
+        }
+    }, {
+        head: {
+            src: "img/day-tesla-bot.png",
+            img: {
+                isLoaded: 0
+            }
+        },
+        leftArm: {
+            src: "img/day-tesla-bot-left-arm.png",
+            img: {
+                isLoaded: 0
+            }
+        },
+        rightArm: {
+            src: "img/day-tesla-bot-right-arm.png",
             img: {
                 isLoaded: 0
             }
@@ -15176,6 +15357,7 @@ try {
                 else skinType = 1;
             } else if (withdrawal > 0) skinType = 2;
             else if (PLAYER.withdrawal > 0) skinType = 4;
+            if (player.pid == World.PLAYER.id && MOD.changeMyModel) skinType = MOD.myPlayerModel;
             var skin = mVn.skins[skinType];
             var recoil = 0;
             var Vmwnn = player.state & 254;
@@ -15281,6 +15463,7 @@ try {
                 else skinType = 1;
             } else if (withdrawal > 0) skinType = 2;
             else if (PLAYER.withdrawal > 0) skinType = 4;
+            if (player.pid == World.PLAYER.id && MOD.changeMyModel) skinType = MOD.myPlayerModel;
             var skin = mVn.skins[skinType];
             var recoil = 0;
             var recoilGun = 0;
@@ -15406,6 +15589,7 @@ try {
                 else skinType = 1;
             } else if (withdrawal > 0) skinType = 2;
             else if (PLAYER.withdrawal > 0) skinType = 4;
+            if (player.pid == World.PLAYER.id && MOD.changeMyModel) skinType = MOD.myPlayerModel;
             var skin = mVn.skins[skinType];
             var nmm = 0;
             var NNM = 0;
@@ -15495,6 +15679,7 @@ try {
                 else skinType = 1;
             } else if (withdrawal > 0) skinType = 2;
             else if (PLAYER.withdrawal > 0) skinType = 4;
+            if (player.pid == World.PLAYER.id && MOD.changeMyModel) skinType = MOD.myPlayerModel;
             var skin = mVn.skins[skinType];
             var nmm = 0;
             var NNM = 0;
@@ -15580,6 +15765,7 @@ try {
                 else skinType = 1;
             } else if (withdrawal > 0) skinType = 2;
             else if (PLAYER.withdrawal > 0) skinType = 4;
+            if (player.pid == World.PLAYER.id && MOD.changeMyModel) skinType = MOD.myPlayerModel;
             var skin = mVn.skins[skinType];
             var nmm = 0;
             var NNM = 0;
@@ -15664,6 +15850,7 @@ try {
                 else skinType = 1;
             } else if (withdrawal > 0) skinType = 2;
             else if (PLAYER.withdrawal > 0) skinType = 4;
+            if (player.pid == World.PLAYER.id && MOD.changeMyModel) skinType = MOD.myPlayerModel;
             var skin = mVn.skins[skinType];
             var NNM = 0;
             var NWW = 0;
@@ -15793,6 +15980,7 @@ try {
                 else skinType = 1;
             } else if (withdrawal > 0) skinType = 2;
             else if (PLAYER.withdrawal > 0) skinType = 4;
+            if (player.pid == World.PLAYER.id && MOD.changeMyModel) skinType = MOD.myPlayerModel;
             var skin = mVn.skins[skinType];
             var nmm = 0;
             var NNM = 0;
