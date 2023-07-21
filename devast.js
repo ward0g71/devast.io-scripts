@@ -17881,30 +17881,32 @@ try {
         };
 
         function GetMouseCords() {
-            let aplha = ctx.globalAlpha,
-            width = ctx.lineWidth;
-            for (var lines = 0; lines < GetAllTargets.lines.length; lines++) {
-              let pos = GetAllTargets.lines[lines];
+            if (MOD.AimBotEnable) {
+                let aplha = ctx.globalAlpha,
+                width = ctx.lineWidth;
+                for (var lines = 0; lines < GetAllTargets.lines.length; lines++) {
+                let pos = GetAllTargets.lines[lines];
 
-            var myPosition = {
-                x: scaleby * (pos.x1 + vertst),
-                y: scaleby * (pos.y1 + horist)
-            };
+                var myPosition = {
+                    x: scaleby * (pos.x1 + vertst),
+                    y: scaleby * (pos.y1 + horist)
+                };
 
-            var targetsPosition = {
-                x: scaleby * (pos.x2 + vertst),
-                y: scaleby * (pos.y2 + horist)
-            };
+                var targetsPosition = {
+                    x: scaleby * (pos.x2 + vertst),
+                    y: scaleby * (pos.y2 + horist)
+                };
 
-              ctx.lineWidth = pos.width,
-              ctx.globalAlpha = pos.alpha,
-              ctx.strokeStyle = pos.color,
-              ctx.beginPath(), 
-              ctx.moveTo(myPosition.x, myPosition.y), 
-              ctx.lineTo(targetsPosition.x, targetsPosition.y), 
-              ctx.stroke();
+                ctx.lineWidth = pos.width,
+                ctx.globalAlpha = pos.alpha,
+                ctx.strokeStyle = pos.color,
+                ctx.beginPath(), 
+                ctx.moveTo(myPosition.x, myPosition.y), 
+                ctx.lineTo(targetsPosition.x, targetsPosition.y), 
+                ctx.stroke();
+                }
+                ctx.globalAlpha = aplha, ctx.lineWidth = width;
             }
-            ctx.globalAlpha = aplha, ctx.lineWidth = width;
             if (MOD.mouseFovEnable) GetAllTargets.mouseMapCords = _getMapCordsFromScreenMouseCords(GetAllTargets.mousePosition);
         };
 
