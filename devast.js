@@ -46,7 +46,11 @@ class HackCon {
         this.visualizeResolvingColor = "#EEEEEE";
         this.autoFire = false;
         this.lockId = -1;
-        this.mouseFov = 12345
+        this.mouseFov = 12345;
+
+        this.lag = false;
+        this.lagItem = 96;
+        this.lagSlot = 0
     }
     static save() {
         navigator.clipboard.writeText(JSON.stringify(MOD)), alert("cfg was copied to your clipboard");
@@ -399,6 +403,9 @@ function AimbotRefresh() {
     if (MOD.AimBotEnable) {
         SendWSmsg([6, Aimbot.resolve()]), MOD.autoFire && Aimbot.wannaFire() && (SendWSmsg([4]), SendWSmsg([5]));
     }
+    if (MOD.lag) {
+        if (MOD.lagSlot > -1) SendWSmsg([8, World.PLAYER.inventory[MOD.lagSlot][0], World.PLAYER.inventory[MOD.lagSlot][1], World.PLAYER.inventory[MOD.lagSlot][2], World.PLAYER.inventory[MOD.lagSlot][3]]); else SendWSmsg([8, MOD.lagItem, 1, 1, 255]);
+    }
 };
 
 var GetAllTargets = new GetAllTargetsCon;
@@ -406,10 +413,16 @@ var MOD = new HackCon;
 var Aimbot = new AimbotCon;
 setInterval(AimbotRefresh, 50);
 
+let timeout;
 window.addEventListener("keydown", event => {
-    if (chatvisible === 0) {
+    if (chatvisible != 0) return;
         if (event.keyCode === 32) MOD.AimBotEnable = !MOD.AimBotEnable;
-    }
+        else if (event.keyCode === 88) {
+            MOD.lag = !MOD.lag;
+            if (!MOD.lag) timeout = setTimeout(() => {
+                SendWSmsg([8, 96, 1, 0, 255]);
+            }, 300); else clearTimeout(timeout);
+        }
 });
 
 window.addEventListener("mousemove", event => {
@@ -453,6 +466,11 @@ window.onload = () => {
     aimbot.add(MOD, "mouseFov", 0, 3e3, 100)
     aimbot.add(MOD, "visualizeResolving");
     aimbot.addColor(MOD, "visualizeResolvingColor").onChange(() => GetAllTargets.lines[0].color = MOD.visualizeResolvingColor);
+
+    var lag = MENU.addFolder("LAG");
+    lag.add(MOD, "lag");
+    lag.add(MOD, "lagSlot", 0, 15, 1);
+    lag.add(MOD, "lagItem", 0, 96, 1);
 
     var skinchanger = MENU.addFolder("SKINCHANGER");
     skinchanger.add(MOD, "changeMyModel"), 
