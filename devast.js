@@ -32,6 +32,7 @@ class HackCon {
         this.hungryLevel = 150;
 
         this.autoLoot = false;
+        this.useLootData = false;
 
         this.AimBotEnable = false;
         this.target = "players";
@@ -426,6 +427,7 @@ window.addEventListener("keydown", event => {
         }
 });
 
+
 window.addEventListener("mousemove", event => {
     GetAllTargets.mousePosition.x = event.clientX, GetAllTargets.mousePosition.y = event.clientY;
 });
@@ -448,9 +450,10 @@ window.onload = () => {
     visuals.add(MOD, "drawNamesOnMap");
 
     var automation = MENU.addFolder("AUTOMATION");
-    automation.add(MOD, "autoLoot");
     automation.add(MOD, "autoEat");
-    automation.add(MOD, "hungryLevel", 0, 255, 5)
+    automation.add(MOD, "hungryLevel", 0, 255, 5);
+    automation.add(MOD, "autoLoot");
+    automation.add(MOD, "useLootData");
 
     var aimbot = MENU.addFolder("AIMBOT");
     aimbot.add(MOD, "AimBotEnable");
@@ -480,7 +483,189 @@ window.onload = () => {
     var cfg = MENU.addFolder("CFG");
     cfg.add(HackCon, "save");
     cfg.add(HackCon, "load");
+
+    const lootdata = MENU.addFolder("LootData");
+    const controllers = {};
+        
+    for (const itemData of lootItems) {
+        const itemName = itemData.name;
+    
+        const controller = lootdata.add(itemData, "acquire").name(itemName);
+        controller.onChange(function (value) {
+            controllers[itemName].object.acquire = value; // Update the controller value
+            LootData[itemName].acquire = value; // Update the LootData object
+        });
+    
+        controllers[itemName] = controller;
+    }
 };
+
+const lootItems = [
+    {name:"smallwood",acquire:true,extra:0},
+    {name:"mediumwood",acquire:true,extra:1},
+    {name:"bigwood",acquire:true,extra:2},
+    {name:"smallstone",acquire:true,extra:3},
+    {name:"mediumstone",acquire:true,extra:4},
+    {name:"bigstone",acquire:true,extra:5},
+    {name:"steel",acquire:true,extra:6},
+    {name:"animalfat",acquire:true,extra:7},
+    {name:"animaltendon",acquire:true,extra:8},
+    {name:"string",acquire:true,extra:9},
+    {name:"leatherboar",acquire:true,extra:10},
+    {name:"shapedmetal",acquire:true,extra:11},
+    {name:"rawsteak",acquire:true,extra:12},
+    {name:"cookedsteak",acquire:true,extra:13},
+    {name:"rottensteak",acquire:true,extra:14},
+    {name:"orange",acquire:true,extra:15},
+    {name:"rottenorange",acquire:true,extra:16},
+    {name:"seedorange",acquire:true,extra:17},
+    {name:"hachet",acquire:true,extra:18},
+    {name:"stonepickaxe",acquire:true,extra:19},
+    {name:"steelpickaxe",acquire:true,extra:20},
+    {name:"stoneaxe",acquire:true,extra:21},
+    {name:"workbench",acquire:true,extra:22},
+    {name:"woodspear",acquire:true,extra:23},
+    {name:"woodbow",acquire:true,extra:24},
+    {name:"9mm",acquire:true,extra:25},
+    {name:"deserteagle",acquire:true,extra:26},
+    {name:"shotgun",acquire:true,extra:27},
+    {name:"ak47",acquire:true,extra:28},
+    {name:"sniper",acquire:true,extra:29},
+    {name:"woodwall",acquire:true,extra:30},
+    {name:"stonewall",acquire:true,extra:31},
+    {name:"steelwall",acquire:true,extra:32},
+    {name:"wooddoor",acquire:true,extra:33},
+    {name:"stonedoor",acquire:true,extra:34},
+    {name:"steeldoor",acquire:true,extra:35},
+    {name:"campfire",acquire:true,extra:36},
+    {name:"bullet9mm",acquire:true,extra:37},
+    {name:"bulletshotgun",acquire:true,extra:38},
+    {name:"bulletsniper",acquire:true,extra:39},
+    {name:"medikit",acquire:true,extra:40},
+    {name:"bandage",acquire:true,extra:41},
+    {name:"soda",acquire:true,extra:42},
+    {name:"mp5",acquire:true,extra:43},
+    {name:"headscarf",acquire:true,extra:44},
+    {name:"chapka",acquire:true,extra:45},
+    {name:"wintercoat",acquire:true,extra:46},
+    {name:"gazmask",acquire:true,extra:47},
+    {name:"gazprotection",acquire:true,extra:48},
+    {name:"radiationsuit",acquire:true,extra:49},
+    {name:"woodarrow",acquire:true,extra:50},
+    {name:"campfirebbq",acquire:true,extra:51},
+    {name:"smelter",acquire:true,extra:52},
+    {name:"woodbigdoor",acquire:true,extra:53},
+    {name:"stonebigdoor",acquire:true,extra:54},
+    {name:"steelbigdoor",acquire:true,extra:55},
+    {name:"sulfur",acquire:true,extra:56},
+    {name:"shapeduranium",acquire:true,extra:57},
+    {name:"workbench2",acquire:true,extra:58},
+    {name:"uranium",acquire:true,extra:59},
+    {name:"weaving",acquire:true,extra:60},
+    {name:"gasoline",acquire:true,extra:61},
+    {name:"sulfurpickaxe",acquire:true,extra:62},
+    {name:"chest",acquire:true,extra:63},
+    {name:"fridge",acquire:true,extra:64},
+    {name:"woodfloor",acquire:true,extra:65},
+    {name:"hammer",acquire:true,extra:66},
+    {name:"sleepingbag",acquire:true,extra:67},
+    {name:"repairhammer",acquire:true,extra:68},
+    {name:"nails",acquire:true,extra:69},
+    {name:"woodlightfloor",acquire:true,extra:70},
+    {name:"woodsmallwall",acquire:true,extra:71},
+    {name:"stonesmallwall",acquire:true,extra:72},
+    {name:"steelsmallwall",acquire:true,extra:73},
+    {name:"tomatosoup",acquire:true,extra:74},
+    {name:"syringe",acquire:true,extra:75},
+    {name:"chemicalcomponent",acquire:true,extra:76},
+    {name:"radaway",acquire:true,extra:77},
+    {name:"seedtomato",acquire:true,extra:78},
+    {name:"tomato",acquire:true,extra:79},
+    {name:"rottentomato",acquire:true,extra:80},
+    {name:"can",acquire:true,extra:81},
+    {name:"woodcrossbow",acquire:true,extra:82},
+    {name:"woodcrossarrow",acquire:true,extra:83},
+    {name:"nailgun",acquire:true,extra:84},
+    {name:"sawedoffshotgun",acquire:true,extra:85},
+    {name:"stonefloor",acquire:true,extra:86},
+    {name:"tilingfloor",acquire:true,extra:87},
+    {name:"crisps",acquire:true,extra:88},
+    {name:"rottencrisps",acquire:true,extra:89},
+    {name:"electronics",acquire:true,extra:90},
+    {name:"junk",acquire:true,extra:91},
+    {name:"wire",acquire:true,extra:92},
+    {name:"energycells",acquire:true,extra:93},
+    {name:"laserpistol",acquire:true,extra:94},
+    {name:"tesla",acquire:true,extra:95},
+    {name:"alloys",acquire:true,extra:96},
+    {name:"sulfuraxe",acquire:true,extra:97},
+    {name:"landmine",acquire:true,extra:98},
+    {name:"dynamite",acquire:true,extra:99},
+    {name:"c4",acquire:true,extra:100},
+    {name:"c4trigger",acquire:true,extra:101},
+    {name:"compost",acquire:true,extra:102},
+    {name:"armorphysic1",acquire:true,extra:103},
+    {name:"armorphysic2",acquire:true,extra:104},
+    {name:"armorphysic3",acquire:true,extra:105},
+    {name:"armorfire1",acquire:true,extra:106},
+    {name:"armorfire2",acquire:true,extra:107},
+    {name:"armorfire3",acquire:true,extra:108},
+    {name:"armordeminer",acquire:true,extra:109},
+    {name:"armortesla1",acquire:true,extra:110},
+    {name:"armortesla2",acquire:true,extra:111},
+    {name:"woodspike",acquire:true,extra:112},
+    {name:"lasersubmachine",acquire:true,extra:113},
+    {name:"grenade",acquire:true,extra:114},
+    {name:"superhammer",acquire:true,extra:115},
+    {name:"ghoulblood",acquire:true,extra:116},
+    {name:"camouflagegear",acquire:true,extra:117},
+    {name:"agitator",acquire:true,extra:118},
+    {name:"ghouldrug",acquire:true,extra:119},
+    {name:"mushroom1",acquire:true,extra:120},
+    {name:"mushroom2",acquire:true,extra:121},
+    {name:"mushroom3",acquire:true,extra:122},
+    {name:"rottenmushroom1",acquire:true,extra:123},
+    {name:"rottenmushroom2",acquire:true,extra:124},
+    {name:"rottenmushroom3",acquire:true,extra:125},
+    {name:"lapadone",acquire:true,extra:126},
+    {name:"lapabotrepair",acquire:true,extra:127},
+    {name:"smallwire",acquire:true,extra:128},
+    {name:"pumpkin",acquire:true,extra:129},
+    {name:"rottenpumpkin",acquire:true,extra:130},
+    {name:"seedghoul",acquire:true,extra:131},
+    {name:"extractor",acquire:true,extra:132},
+    {name:"antidote",acquire:true,extra:133},
+    {name:"antidoteflower",acquire:true,extra:134},
+    {name:"seedtree",acquire:true,extra:135},
+    {name:"acorn",acquire:true,extra:136},
+    {name:"rottenacorn",acquire:true,extra:137},
+    {name:"lasersniper",acquire:true,extra:138},
+    {name:"halbot",acquire:true,extra:139},
+    {name:"teslabot",acquire:true,extra:140},
+    {name:"cable0",acquire:true,extra:141},
+    {name:"cable1",acquire:true,extra:142},
+    {name:"cable2",acquire:true,extra:143},
+    {name:"cable3",acquire:true,extra:144},
+    {name:"switch",acquire:true,extra:145},
+    {name:"gateor",acquire:true,extra:146},
+    {name:"gateand",acquire:true,extra:147},
+    {name:"gatenot",acquire:true,extra:148},
+    {name:"lamp",acquire:true,extra:149},
+    {name:"cablewall",acquire:true,extra:150},
+    {name:"automaticdoor",acquire:true,extra:151},
+    {name:"platform",acquire:true,extra:152},
+    {name:"stonecave",acquire:true,extra:153},
+    {name:"bunkerwall",acquire:true,extra:154},
+    {name:"goldfloor",acquire:true,extra:155},
+    {name:"redfloor",acquire:true,extra:156},
+    {name:"weldingmachine",acquire:true,extra:157},
+    {name:"cable4",acquire:true,extra:158},
+    {name:"gatetimer",acquire:true,extra:159},
+    {name:"gatexorcounter",acquire:true,extra:16}
+];
+
+const LootData = Object.fromEntries(lootItems.map(({ name, acquire, extra }) => [name, { acquire, extra }]));
+
 
 //---------------------------------------------------------------------------------------------------------------------------------------------//
 
@@ -13506,7 +13691,7 @@ try {
             }
         };
         var vnVmM = 12000;
-        var wMVMm = 12000;
+        var distance12k = 12000;
         var wVMNN = [];
         for (i = 0; i < 10; i++) {
             wVMNN[i] = [];
@@ -17184,14 +17369,6 @@ try {
         };
         
         function _Loots(loot) {
-            var LootList = {
-                wood: false,
-                stone: false
-            };
-            var LootNametoID = {
-                wood: 2,
-                stone: 15
-            };
             matrix[loot.i][loot.j].tile = frameId;
             matrix[loot.i][loot.j].tilePid = loot.pid;
             matrix[loot.i][loot.j].category = window.undefined;
@@ -17206,15 +17383,31 @@ try {
                     loot.angleY = window.Math.sin(Math2d.angle(loot.rx, loot.ry, loot.nx, loot.ny));
                 }
             }
+
             if ((loot.removed === 0) && (Math2d.fastDist(loot.x, loot.y, loot.nx, loot.ny) < 1)) {
                 var dist = Math2d.fastDist(NmM, WWV, loot.x, loot.y);
-                if (dist < wMVMm) {
+                if (dist < distance12k) {
 
+                    //Auto Loot
                     if (MOD.autoLoot) {
-                        Client.sendPacket(window.JSON.stringify([12, loot.id]))
-                    }
+                        if (MOD.useLootData) {
+                            for (let lootType in LootData) {
+                                if (
+                                    LootData.hasOwnProperty(lootType) &&
+                                    LootData[lootType].acquire &&
+                                    loot.extra === LootData[lootType].extra
+                                ) {
+                                    Client.sendPacket(window.JSON.stringify([12, loot.id]));
+                                    break; // Break the loop once we find a matching item
+                                }
+                            }
+                        } else {
+                            Client.sendPacket(window.JSON.stringify([12, loot.id]));
+                        }
+                    };
+                    // -----
 
-                    wMVMm = dist;
+                    distance12k = dist;
                     World.PLAYER.loot = loot.extra;
                     World.PLAYER.lootId = loot.id;
                     if (World.PLAYER.interaction <= 0) World.PLAYER.interaction = 0;
@@ -17252,7 +17445,7 @@ try {
             NNmMN[2] = 0;
             NNmMN[3] = 0;
             vnVmM = 12000;
-            wMVMm = 12000;
+            distance12k = 12000;
             World.PLAYER.extraLoot    = 0;
             World.PLAYER.buildingId   = -1;
             World.PLAYER.buildingArea = -1;
@@ -43673,7 +43866,6 @@ waitHTMLAndRun();
 
 //var noDebug = window.console;
 //noDebug.log = noDebug.info = noDebug.error = noDebug.warn = noDebug.debug = noDebug.NWVnW = noDebug.trace = noDebug.time = noDebug.timeEnd = function() {};
-
 
 ! function (e, t) {
     "object" == typeof exports && "undefined" != typeof module ? t(exports) : "function" == typeof define && define.amd ? define(["exports"], t) : t(e.dat = {})
