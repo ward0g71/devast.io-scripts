@@ -1914,6 +1914,16 @@ function onReplaceAmmo(IID) {
     }
 };
 
+function NvmWv(IID) {
+    var invtr = World.PLAYER.inventory;
+    for (var i = 0; i < invtr.length; i++) {
+      if (invtr[i][0] === IID[1] && invtr[i][1] === IID[2] && invtr[i][2] === IID[3] && invtr[i][3] === IID[4]) {
+        invtr[i][3] = IID[5];
+        return;
+      }
+    }
+  };
+
 function onStartInteraction(mM) {
     World.PLAYER.interaction      = 1;
     World.PLAYER.interactionDelay = mM * 100;
@@ -2022,7 +2032,7 @@ function onOpenBuilding(ui8) {
         }
     }
     craft.pos = ui8[3];
-    if (((((((area === AREAS.__SMELTER__) || (area === AREAS.__FIRE__)) || (area === AREAS.__COMPOST__)) || (area === AREAS.__BBQ__)) || (area === AREAS.__TESLA__)) || (area === AREAS.__AGITATOR__)) || (area === AREAS.__EXTRACTOR__))
+    if (((((((area === AREAS.__SMELTER__) || (area === AREAS.__FIRE__)) || (area === AREAS.__COMPOST__)) || (area === AREAS.__BBQ__)) || (area === AREAS.__TESLA__)) || (area === AREAS.__AGITATOR__)) || (area === AREAS.__EXTRACTOR__) || (area === AREAS.__FEEDER__))
         craft.fuel = ui8[9];
     else
         craft.fuel = -1;
@@ -2053,6 +2063,16 @@ function onWarmOff() {
     World.PLAYER.warm = 0;
     if ((World.day === 1) || (World.transition > 0))
         World.gauges.cold.decrease = 1;
+};
+
+function FeederonWarmOn() {
+    World.PLAYER.warm = 1;
+    World.gauges.cold.decrease = -1;
+};
+
+function FeederonWarmOff() {
+    World.PLAYER.warm = 0;
+    World.gauges.cold.decrease = 1;
 };
 
 function onWrongTool(tool) {
@@ -2287,78 +2307,80 @@ function onMessageRaw(data) {
     var ui8 = new window.Uint8Array(data);
     // Decode data
     switch (ui8[0]) {
-        case 0:          onUnits                    (data, ui8);                    break;
-        case 1:          onOldVersion               (data);                         break;
-        case 2:          onFull                     ();                             break;
-        case 3:          onPlayerDie                (ui8);                          break;
-        case 4:          onOtherDie                 (ui8[1]);                       break;
-        case 5:          onFailRestoreSession       ();                             break;
-        case 6:          onStoleYourSession         ();                             break;
-        case 7:          onMute                     (ui8[1]);                       break;
-        case 8:          onLeaderboard              (data, ui8);                    break;
-        case 9:          onHandshake                (data, ui8);                    break;
-        case 10:         onKickInactivity           ();                             break;
-        case 11:         onNotification             (ui8);                          break;
-        case 12:         onGauges                   (ui8);                          break;
-        case 13:         onScore                    (data);                         break;
-        case 14:         onPlayerHit                (ui8[1], ui8[2]);               break;
-        case 15:         onFullInventory            (ui8);                          break;
-        case 16:         onDeleteItem               (ui8);                          break;
-        case 17:         onNewItem                  (ui8);                          break;
-        case 18:         onPlayerLife               (ui8[1]);                       break;
-        case 19:         onLifeDecreas              ();                             break;
-        case 20:         onSelectedItem             (ui8);                          break;
-        case 21:         onLifeStop                 ();                             break;
-        case 22:         onPlayerHeal               (ui8[1]);                       break;
-        case 23:         onStaminaIncrease          ();                             break;
-        case 24:         onStaminaStop              ();                             break;
-        case 25:         onStaminaDecrease          ();                             break;
-        case 26:         onColdIncrease             ();                             break;
+        case 44:          onUnits                    (data, ui8);                    break;
+        case 28:          onOldVersion               (data);                         break;
+        case 6:          onFull                     ();                             break;
+        case 36:          onPlayerDie                (ui8);                          break;
+        case 32:          onOtherDie                 (ui8[1]);                       break;
+        case 12:          onFailRestoreSession       ();                             break;
+        case 31:          onStoleYourSession         ();                             break;
+        case 0:          onMute                     (ui8[1]);                       break;
+        case 1:          onLeaderboard              (data, ui8);                    break;
+        case 7:          onHandshake                (data, ui8);                    break;
+        case 5:         onKickInactivity           ();                             break;
+        case 24:         onNotification             (ui8);                          break;
+        case 73:         onGauges                   (ui8);                          break;
+        case 11:         onScore                    (data);                         break;
+        case 40:         onPlayerHit                (ui8[1], ui8[2]);               break;
+        case 45:         onFullInventory            (ui8);                          break;
+        case 54:         onDeleteItem               (ui8);                          break;
+        case 41:         onNewItem                  (ui8);                          break;
+        case 2:         onPlayerLife               (ui8[1]);                       break;
+        case 8:         onLifeDecreas              ();                             break;
+        case 19:         onSelectedItem             (ui8);                          break;
+        case 49:         onLifeStop                 ();                             break;
+        case 3:         onPlayerHeal               (ui8[1]);                       break;
+        case 33:         onStaminaIncrease          ();                             break;
+        case 39:         onStaminaStop              ();                             break;
+        case 14:         onStaminaDecrease          ();                             break;
+        case 38:         onColdIncrease             ();                             break;
         case 27:         onColdStop                 ();                             break;
-        case 28:         onColdDecrease             ();                             break;
-        case 29:         onPlayerStamina            (ui8[1]);                       break;
-        case 30:         onLifeIncrease             ();                             break;
-        case 31:         onReplaceItem              (ui8);                          break;
-        case 32:         onStackItem                (ui8);                          break;
-        case 33:         onSplitItem                (ui8);                          break;
-        case 34:         onReplaceAmmo              (ui8);                          break;
-        case 35:         onStartInteraction         (ui8[1]);                       break;
-        case 36:         onInterruptInteraction     ();                             break;
-        case 37:         onReplaceItemAndAmmo       (ui8);                          break;
-        case 38:         onBlueprint                (ui8[1]);                       break;
-        case 39:         onDay                      ();                             break;
-        case 40:         onNight                    ();                             break;
-        case 41:         onPlayerXp                 ((ui8[1] << 8) + ui8[2]);       break;
-        case 42:         onPlayerXpSkill            (ui8);                          break;
-        case 43:         onBoughtSkill              (ui8[1]);                       break;
-        case 44:         onStartCraft               (ui8[1]);                       break;
-        case 45:         onLostBuilding             ();                             break;
-        case 46:         onOpenBuilding             (ui8);                          break;
-        case 47:         onNewFuelValue             (ui8);                          break;
-        case 48:         onRadOn                    ();                             break;
-        case 49:         onRadOff                   ();                             break;
-        case 50:         onWarmOn                   ();                             break;
-        case 51:         onWarmOff                  ();                             break;
-        case 52:         onWrongTool                (ui8[1]);                       break;
-        case 53:         onFullChest                (ui8);                          break;
-        case 54:         onAcceptedTeam             (ui8[1], ui8[2]);               break;
-        case 55:         onKickedTeam               (ui8[1]);                       break;
-        case 56:         onDeleteTeam               (ui8[1]);                       break;
-        case 57:         onJoinTeam                 (ui8[1]);                       break;
-        case 58:         onTeamPosition             (ui8);                          break;
-        case 59:         onKarma                    (ui8[1]);                       break;
-        case 60:         onBadKarma                 (ui8);                          break;
-        case 61:         onAreas                    (ui8);                          break;
-        case 62:         onWrongPassword            ();                             break;
-        case 63:         onModdedGaugesValues       (data);                         break;
-        case 64:         onShakeExplosionState      (ui8[1]);                       break;
-        case 65:         onPlayerEat                (ui8[1]);                       break;
-        case 66:         onCitiesLocation           (ui8);                          break;
-        case 67:         onPoisened                 (ui8[1]);                       break;
-        case 68:         onRepellent                (ui8[1], ui8[2]);               break;
-        case 69:         onLapadoine                (ui8[1], ui8[2]);               break;
-        case 70:         onResetDrug                (ui8[1], ui8[2]);               break;
-        case 71:         onDramaticChrono           (ui8[1]);                       break;
+        case 51:         onColdDecrease             ();                             break;
+        case 56:         onPlayerStamina            (ui8[1]);                       break;
+        case 60:         onLifeIncrease             ();                             break;
+        case 37:         onReplaceItem              (ui8);                          break;
+        case 61:         onStackItem                (ui8);                          break;
+        case 42:         onSplitItem                (ui8);                          break;
+        case 72:         onReplaceAmmo              (ui8);                          break;
+        case 13:         onStartInteraction         (ui8[1]);                       break;
+        case 46:         onInterruptInteraction     ();                             break;
+        case 64:         onReplaceItemAndAmmo       (ui8);                          break;
+        case 25:         onBlueprint                (ui8[1]);                       break;
+        case 34:         onDay                      ();                             break;
+        case 43:         onNight                    ();                             break;
+        case 21:         onPlayerXp                 ((ui8[1] << 8) + ui8[2]);       break;
+        case 55:         onPlayerXpSkill            (ui8);                          break;
+        case 23:         onBoughtSkill              (ui8[1]);                       break;
+        case 26:         onStartCraft               (ui8[1]);                       break;
+        case 52:         onLostBuilding             ();                             break;
+        case 30:         onOpenBuilding             (ui8);                          break;
+        case 68:         onNewFuelValue             (ui8);                          break;
+        case 58:         onRadOn                    ();                             break;
+        case 16:         onRadOff                   ();                             break;
+        case 53:         onWarmOn                   ();                             break;
+        case 71:         onWarmOff                  ();                             break;
+        case 65:         onWrongTool                (ui8[1]);                       break;
+        case 63:         onFullChest                (ui8);                          break;
+        case 18:         onAcceptedTeam             (ui8[1], ui8[2]);               break;
+        case 9:          onKickedTeam               (ui8[1]);                       break;
+        case 29:         onDeleteTeam               (ui8[1]);                       break;
+        case 22:         onJoinTeam                 (ui8[1]);                       break;
+        case 17:         onTeamPosition             (ui8);                          break;
+        case 15:         onKarma                    (ui8[1]);                       break;
+        case 20:         onBadKarma                 (ui8);                          break;
+        case 50:         onAreas                    (ui8);                          break;
+        case 48:         onWrongPassword            ();                             break;
+        case 62:         onModdedGaugesValues       (data);                         break;
+        case 47:         onShakeExplosionState      (ui8[1]);                       break;
+        case 69:         onPlayerEat                (ui8[1]);                       break;
+        case 57:         onCitiesLocation           (ui8);                          break;
+        case 66:         onPoisened                 (ui8[1]);                       break;
+        case 35:         onRepellent                (ui8[1], ui8[2]);               break;
+        case 70:         onLapadoine                (ui8[1], ui8[2]);               break;
+        case 10:         onResetDrug                (ui8[1], ui8[2]);               break;
+        case 4:          onDramaticChrono           (ui8[1]);                       break;
+        case 59:         FeederonWarmOn             ();                             break;
+        case 67:         FeederonWarmOff            ();                             break;
     }
 };
 
@@ -2807,7 +2829,7 @@ var Client = (function() {
 
     function getServerList(_srv) {
 
-        var lobbyList = 'https://matchmaker.api.rivet.gg/v1/lobbies/list';
+        var lobbyList = 'https://api.eg.rivet.gg/matchmaker/lobbies/list';
     
         let header = {'Accept': 'application/json'};
     
@@ -8385,7 +8407,7 @@ var Loader = (function() {
                             continue;
                         }
 
-                        if (ghl === ["br"]) {
+                        if (ghl === "br") {
                             MNv = MNv.replace("BR", "");
                             if (Home.regions[MNv] === window.undefined)
                                 Home.regions[MNv] = [];
@@ -8510,30 +8532,6 @@ var Loader = (function() {
 var Home = (function() {
 
     function joinServer() {
-        try {
-            window.document.getElementsByClassName("ympb_target")[0].id;
-            window.document.getElementById("trevda").id;
-            window.document.getElementById("preroll").id;
-        } catch (error) {
-            Home.adblocker = 1;
-        }
-        try {
-            if (((World.PLAYER.admin !== 1) && (typeof window["YMPB"] !== 'undefined')) && (typeof window["YMPB"]["preroll"] !== 'undefined')) {
-                if (Home.waitAds === 1) return;
-                if (Home.ads === 1) {
-                    AudioManager.cutTitleMusic();
-                    window.document.getElementById("preroll").style.display = "block";
-                    window["YMPB"]["preroll"]('preroll', function() {
-                        Home.waitAds = 0;
-                        Home.ads = -1;
-                        Home.joinServer();
-                    });
-                    Home.waitAds = 1;
-                    return;
-                }
-            }
-        } catch (error) {}
-      
         var srvMode;
         if (Home.gameMode === World['__SURVIVAL__'])    srvMode = 'survival';
         else {
@@ -8547,8 +8545,8 @@ var Home = (function() {
         
         var _srv = document.getElementById('servers').value, lobFind, lobID;
         
-        _srv    == 'auto' ? (lobFind = 'https://matchmaker.api.rivet.gg/v1/lobbies/find',
-        lobID   = { 'game_modes': [srvMode] }) : (lobFind = 'https://matchmaker.api.rivet.gg/v1/lobbies/join',
+        _srv    == 'auto' ? (lobFind = 'https://api.eg.rivet.gg/matchmaker/lobbies/find',
+        lobID   = { 'game_modes': [srvMode] }) : (lobFind = 'https://api.eg.rivet.gg/matchmaker/lobbies/join',
         lobID   = { 'lobby_id': _srv });
         
         let header = {};
@@ -9851,6 +9849,7 @@ var Game = (function() {
         craftList[AREAS.__TESLA__]              = GUI.createButton(42, 42, ["img/workbench3-button-out.png", "img/workbench3-button-in.png", "img/workbench3-button-click.png"]);
         craftList[AREAS.__AGITATOR__]           = GUI.createButton(42, 42, ["img/agitator-button-out.png", "img/agitator-button-in.png", "img/agitator-button-click.png"]);
         craftList[AREAS.__EXTRACTOR__]          = GUI.createButton(42, 42, ["img/extractor-button-out.png", "img/extractor-button-in.png", "img/extractor-button-click.png"]);
+        craftList[AREAS.__FEEDER__]             = GUI.createButton(42, 42, ["img/feeder-button-out.png", "img/feeder-button-in.png", "img/feeder-button-click.png"]);
 
         gauges = GUI.createBackground(255, 174, "img/profile-player2.png");
         BACKGROUND_SETTBOX      = GUI.createBackground(269, 267, "img/settings-box.png");
@@ -10138,6 +10137,7 @@ var Game = (function() {
                     else BUTTON_CANCEL.trigger();
                     if ((((World.PLAYER.craftArea === AREAS.__FIRE__) || (World.PLAYER.craftArea === AREAS.__BBQ__)) || (World.PLAYER.craftArea === AREAS.__COMPOST__)) && (World.PLAYER.building.fuel !== 255)) BUTTON_FUEL.trigger();
                     else if ((((World.PLAYER.craftArea === AREAS.__SMELTER__) || (World.PLAYER.craftArea === AREAS.__EXTRACTOR__)) || (World.PLAYER.craftArea === AREAS.__AGITATOR__)) && (World.PLAYER.building.fuel !== 255)) BUTTON_FUEL1.trigger();
+                    else if (World.PLAYER.craftArea === AREAS.__FEEDER__ && World.PLAYER.building.fuel !== 255) BUTTON_CELLS.trigger();
                 } else BUTTON_UNLOCK.trigger();
                 for (var i = 0; i < skillList.length; i++) skillList[i].trigger();
                 for (i = 0; i < craftList.length; i++) {
@@ -10478,7 +10478,7 @@ var Game = (function() {
                 } else if (craftList[AREAS.__WORKBENCH2__].trigger() === 1) {
                     Client.sendPacket(window.JSON.stringify([World.PLAYER.packetId, World.PLAYER.buildingId, World.PLAYER.buildingPid]));
                     AudioUtils.playFx(AudioUtils._fx.button, 1, 0);
-                } else if (craftList[AREAS.__TESLA__].trigger() === 1) {
+                } else if (craftList[AREAS.__TESLA__].trigger() === 1 || craftList[AREAS.__FEEDER__].trigger() === 1) {
                     Client.sendPacket(window.JSON.stringify([World.PLAYER.packetId, World.PLAYER.buildingId, World.PLAYER.buildingPid]));
                     AudioUtils.playFx(AudioUtils._fx.button, 1, 0);
                 } else if (((craftList[AREAS.__SMELTER__].trigger() === 1) || (craftList[AREAS.__EXTRACTOR__].trigger() === 1)) || (craftList[AREAS.__AGITATOR__].trigger() === 1)) {
@@ -10518,7 +10518,7 @@ var Game = (function() {
                                 AudioUtils.playFx(AudioUtils._fx.button, 1, 0);
                                 return;
                             }
-                        } else if (World.PLAYER.craftArea === AREAS.__TESLA__) {
+                        } else if (World.PLAYER.craftArea === AREAS.__TESLA__ || World.PLAYER.craftArea === AREAS.__FEEDER__) {
                             if ((World.PLAYER.building.fuel !== 255) && (BUTTON_CELLS.trigger() === 1)) {
                                 Client.sendPacket(window.JSON.stringify([24]));
                                 AudioUtils.playFx(AudioUtils._fx.button, 1, 0);
@@ -10742,7 +10742,10 @@ var Game = (function() {
                 if (World.PLAYER.isInBuilding === 1) {
                     for (i = 0; i < World.PLAYER.building.len; i++) queue[i].trigger();
                     if ((((World.PLAYER.craftArea === AREAS.__FIRE__) || (World.PLAYER.craftArea === AREAS.__BBQ__)) || (World.PLAYER.craftArea === AREAS.__COMPOST__)) && (World.PLAYER.building.fuel !== 255)) BUTTON_FUEL.trigger();
-                    else if ((((World.PLAYER.craftArea === AREAS.__SMELTER__) || (World.PLAYER.craftArea === AREAS.__EXTRACTOR__)) || (World.PLAYER.craftArea === AREAS.__AGITATOR__)) && (World.PLAYER.building.fuel !== 255)) BUTTON_FUEL1.trigger();
+                    else if ((((World.PLAYER.craftArea === AREAS.__SMELTER__) || (World.PLAYER.craftArea === AREAS.__EXTRACTOR__)) || (World.PLAYER.craftArea === AREAS.__AGITATOR__) || (World.PLAYER.craftArea === AREAS.__FEEDER__)) && (World.PLAYER.building.fuel !== 255)) BUTTON_FUEL1.trigger();
+                    else if (World.PLAYER.craftArea === AREAS.__FEEDER__ && World.PLAYER.building.fuel !== 255) {
+                        BUTTON_CELLS.trigger();
+                      }
                 }
                 len = World.PLAYER.toolsLen;
                 for (i = 0; i < len; i++) tools[i].trigger();
@@ -11336,9 +11339,6 @@ var Score = (function() {
             invtr[0] = item.id;
         }
         waitAds = 5000;
-        if (Loader.getURLData("admin") === null) {
-            window["YMPB"]["refresh"]();
-        }
         CanvasUtils.setRenderer(Score);
         MNw = Nmv;
         WwM = Nmv;
@@ -14912,7 +14912,7 @@ try {
                 if (amount >= 0) {
                     var wm;
                     if (((area === AREAS.__SMELTER__) || (area === AREAS.__EXTRACTOR__)) || (area === AREAS.__AGITATOR__)) wm = BUTTON_FUEL1;
-                    else if (area === AREAS.__TESLA__) wm = BUTTON_CELLS;
+                    else if (area === AREAS.__TESLA__ || area === AREAS.__FEEDER__) wm = BUTTON_CELLS;
                     else wm = BUTTON_FUEL;
                     wm.pos.x = wX + (532 * scaleby);
                     wm.pos.y = wY + (153 * scaleby);
@@ -16881,6 +16881,26 @@ try {
             } else CanvasUtils.drawImageHd(item.building[2], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
             if (player.hit > 0) containeropenic(player, wX, wY);
         };
+
+        function _Feeder(item, player, wX, wY, Rot, imgMovement) {
+            var MWm = (player.state >> 4) & 1;
+            if (MWm === 1) player.hit = window.Math.min(500, player.hit + delta);
+            else if (player.hit > 0) player.hit = window.Math.max(0, player.hit - delta);
+            if (MWm === 0) nearme(item, player, 0);
+            var light = (player.state >> 5) & 1;
+            if (light === 1) player.hitMax = window.Math.min(10000, player.hitMax + delta);
+            else if (player.hitMax > 0) player.hitMax = window.Math.max(0, player.hitMax - delta);
+            var vW = 0;
+            if (player.hitMax > 0) {
+                vW = MathUtils.Ease.outQuad(player.hitMax / 10000);
+                wX += ((window.Math.random() * 2) - 1) * vW;
+                wY += ((window.Math.random() * 2) - 1) * vW;
+                player.heal += (vW * delta) / 300;
+                CanvasUtils.drawImageHd(item.building[1], ((vertst + player.x) + wX) + item.spine[Rot][0], ((horist + player.y) + wY) + item.spine[Rot][1], (Rot * PIby2) + player.heal, 0, 0, imgMovement);
+                CanvasUtils.drawImageHd(item.building[0], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
+            } else CanvasUtils.drawImageHd(item.building[2], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
+            if (player.hit > 0) containeropenic(player, wX, wY);
+        };
         
         function containeropenic(player, wX, wY) {
             player.breath = (player.breath + delta) % 1000;
@@ -18021,6 +18041,7 @@ try {
             compost:            _Compost,
             agitator:           _Agitator,
             extractor:          _Extractor,
+            feeder:             _Feeder,
             workbench2:         _Workbench2,
             teslaBench:         _TeslaBench,
             orangeSeed:         _OrangeSeed,
@@ -18336,7 +18357,8 @@ var AREAS = {
     __COMPOST__:            COUNTER++,
     __AGITATOR__:           COUNTER++,
     __EXTRACTOR__:          COUNTER++,
-    __WELDING_MACHINE__:    COUNTER++
+    __WELDING_MACHINE__:    COUNTER++,
+    __FEEDER__:             COUNTER++
 };
 
 COUNTER = 0;
@@ -18563,9 +18585,6 @@ var IID = {
     __CABLE4__:                 COUNTER++,
     __GATE_TIMER__:             COUNTER++,
     __GATE_XOR__:               COUNTER++,
-    __VISION_1__:               COUNTER++,
-    __VISION_2__:               COUNTER++,
-    __VISION_3__:               COUNTER++,
     __BUILDER_1__:              COUNTER++,
     __BUILDER_2__:              COUNTER++,
     __INV_1__:                  COUNTER++,
@@ -18573,7 +18592,8 @@ var IID = {
     __INV_3__:                  COUNTER++,
     __INV_4__:                  COUNTER++,
     __INV_5__:                  COUNTER++,
-    __FEATHERWEIGHT__:          COUNTER++
+    __FEATHERWEIGHT__:          COUNTER++,
+    __FEEDER__:                 COUNTER++
 };
 COUNTER = 0;
 var LOOTID = {
@@ -18737,7 +18757,8 @@ var LOOTID = {
     __WELDING_MACHINE__:        COUNTER++,
     __CABLE4__:                 COUNTER++,
     __GATE_TIMER__:             COUNTER++,
-    __GATE_XOR__:               COUNTER++
+    __GATE_XOR__:               COUNTER++,
+    __FEEDER__:                 COUNTER++
 };
 
 COUNTER = 0;
@@ -30355,57 +30376,6 @@ var INVENTORY = [{
     score: 0
 },
 
-
-
-{
-    id: IID.__VISION_1__,
-    itemButton: {
-        src: ["img/skill-eye1-out.png", "img/skill-eye1-in.png", "img/skill-eye1-click.png"],
-        img: [{
-            isLoaded: 0
-        }, {
-            isLoaded: 0
-        }, {
-            isLoaded: 0
-        }]
-    },
-    detail: new Detail("Vision 1", "Improve your vision", SKILLS.__SKILL__, window.undefined, window.undefined, window.undefined, 0),
-    scale: -0.25
-},
-
-{
-    id: IID.__VISION_2__,
-    itemButton: {
-        src: ["img/skill-eye2-out.png", "img/skill-eye2-in.png", "img/skill-eye2-click.png"],
-        img: [{
-            isLoaded: 0
-        }, {
-            isLoaded: 0
-        }, {
-            isLoaded: 0
-        }]
-    },
-    detail: new Detail("Vision 2", "Improve your vision", SKILLS.__SKILL__, window.undefined, window.undefined, window.undefined, 5, IID.__VISION_1__),
-    scale: -0.35
-},
-
-{
-    id: IID.__VISION_3__,
-    itemButton: {
-        src: ["img/skill-eye3-out.png", "img/skill-eye3-in.png", "img/skill-eye3-click.png"],
-        img: [{
-            isLoaded: 0
-        }, {
-            isLoaded: 0
-        }, {
-            isLoaded: 0
-        }]
-    },
-    detail: new Detail("Vision 3", "Improve your vision", SKILLS.__SKILL__, window.undefined, window.undefined, window.undefined, 7, IID.__VISION_2__),
-    scale: -0.45
-},
-
-
 {
     id: IID.__BUILDER_1__,
     itemButton: {
@@ -30532,7 +30502,92 @@ var INVENTORY = [{
         }]
     },
     detail: new Detail("Light Weight", "Less likely to trigger traps.", SKILLS.__SKILL__, window.undefined, window.undefined, window.undefined, 8)
-}];
+},
+
+{
+    id: IID.__FEEDER__,
+    itemButton: {
+      src: ["img/inv-feeder-out.png?2", "img/inv-feeder-in.png?2", "img/inv-feeder-click.png?2"],
+      img: [{
+        isLoaded: 0
+      }, {
+        isLoaded: 0
+      }, {
+        isLoaded: 0
+      }]
+    },
+    detail: new Detail("Feeder", "Allows you to feed automatically", SKILLS.__SURVIVAL__, [[IID.__ALLOYS__, 4], [IID.__SHAPED_METAL__, 20], [IID.__SHAPED_URANIUM__, 8], [IID.__SMALL_WIRE__, 4], [IID.__ELECTRONICS__, 2]], 1, [[AREAS.__TESLA__, 100000]], 12),
+    idWeapon: 21,
+    fuel: 180000,
+    zid: 0,
+    z: 1,
+    area: AREAS.__FEEDER__,
+    stack: 255,
+    loot: LOOTID.__FEEDER__,
+    wait: 10,
+    delay: 1000,
+    width: [100, 100, 100, 100],
+    height: [100, 100, 100, 100],
+    xCenter: [0, 0, 0, 0],
+    yCenter: [0, 0, 0, 0],
+    _x: [0, 0, 0, 0],
+    _y: [0, 0, 0, 0],
+    blueprint: {
+      src: "img/clear-blue-feeder.png?2",
+      img: {
+        isLoaded: 0
+      }
+    },
+    redprint: {
+      src: "img/redprint-feeder.png?2",
+      img: {
+        isLoaded: 0
+      }
+    },
+    wall: 0,
+    lowWall: 0,
+    door: 0,
+    broke: 0,
+    explosion: 0,
+    behavior: BEHAVIOR.__NO__,
+    wire: 0,
+    subtype: 0,
+    collision: 0,
+    areaEffect: 3,
+    draw: Render.feeder,
+    packetId: 16,
+    interact: {
+      src: "img/e-feeder.png?2",
+      img: {
+        isLoaded: 0
+      }
+    },
+    impact: SOUNDID.__STEEL_IMPACT__,
+    destroy: SOUNDID.__STEEL_DESTROY__,
+    building: [{
+      src: "img/day-feeder.png?2",
+      img: {
+        isLoaded: 0
+      }
+    }, {
+      src: "img/day-feeder-rotate.png?2",
+      img: {
+        isLoaded: 0
+      }
+    }, {
+      src: "img/day-feeder-off.png?2",
+      img: {
+        isLoaded: 0
+      }
+    }],
+    spine: [[0, 0], [0, 0], [0, 0], [0, 0]],
+    particles: PARTICLESID.__METAL__,
+    particlesDist: 80,
+    timelife: 315360000000,
+    life: 250,
+    score: 0
+}
+];
 
 COUNTER = 0;
 var FURNITUREID = {
@@ -32904,7 +32959,17 @@ var LOOT = [{
     amount: 1,
     scale: 0.8,
     angle: 0
-}];
+}, {
+    id: LOOTID.__FEEDER__,
+    img: {
+        isLoaded: 0
+    },
+    src: "img/day-ground-feeder.png",
+    idItem: LOOTID.__FEEDER__,
+    amount: 1,
+    scale: 0.8,
+    angle: 0
+  }];
 var COUNTER = 0;
 
 var RESID = {
@@ -41857,6 +41922,7 @@ AREASTOITEM[AREAS.__WEAVING__]      = IID.__WEAVING__;
 AREASTOITEM[AREAS.__COMPOST__]      = IID.__COMPOST__;
 AREASTOITEM[AREAS.__AGITATOR__]     = IID.__AGITATOR__;
 AREASTOITEM[AREAS.__EXTRACTOR__]    = IID.__EXTRACTOR__;
+AREASTOITEM[AREAS.__FEEDER__]       = IID.__FEEDER__;
 
 var INVENTORY2  = null;
 var ENTITIES2   = null;
