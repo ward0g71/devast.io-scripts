@@ -2532,6 +2532,7 @@ function onFirstMessage(dat) {
             Home.ads = -1;
         }
     }
+    Home.adblocker = 0 // make sure we do indeed get the items
     return [dat, token, tokenId, userid, state, nickname, skin, Home.adblocker, password];
 };
 
@@ -8536,73 +8537,110 @@ var Loader = (function() {
 
 var Home = (function() {
 
-    function joinServer() {
+    async function joinServer() {
+        checkAdBlocker();
+    
+        if (shouldShowAds()) {
+            if (Home.waitAds === 1) return;
+            if (Home.ads === 1) {
+                await showAds();
+                return;
+            }
+        }
+    
+        const gameMode = getGameMode();
+        const serverId = document.getElementById('servers').value;
+        const [lobFind, lobID] = getLobbyDetails(gameMode, serverId);
+    
         try {
-            window.document.getElementsByClassName("ympb_target")[0].id;
-            window.document.getElementById("trevda").id;
-            window.document.getElementById("preroll").id;
+            const lobby = await findOrJoinLobby(lobFind, lobID);
+            connectToLobby(lobby);
+        } catch (error) {
+            console.error(error);
+        }
+    }
+    
+    function checkAdBlocker() {
+        try {
+            document.getElementsByClassName("ympb_target")[0].id;
+            document.getElementById("trevda").id;
+            document.getElementById("preroll").id;
         } catch (error) {
             Home.adblocker = 1;
         }
-        try {
-            if (((World.PLAYER.admin !== 1) && (typeof window["YMPB"] !== 'undefined')) && (typeof window["YMPB"]["preroll"] !== 'undefined')) {
-                if (Home.waitAds === 1) return;
-                if (Home.ads === 1) {
-                    AudioManager.cutTitleMusic();
-                    window.document.getElementById("preroll").style.display = "block";
-                    window["YMPB"]["preroll"]('preroll', function() {
-                        Home.waitAds = 0;
-                        Home.ads = -1;
-                        Home.joinServer();
-                    });
-                    Home.waitAds = 1;
-                    return;
-                }
-            }
-        } catch (error) {}
-      
-        var srvMode;
-        if (Home.gameMode === World['__SURVIVAL__'])    srvMode = 'survival';
-        else {
-            if (Home.gameMode === World['__GHOUL__'])   srvMode = 'ghoul';
-            else {
-                if (Home.gameMode === World['__BR__'])  srvMode = 'br';
-                else
-                    throw new Error('Unknown game mode',Home.gameMode);
-            }
+    }
+    
+    function shouldShowAds() {
+        return (
+            World.PLAYER.admin !== 1 &&
+            typeof window["YMPB"] !== 'undefined' &&
+            typeof window["YMPB"]["preroll"] !== 'undefined'
+        );
+    }
+    
+    function showAds() {
+        return new Promise((resolve) => {
+            AudioManager.cutTitleMusic();
+            document.getElementById("preroll").style.display = "block";
+            window["YMPB"]["preroll"]('preroll', () => {
+                Home.waitAds = 0;
+                Home.ads = -1;
+                Home.joinServer();
+                resolve();
+            });
+            Home.waitAds = 1;
+        });
+    }
+    
+    function getGameMode() {
+        switch (Home.gameMode) {
+            case World['__SURVIVAL__']:
+                return 'survival';
+            case World['__GHOUL__']:
+                return 'ghoul';
+            case World['__BR__']:
+                return 'br';
+            default:
+                throw new Error('Unknown game mode', Home.gameMode);
         }
-        
-        var _srv = document.getElementById('servers').value, lobFind, lobID;
-        console.log()
-        
-        _srv    == 'auto' ? (lobFind = 'https://api.eg.rivet.gg/matchmaker/lobbies/find',
-        lobID   = { 'game_modes': [srvMode] }) : (lobFind = 'https://api.eg.rivet.gg/matchmaker/lobbies/join',
-        lobID   = { 'lobby_id': _srv });
-        console.log(_srv)
-        let header = {};
-        header['Accept']        = 'application/json',
-        header['Content-Type']  = 'application/json',
-        
-        window.RIVET_TOKEN && (header['Authorization'] = 'Bearer' + window.RIVET_TOKEN)
-        
-        fetch(lobFind, {
-          method: 'POST',
-          headers: header,
-          body: JSON.stringify(lobID),
-          proxy: 'http://116.203.28.43:80'
-        })
-        .then(response => { 
-          if (response['ok']) return response.json(); 
-          else throw 'Failed to find lobby: ' + response.status
-        })
-        .then(response2 => {
-          let _lob = response2['lobby'];
-          Client.selectedServer = Client.serverList.findIndex(fzX=>fzX[0] == _lob['lobby_id']),
-          Client.connectedLobby = _lob,
-          Client.startConnection(document.getElementById('nicknameInput').value, 0, _lob['player']['token']);
-        })
-
-    };
+    }
+    
+    function getLobbyDetails(gameMode, serverId) {
+        if (serverId === 'auto') {
+            return ['https://api.eg.rivet.gg/matchmaker/lobbies/find', { 'game_modes': [gameMode] }];
+        } else {
+            return ['https://api.eg.rivet.gg/matchmaker/lobbies/join', { 'lobby_id': serverId }];
+        }
+    }
+    
+    async function findOrJoinLobby(url, body) {
+        const headers = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        };
+        if (window.RIVET_TOKEN) {
+            headers['Authorization'] = 'Bearer ' + window.RIVET_TOKEN;
+        }
+    
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(body),
+        });
+    
+        if (!response.ok) {
+            throw new Error('Failed to find lobby: ' + response.status);
+        }
+    
+        return response.json();
+    }
+    
+    function connectToLobby(lobby) {
+        Client.selectedServer = Client.serverList.findIndex(server => server[0] === lobby.lobby_id);
+        Client.connectedLobby = lobby;
+        Client.startConnection(document.getElementById('nicknameInput').value, 0, lobby.player.token);
+    }
+    
 
     function onError(state) {};
 
@@ -43768,7 +43806,7 @@ if (debugMode === window.undefined) {
     window.aiptag["cmd"] = window.aiptag["cmd"] || ([]);
     window.aiptag["cmd"]["display"] = window.aiptag["cmd"]["display"] || ([]);
     window.aiptag["cmd"]["player"] = window.aiptag["cmd"]["player"] || ([]);
-    /* var fun = function() {        
+     var fun = function() {        
         adplayer = new aipPlayer({
             AD_WIDTH: 960,
             AD_HEIGHT: 540,
@@ -43786,7 +43824,7 @@ if (debugMode === window.undefined) {
             AIP_REMOVE: function() {}
         });
     };
-    window.aiptag["cmd"]["player"].push(fun); */
+    window.aiptag["cmd"]["player"].push(fun);
 }
 
 function reloadIframe() {
