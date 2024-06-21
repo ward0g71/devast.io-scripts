@@ -1,7 +1,9 @@
 // Spacebar = on/off aim
 
 function SendWSmsg(message) {
-    if (window.ws != null && window.ws.readyState == WebSocket.OPEN) window.ws.send(JSON.stringify(message));
+    if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+        window.ws.send(JSON.stringify(message));
+    }
 }
 
 class HackCon {
@@ -43,83 +45,89 @@ class HackCon {
         this.lockId = -1;
         this.mouseFov = 12345;
 
-        this.lag = false;
-        this.lagItem = 96;
-        this.lagSlot = 0
-
         this.token = "";
         this.userId = 0;
         this.tokenId = 0;
-        
     }
+
     static save() {
-        navigator.clipboard.writeText(JSON.stringify(MOD)), alert("cfg was copied to your clipboard");
+        navigator.clipboard.writeText(JSON.stringify(MOD));
+        alert("cfg was copied to your clipboard");
     }
+
     static load() {
-        MOD = JSON.parse(prompt("paste your cfg here")), alert("cfg was successfully loaded");
+        MOD = JSON.parse(prompt("paste your cfg here"));
+        alert("cfg was successfully loaded");
     }
 }
 
 class GetAllTargetsCon {
     constructor() {
-        this.players = [];
-        this.ghouls = [];
-
-        for (let player = 1; player < 121; player++) {
-            this.players[player] = new GetTarget(player);
-        }
-
-        for (let ghoul = 1; ghoul < 999; ghoul++) {
-            this.ghouls[ghoul] = new GetTarget(ghoul);
-        }
-
-        this.obstacles = [],
-        this.lines = [],
-        this.lines.push(new LinesCon(0.6, 1, "#EEEEEE")),
-        this.lines.push(new LinesCon(0.8, 3, "#FF0000")),
-        this.lines.push(new LinesCon(0.8, 3, "#00FF00")),
-        this.lines.push(new LinesCon(0.8, 2, "#0000FF")),
-        this.mousePosition = {x: 0, y: 0},
-        this.mouseMapCords = {x: 0, y: 0},
-        this.tappedForLast140mills = false,
-        this.shifting = false,
-        this.menuActive = false,
-        this.menuX = 0,
-        this.menuY = 0,
-        this.menuWidth = 0,
-        this.menuHeight = 0,
-        this.lastId = 0,
+        this.players = Array.from({ length: 121 }, (_, i) => new GetTarget(i));
+        this.ghouls = Array.from({ length: 999 }, (_, i) => new GetTarget(i));
+        this.obstacles = [];
+        this.lines = [
+            new LinesCon(0.6, 1, "#EEEEEE"),
+            new LinesCon(0.8, 3, "#FF0000"),
+            new LinesCon(0.8, 3, "#00FF00"),
+            new LinesCon(0.8, 2, "#0000FF"),
+        ];
+        this.mousePosition = { x: 0, y: 0 };
+        this.mouseMapCords = { x: 0, y: 0 };
+        this.tappedForLast140mills = false;
+        this.shifting = false;
+        this.menuActive = false;
+        this.menuX = 0;
+        this.menuY = 0;
+        this.menuWidth = 0;
+        this.menuHeight = 0;
+        this.lastId = 0;
         this.myLastMoveDirection = 0;
     }
-    
+
     getPlayerById(pID) {
-      return this.players[pID];
+        return this.players[pID];
     }
 
     getGhoulByUid(uID) {
         return this.ghouls[uID];
-      }
+    }
 
-};
+    resetLines() {
+        this.lines.forEach(line => line.reset());
+    }
+
+}
 
 class GetTarget {
     constructor(id) {
-      this.id = id, this.x = -1, this.y = -1, this.prevX = [], this.prevY = [], this.active = false, this.weapon = -1, this.gear = -1;
-      for (let lastpos = 0; lastpos < 3; lastpos++) {
-        this.prevX.push(-1), this.prevY.push(-1);
-      }
+        this.id = id;
+        this.x = -1;
+        this.y = -1;
+        this.prevX = Array(3).fill(-1);
+        this.prevY = Array(3).fill(-1);
+        this.active = false;
+        this.weapon = -1;
+        this.gear = -1;
     }
+
     update(ux, uy) {
-      this.active = true, this.prevX[2] = this.prevX[1], this.prevX[1] = this.prevX[0], this.prevX[0] = this.x, this.x = ux, this.prevY[2] = this.prevY[1], this.prevY[1] = this.prevY[0], this.prevY[0] = this.y, this.y = uy;
+        this.active = true;
+        this.prevX = [this.x, ...this.prevX.slice(0, 2)];
+        this.prevY = [this.y, ...this.prevY.slice(0, 2)];
+        this.x = ux;
+        this.y = uy;
     }
+
     setInactive() {
-      this.x = -1, this.y = -1;
-      for (let lastposs = 0; lastposs < 3; lastposs++) {
-        this.prevX[lastposs] = -1, this.prevY[lastposs] = -1;
-      }
-      this.active = false;
+        this.x = -1;
+        this.y = -1;
+        this.prevX.fill(-1);
+        this.prevY.fill(-1);
+        this.active = false;
+        GetAllTargets.resetLines();
     }
-};
+}
 
 class AimbotCon {
     constructor() {
@@ -128,180 +136,120 @@ class AimbotCon {
     }
 
     wannaFire(watarget = this.targetPlayer) {
-        if (watarget === null) return false;
-
-        const isXIncreasing = watarget.x - watarget.prevX[0] > 0;
-        const isXDecreasing = watarget.prevX[0] - watarget.prevX[1] > 0;
-        const isYIncreasing = watarget.y - watarget.prevY[0] > 0;
-        const isYDecreasing = watarget.prevY[0] - watarget.prevY[1] > 0;
-
-        return (isXIncreasing !== isXDecreasing) || (isYIncreasing !== isYDecreasing);
+        if (!watarget) return false;
+        const [x0, x1, x2] = watarget.prevX;
+        const [y0, y1, y2] = watarget.prevY;
+        return ((watarget.x - x0 > 0) !== (x0 - x1 > 0)) || ((watarget.y - y0 > 0) !== (y0 - y1 > 0));
     }
 
     resolve() {
-        switch (MOD.resolverType) {
-            case 1:
-                const myPlayerResolverType1 = GetAllTargets.getPlayerById(World.PLAYER.id);
-                const targetResolverType1 = this.findNearestPlayerTo(myPlayerResolverType1, 2500);
+        const myPlayer = GetAllTargets.getPlayerById(World.PLAYER.id);
+        let target;
 
-                if (targetResolverType1 === null) return this.lastAngle;
+        if (MOD.lockId > -1) {
+            target = GetAllTargets.getPlayerById(MOD.lockId);
+        } else {
+            target = MOD.mouseFovEnable
+                ? this.findNearestPlayerTo(GetAllTargets.mouseMapCords, MOD.mouseFov)
+                : this.findNearestPlayerTo(myPlayer, 2500);
+        }
 
-                let targetXResolverType1, targetYResolverType1;
+        this.targetPlayer = target;
 
-                if (targetResolverType1.prevX[0] === -1) {
-                    targetXResolverType1 = targetResolverType1.x;
-                    targetYResolverType1 = targetResolverType1.y;
-                } else {
-                    const distance = Math.sqrt((myPlayerResolverType1.x - targetResolverType1.x) ** 2 + (myPlayerResolverType1.y - targetResolverType1.y) ** 2);
-                    const coefficient = distance / MOD.distanceCoefficient;
-                    targetXResolverType1 = targetResolverType1.x + coefficient * (targetResolverType1.x - targetResolverType1.prevX[0]);
-                    targetYResolverType1 = targetResolverType1.y + coefficient * (targetResolverType1.y - targetResolverType1.prevY[0]);
-                }
+        if (!target) return this.lastAngle;
 
-                const angleResolverType1 = Math.atan2(targetYResolverType1 - myPlayerResolverType1.y, targetXResolverType1 - myPlayerResolverType1.x) * (180 / Math.PI);
-                this.lastAngle = angleResolverType1;
-                console.log(angleResolverType1);
-                return angleResolverType1;
+        const distance = Math.hypot(myPlayer.x - target.x, myPlayer.y - target.y);
+        const coefficient = distance / MOD.distanceCoefficient + MOD.offsetCoefficient;
+        const targetX = target.prevX[0] === -1 ? target.x : target.x + coefficient * (target.x - target.prevX[0]);
+        const targetY = target.prevY[0] === -1 ? target.y : target.y + coefficient * (target.y - target.prevY[0]);
 
-            case 'linear':
-                const myPlayerResolverLinear = GetAllTargets.getPlayerById(World.PLAYER.id);
-                let targetLinear;
+        const angle = Math.atan2(targetY - myPlayer.y, targetX - myPlayer.x) * (180 / Math.PI);
+        this.lastAngle = angle;
 
-                if (MOD.lockId > -1) {
-                    targetLinear = GetAllTargets.getPlayerById(MOD.lockId);
-                } else {
-                    if (MOD.mouseFovEnable) {
-                        targetLinear = this.findNearestPlayerTo(GetAllTargets.mouseMapCords, MOD.mouseFov);
-                    } else {
-                        targetLinear = this.findNearestPlayerTo(myPlayerResolverLinear, 2500);
-                    }
-                }
+        if (MOD.visualizeResolving) {
+            GetAllTargets.lines[0].reset(myPlayer.x, myPlayer.y, targetX, targetY);
+        }
 
-                this.targetPlayer = targetLinear;
-
-                if (targetLinear === null) return this.lastAngle;
-
-                let targetXResolverLinear, targetYResolverLinear;
-
-                if (targetLinear.prevX[0] === -1) {
-                    targetXResolverLinear = targetLinear.x;
-                    targetYResolverLinear = targetLinear.y;
-                } else {
-                    const distance = Math.sqrt((myPlayerResolverLinear.x - targetLinear.x) ** 2 + (myPlayerResolverLinear.y - targetLinear.y) ** 2);
-                    const coefficient = distance / MOD.distanceCoefficient + MOD.offsetCoefficient;
-                    targetXResolverLinear = targetLinear.x + coefficient * (targetLinear.x - targetLinear.prevX[0]);
-                    targetYResolverLinear = targetLinear.y + coefficient * (targetLinear.y - targetLinear.prevY[0]);
-                }
-
-                const angleResolverLinear = Math.atan2(targetYResolverLinear - myPlayerResolverLinear.y, targetXResolverLinear - myPlayerResolverLinear.x) * (180 / Math.PI);
-
-                this.lastAngle = angleResolverLinear;
-
-                if (MOD.visualizeResolving) {
-                    GetAllTargets.lines[0].reset(myPlayerResolverLinear.x, myPlayerResolverLinear.y, targetXResolverLinear, targetYResolverLinear);
-                }
-
-                return angleResolverLinear
+        return Math.round(angle);
     }
 
-    }
+    findNearestPlayerTo(cords, fov) {
+        let closest = null;
+        let minDistance = fov;
 
-    findNearestPlayerTo(cords, Fov) {
-        let fov = Fov;
-        let selected = null;
-    
-        // Check players
-        if ((MOD.target === 'players') || (MOD.target === 'all')) {
-            for (let id = 1; id < GetAllTargets.players.length; id++) {
-                const player = GetAllTargets.getPlayerById(id);
-        
-                if (player.active && player.id !== World.PLAYER.id && (World.players[player.id].team !== World.PLAYER.team || World.PLAYER.team === -1)) {
-                    const distance = Math.sqrt((cords.x - player.x) ** 2 + (cords.y - player.y) ** 2);
-        
-                    if (distance < fov) {
-                        selected = player;
-                        fov = distance;
+        const checkEntities = (entities) => {
+            for (let entity of entities) {
+                if (entity.active && entity.id !== World.PLAYER.id && (World.players[entity.id].team !== World.PLAYER.team || World.PLAYER.team === -1)) {
+                    const distance = Math.hypot(cords.x - entity.x, cords.y - entity.y);
+                    if (distance < minDistance) {
+                        closest = entity;
+                        minDistance = distance;
                     }
                 }
             }
+        };
+
+        if (MOD.target === 'players' || MOD.target === 'all') {
+            checkEntities(GetAllTargets.players);
         }
-        if ((MOD.target === 'ghouls') || (MOD.target === 'all')) {
-            // Check ghouls
-            for (let uid = 1; uid < GetAllTargets.ghouls.length; uid++) {
-                const ghoul = GetAllTargets.getGhoulByUid(uid);
-        
-                if (ghoul.active) {
-                    const distance = Math.sqrt((cords.x - ghoul.x) ** 2 + (cords.y - ghoul.y) ** 2);
-        
-                    if (distance < fov) {
-                        selected = ghoul;
-                        fov = distance;
-                    }
-                }
-            }
+        if (MOD.target === 'ghouls' || MOD.target === 'all') {
+            checkEntities(GetAllTargets.ghouls);
         }
 
-        return selected;
-
+        return closest;
     }
 }
 
 class LinesCon {
     constructor(alpha, width, color) {
-      this.x1 = -10;
-      this.x2 = -10;
-      this.y1 = -10;
-      this.y2 = -10;
-      this.alpha = alpha;
-      this.width = width;
-      this.color = color;
+        this.x1 = -10;
+        this.x2 = -10;
+        this.y1 = -10;
+        this.y2 = -10;
+        this.alpha = alpha;
+        this.width = width;
+        this.color = color;
     }
-  
+
     reset(x1, y1, x2, y2) {
-      this.x1 = x1;
-      this.y1 = y1;
-      this.x2 = x2;
-      this.y2 = y2;
+        this.x1 = x1;
+        this.y1 = y1;
+        this.x2 = x2;
+        this.y2 = y2;
     }
-};
+}
 
 function AimbotRefresh() {
-    if (World.PLAYER.id == 0) {
-      if (GetAllTargets.lastId != 0) {
-        GetAllTargets.lastId = 0;
-        for (let allplayers = 1; allplayers < 121; allplayers++) GetAllTargets.getPlayerById(allplayers).setInactive();
-      }
-      return;
+    if (World.PLAYER.id === 0) {
+        if (GetAllTargets.lastId !== 0) {
+            GetAllTargets.lastId = 0;
+            for (let player of GetAllTargets.players) player.setInactive();
+        }
+        return;
     }
     GetAllTargets.lastId = World.PLAYER.id;
     if (MOD.AimBotEnable) {
-        SendWSmsg([6, Aimbot.resolve()]), MOD.autoFire && Aimbot.wannaFire() && (SendWSmsg([4]), SendWSmsg([5]));
-    }
-    if (MOD.lag) {
-        if (MOD.lagSlot > -1) SendWSmsg([8, World.PLAYER.inventory[MOD.lagSlot][0], World.PLAYER.inventory[MOD.lagSlot][1], World.PLAYER.inventory[MOD.lagSlot][2], World.PLAYER.inventory[MOD.lagSlot][3]]); else SendWSmsg([8, MOD.lagItem, 1, 1, 255]);
-    }
-};
-
-var GetAllTargets = new GetAllTargetsCon;
-var MOD = new HackCon;
-var Aimbot = new AimbotCon;
-setInterval(AimbotRefresh, 50);
-
-let timeout;
-window.addEventListener("keydown", event => {
-    if (chatvisible != 0) return;
-        if (event.keyCode === 32) MOD.AimBotEnable = !MOD.AimBotEnable;
-        else if (event.keyCode === 88) {
-            MOD.lag = !MOD.lag;
-            if (!MOD.lag) timeout = setTimeout(() => {
-                SendWSmsg([8, 96, 1, 0, 255]);
-            }, 300); else clearTimeout(timeout);
+        SendWSmsg([6, Aimbot.resolve()]);
+        if (MOD.autoFire && Aimbot.wannaFire()) {
+            SendWSmsg([4]);
+            SendWSmsg([5]);
         }
-});
+    }
+}
+
+var GetAllTargets = new GetAllTargetsCon();
+var MOD = new HackCon();
+var Aimbot = new AimbotCon();
+setInterval(AimbotRefresh, 50);
 
 
 window.addEventListener("mousemove", event => {
     GetAllTargets.mousePosition.x = event.clientX, GetAllTargets.mousePosition.y = event.clientY;
+});
+
+window.addEventListener("keydown", event => {
+    if (chatvisible != 0) return;
+        if (event.keyCode === 32) MOD.AimBotEnable = !MOD.AimBotEnable;
 });
 
 // Your main script
@@ -442,27 +390,7 @@ window.onload = () => {
         min: 0,
         max: 3,
     });
-    //------------------------------------------
-
-    const lagfolder = pane.addFolder({
-        expanded: false,
-        title: 'Lag',
-    });
-
-    lagfolder.addInput(MOD, 'lag');
-
-    lagfolder.addInput(MOD, 'lagSlot', {
-        step: 1,
-        min: 0,
-        max: 15,
-    });
-
-    lagfolder.addInput(MOD, 'lagItem', {
-        step: 1,
-        min: 0,
-        max: 96,
-    })
-
+    
     //------------------------------------------
     const skinchanger = pane.addFolder({
         expanded: false,
@@ -1501,7 +1429,12 @@ function onUnits(data, ui8) {
             var id          = ui16[isRef16 + 3];
             var extra       = ui16[isRef16 + 8];
 
-            if (state === 0) { Entitie.remove(pid, id, uid, type, extra); continue;}
+            if (state === 0) { 
+                Entitie.remove(pid, id, uid, type, extra);
+                if (type === 0) GetAllTargets.getPlayerById(pid).setInactive();
+                if (type === 13) GetAllTargets.getGhoulByUid(uid).setInactive();
+                continue;
+            }
 
             entity            = Entitie.get(pid, id, uid, type);
 
@@ -1524,8 +1457,9 @@ function onUnits(data, ui8) {
             if (update !== window.undefined) update(entity, ui16[isRef16 + 4], ui16[isRef16 + 5]);
 
             //here
-            if (ui8[isRef8] != 0 && ui8[isRef8 + 3] == 0) GetAllTargets.getPlayerById(ui8[isRef8]).update(ui16[isRef16 + 6], ui16[isRef16 + 7]);
-            if (ui8[isRef8 + 1] != 0 && ui8[isRef8 + 3] == 13) GetAllTargets.getGhoulByUid(ui8[isRef8 + 1]).update(ui16[isRef16 + 6], ui16[isRef16 + 7]);
+
+            if (pid !== 0 && type === 0) GetAllTargets.getPlayerById(pid).update(ui16[isRef16 + 6], ui16[isRef16 + 7]);
+            if (uid !== 0 && type === 13) GetAllTargets.getGhoulByUid(uid).update(ui16[isRef16 + 6], ui16[isRef16 + 7]);
 
         }
 };
