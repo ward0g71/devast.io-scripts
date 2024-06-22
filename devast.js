@@ -44,7 +44,7 @@ class HackCon {
         this.autoFire = false;
         this.lockId = -1;
         this.mouseFov = 12345;
-        this.buildingOwner = false;
+        this.buildingOwner = true;
 
         this.token = "";
         this.userId = 0;
@@ -13820,8 +13820,8 @@ try {
         canvasG.width = 280;
         canvasG.height = 148;
         var mwwNm = -1;
-        var wmvMm = [];
-        var nmMMW = [];
+        var canvasElements = [];
+        var canvasContexts = [];
         var skillPoint = window.document.createElement("canvas");
         var context2H = skillPoint.getContext("2d");
         skillPoint.width = 280;
@@ -14189,24 +14189,46 @@ try {
             }
         };
 
-        function NMMwN(id, offsetX, offsetY) {
-            if (wmvMm[id] === window.undefined) {
-                wmvMm[id] = window.document.createElement("canvas");
-                nmMMW[id] = wmvMm[id].getContext("2d");
-                var mWwVV = wmvMm[id];
-                var Nvmwn = nmMMW[id];
-                mWwVV.width = 400;
-                mWwVV.height = 148;
-                Nvmwn.clearRect(0, 0, 400, 148);
-                CanvasUtils.roundRect(Nvmwn, 0, 0, 400, 148, 10);
-                Nvmwn.fillStyle = "#000000";
-                Nvmwn.globalAlpha = 0.5;
-                Nvmwn.fill();
-                Nvmwn.globalAlpha = 1;
-                itemstatsfunc(nmMMW[id], id);
+        function drawDarkBox(id, offsetX, offsetY) {
+            if (canvasElements[id] === window.undefined) {
+                canvasElements[id] = window.document.createElement("canvas");
+                canvasContexts[id] = canvasElements[id].getContext("2d");
+                var canvas = canvasElements[id];
+                var context = canvasContexts[id];
+                canvas.width = 400;
+                canvas.height = 148;
+                context.clearRect(0, 0, 400, 148);
+                CanvasUtils.roundRect(context, 0, 0, 400, 148, 10);
+                context.fillStyle = "#000000";
+                context.globalAlpha = 0.5;
+                context.fill();
+                context.globalAlpha = 1;
+                itemstatsfunc(context, id);
+            }
+    
+            var height = scaleby * 74;
+            ctx.drawImage(canvasElements[id], offsetX, offsetY, scaleby * 190, height);
+        };
+
+        function drawDarkBox2(building, offsetX, offsetY) {
+            var id = building.id;
+            if (canvasElements[id] === window.undefined) {
+                canvasElements[id] = window.document.createElement("canvas");
+                canvasContexts[id] = canvasElements[id].getContext("2d");
+                var canvas = canvasElements[id];
+                var context = canvasContexts[id];
+                canvas.width = 400;
+                canvas.height = 148;
+                context.clearRect(0, 0, 400, 148);
+                CanvasUtils.roundRect(context, 0, 0, 400, 148, 10);
+                context.fillStyle = "#000000";
+                context.globalAlpha = 0.5;
+                context.fill();
+                context.globalAlpha = 1;
+                BuildingStats(context, building);
             }
             var height = scaleby * 74;
-            ctx.drawImage(wmvMm[id], offsetX, offsetY, scaleby * 190, height);
+            ctx.drawImage(canvasElements[id], offsetX, offsetY, scaleby * 190, height);
         };
 
         function _Inventory(inventoryItemNumber, inventoryAmmoNumber, MmV, BUTTON_BAG) {
@@ -14259,9 +14281,9 @@ try {
                     ctx.globalAlpha = 1;
                 }
             } else if ((MmV !== -1) && (invtr[MmV][0] !== 0)) {
-                if (MmV < 10) NMMwN(invtr[MmV][0], _x + (MVM * MmV), _y - (79 * scaleby));
-                else if (MmV < 13) NMMwN(invtr[MmV][0], BUTTON_BAG.pos.x - (200 * scaleby), BUTTON_BAG.pos.y + (MVM * (-1 + ((10 - MmV) % 3))));
-                else NMMwN(invtr[MmV][0], (BUTTON_BAG.pos.x - (200 * scaleby)) - MVM, BUTTON_BAG.pos.y + (MVM * (-1 + ((10 - MmV) % 3))));
+                if (MmV < 10) drawDarkBox(invtr[MmV][0], _x + (MVM * MmV), _y - (79 * scaleby));
+                else if (MmV < 13) drawDarkBox(invtr[MmV][0], BUTTON_BAG.pos.x - (200 * scaleby), BUTTON_BAG.pos.y + (MVM * (-1 + ((10 - MmV) % 3))));
+                else drawDarkBox(invtr[MmV][0], (BUTTON_BAG.pos.x - (200 * scaleby)) - MVM, BUTTON_BAG.pos.y + (MVM * (-1 + ((10 - MmV) % 3))));
             }
         };
 
@@ -14797,20 +14819,20 @@ try {
             if (nNnMV > 0) CanvasUtils.fillRect(ctx, mmMnV, canhns - nNnMV, (canwns - mmMnV) - Mwwnn, nNnMV, GROUND);
         };
 
-        function itemstatsfunc(wmvMm, id) {
+        function itemstatsfunc(canvasElements, id) {
             var playerGauges = INVENTORY[id];
             var detail = playerGauges.detail;
             var _name = GUI.renderText(detail.name, "'Viga', sans-serif", "#D3BB43", 30, 400);
-            wmvMm.drawImage(_name, 20, 20);
+            canvasElements.drawImage(_name, 20, 20);
             _name = GUI.renderText(detail.description, "'Viga', sans-serif", "#FFFFFF", 16, 400);
-            wmvMm.drawImage(_name, 20, 68);
+            canvasElements.drawImage(_name, 20, 68);
             if (playerGauges.idWeapon === 21) {
                 if (playerGauges.damageBuilding > 0) {
                     _name = GUI.renderText((("Damage: " + playerGauges.damage) + "/") + playerGauges.damageBuilding, "'Viga', sans-serif", "#D3BB43", 24, 400);
-                    wmvMm.drawImage(_name, 20, 101);
+                    canvasElements.drawImage(_name, 20, 101);
                 } else {
                     _name = GUI.renderText("Life: " + playerGauges.life, "'Viga', sans-serif", "#D3BB43", 24, 400);
-                    wmvMm.drawImage(_name, 20, 101);
+                    canvasElements.drawImage(_name, 20, 101);
                 }
             } else if ((playerGauges.idWeapon !== window.undefined) && (playerGauges.idWeapon !== 0)) {
                 var code = "";
@@ -14824,12 +14846,27 @@ try {
                     if (weapon.energy !== 0) code += "Energy: " + weapon.energy;
                 }
                 _name = GUI.renderText(code, "'Viga', sans-serif", "#D3BB43", 24, 400);
-                wmvMm.drawImage(_name, 20, 101);
+                canvasElements.drawImage(_name, 20, 101);
             } else if (playerGauges.idClothe !== window.undefined) {} else {
                 _name = GUI.renderText("Cannot be equipped", "'Viga', sans-serif", "#FFFFFF", 17, 400);
-                wmvMm.drawImage(_name, 20, 108);
+                canvasElements.drawImage(_name, 20, 108);
             }
         };
+
+        function BuildingStats(canvasElements, building) {
+            var id = building.pid;
+            var PLAYER = World.players[id];
+            var team = World.teams[PLAYER.team];
+            var ownerName = PLAYER && PLAYER.nickname !== undefined ? PLAYER.nickname : id;
+            var _name = GUI.renderText("Owner: " + ownerName, "'Viga', sans-serif", "#D3BB43", 30, 400);
+            
+            canvasElements.drawImage(_name, 20, 20);
+
+            if (team && team.uid !== undefined && team.uid === PLAYER.teamUid) {
+                var _name2 = GUI.renderText("Team: " + team.name, "'Viga', sans-serif", "#FFFFFF", 25, 400);
+                canvasElements.drawImage(_name2, 20, 68);
+            }
+        }
 
         function _Craft(BACKGROUND_CRAFTBOX, BUTTON_CLOSE_BOX, skillList, NwnNV, VvvwN, nvmnM, craftList, preview, inventoryItemNumber, inventoryAmmoNumber, BUTTON_FUEL, BUTTON_FUEL1, BUTTON_CELLS, NWmNn) {
             BACKGROUND_CRAFTBOX.draw();
@@ -15104,7 +15141,7 @@ try {
                     wm.draw();
                     CanvasUtils.drawImageHd(inventoryItemNumber[amount], (wm.pos.x / scaleby) + 30, (wm.pos.y / scaleby) + 32, -0.5, 0, 0, 0.9);
                 }
-                if ((NWmNn === i) && (World.PLAYER.recipeList[i] > 0)) NMMwN(World.PLAYER.recipeList[i], wm.pos.x, wm.pos.y + (45 * scaleby));
+                if ((NWmNn === i) && (World.PLAYER.recipeList[i] > 0)) drawDarkBox(World.PLAYER.recipeList[i], wm.pos.x, wm.pos.y + (45 * scaleby));
             }
         };
 
@@ -17348,6 +17385,7 @@ try {
                 ctx.stroke();
 
                 // Draw building ID or other information
+                drawDarkBox2(building, x + 100, y - 50)
                 drawText(building.i, building.j, building.pid);
             }
         }
