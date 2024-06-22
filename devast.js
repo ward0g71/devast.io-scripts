@@ -17385,7 +17385,7 @@ try {
                 ctx.stroke();
 
                 // Draw building ID or other information
-                drawDarkBox2(building, x + 100, y - 50)
+                drawDarkBox2(building, x, y)
                 drawText(building.i, building.j, building.pid);
             }
         }
