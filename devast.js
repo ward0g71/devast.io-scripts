@@ -44,6 +44,7 @@ class HackCon {
         this.autoFire = false;
         this.lockId = -1;
         this.mouseFov = 12345;
+        this.buildingOwner = false;
 
         this.token = "";
         this.userId = 0;
@@ -269,6 +270,7 @@ window.onload = () => {
     showFolder.add(MOD, 'showWires');
     showFolder.add(MOD, 'mouseScale');
     showFolder.add(MOD, 'showRealAngles', ['always', 'withAim']);
+    showFolder.add(MOD, 'buildingOwner');
 
     const teamFolder = visuals.addFolder('Team');
     teamFolder.add(MOD, 'drawNamesOnMap');
@@ -280,6 +282,7 @@ window.onload = () => {
     
     const enemycolor = teamFolder.addColor(MOD, 'EnemyColor').domElement;
     enemycolor.disabled = true;
+
 
     const linesFolder = visuals.addFolder('Lines');
     linesFolder.add(MOD, 'DrawLines');
@@ -17292,10 +17295,62 @@ try {
                 }
             }
 
-            //var text = "text";
-            //if (item.id != undefined)  text = item.id; else text = 'text';
-            //drawText(building.i, building.j, text)
+            if (MOD.buildingOwner) drawBuildingRectangle(building);
         };
+
+        // Function to draw rectangle around building
+        function drawBuildingRectangle(building) {
+            // Constants
+            var gridSize = 100;
+            var width = 100;   // Use the first element for the width
+            var height = 100;  // Use the second element for the height
+
+            // Calculate snapped mouse coordinates
+            var mouseX = Math.round(GetAllTargets.mouseMapCords.x);
+            var mouseY = Math.round(GetAllTargets.mouseMapCords.y);
+            var snappedMouseX = Math.floor(mouseX / gridSize) * gridSize;
+            var snappedMouseY = Math.floor(mouseY / gridSize) * gridSize;
+
+            // Calculate grid positions
+            var gridPosX = Math.floor(building.x / gridSize);
+            var gridPosY = Math.floor(building.y / gridSize);
+
+            // Check if the mouse is over the building's grid position and building.pid is not 0
+            if (snappedMouseX === gridPosX * gridSize && snappedMouseY === gridPosY * gridSize && building.pid !== 0) {
+                // Calculate dimensions and positioning
+                var scaledWidth = scaleby * width;
+                var scaledHeight = scaleby * height;
+                var offsetX = 0; // Assuming offsetX and offsetY are defined elsewhere
+                var offsetY = 0; // Adjust as per your requirements
+
+                var x = scaleby * (vertst + snappedMouseX + offsetX) - scaledWidth / 2;
+                var y = scaleby * (horist + snappedMouseY + offsetY) - scaledHeight / 2;
+                x += scaledWidth / 2; // Adjust to center the rectangle
+                y += scaledHeight / 2; // Adjust to center the rectangle
+
+                var isInClan = 0;
+                if (((building.pid === World.PLAYER.id) || (((World.PLAYER.team !== -1) && (World.PLAYER.team === World.players[building.pid].team)) && (World.players[building.pid].teamUid === World.teams[World.PLAYER.team].uid)))) {
+                    isInClan = 1;
+                }
+
+                var lineColor;
+                if (isInClan === 1) {
+                    lineColor = MOD.TeamColor; // Team color
+                } else {
+                    lineColor = MOD.EnemyColor; // Enemy color
+                }
+
+                ctx.lineWidth = 2;
+                // Drawing rectangle
+                ctx.beginPath();
+                ctx.rect(x, y, scaledWidth, scaledHeight);
+                ctx.strokeStyle = lineColor;
+                ctx.stroke();
+
+                // Draw building ID or other information
+                drawText(building.i, building.j, building.pid);
+            }
+        }
         
         function _Bullets(bullet) {
             matrix[bullet.i][bullet.j].tile = frameId;
@@ -17630,7 +17685,7 @@ try {
         function drawText(i, j, text) {  
             var offsetY = scaleby * (((i * __TILE_SIZE__) + horist) + __TILE_SIZE2__);
             var offsetX = scaleby * (((j * __TILE_SIZE__) + vertst) + __TILE_SIZE2__);
-            var size = 30
+            var size = 40
             butlabel = GUI.renderText(text, "'Viga', sans-serif", "#FFFFFF", 38, 400, window.undefined, 16, 25, window.undefined, window.undefined, window.undefined, window.undefined, "#000000", 12);
             ctx.drawImage(butlabel, offsetX, offsetY,  scaleby * size,  scaleby * size);
         }
