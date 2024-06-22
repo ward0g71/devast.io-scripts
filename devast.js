@@ -14858,7 +14858,7 @@ try {
             var PLAYER = World.players[id];
             var team = World.teams[PLAYER.team];
             var ownerName = PLAYER && PLAYER.nickname !== undefined ? PLAYER.nickname : id;
-            var _name = GUI.renderText("Owner: " + ownerName, "'Viga', sans-serif", "#D3BB43", 30, 400);
+            var _name = GUI.renderText(ownerName, "'Viga', sans-serif", "#D3BB43", 30, 400);
             
             canvasElements.drawImage(_name, 20, 20);
 
