@@ -557,7 +557,7 @@ const LootData = Object.fromEntries(lootItems.map(({ name, acquire, extra }) => 
 
 //---------------------------------------------------------------------------------------------------------------------------------------------//
 
-var lower = window.navigator.userAgent.toLowerCase();
+var lowerCase = window.navigator.userAgent.toLowerCase();
 var isTouchScreen = (((((((lowerCase.indexOf("isTouchScreen") !== -1) || (lowerCase.indexOf("android") !== -1)) || (lowerCase.indexOf("ipad") !== -1)) || (lowerCase.indexOf("iphone") !== -1)) || (lowerCase.indexOf("ipod") !== -1)) || (lowerCase.indexOf("kindle") !== -1)) || (lowerCase.indexOf("silk/") !== -1)) ? 1 : 0;
 if (isTouchScreen === 1) {
     var _meta = window.document.createElement("meta");
