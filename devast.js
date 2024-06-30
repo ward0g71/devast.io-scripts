@@ -251,6 +251,7 @@ window.addEventListener("mousemove", event => {
 window.addEventListener("keydown", event => {
     if (chatvisible != 0) return;
         if (event.keyCode === 32) MOD.AimBotEnable = !MOD.AimBotEnable;
+        if (event.keyCode === 66) MOD.autoLoot = !MOD.autoLoot;
 });
 
 // Your main script
