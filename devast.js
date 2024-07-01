@@ -44,7 +44,7 @@ class HackCon {
         this.autoFire = false;
         this.lockId = -1;
         this.mouseFov = 12345;
-        this.buildingOwner = true;
+        this.buildingOwner = false;
 
         this.token = "";
         this.userId = 0;
