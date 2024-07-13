@@ -2513,7 +2513,7 @@ function onDramaticChrono(duration) {
 function onMessageRaw(data) {
     var ui8 = new window.Uint8Array(data);
     // New case numbers array
-    const newCaseNumbers = [22, 45, 0, 43, 19, 28, 14, 51, 40, 12, 9, 46, 34, 31, 2, 33, 7, 30, 15, 59, 36, 70, 1, 11, 29, 47, 13, 68, 20, 71, 26, 16, 3, 24, 57, 72, 61, 17, 55, 48, 5, 39, 44, 8, 35, 62, 38, 56, 27, 32, 4, 69, 10, 23, 21, 37, 18, 64, 41, 6, 65, 53, 54, 66, 52, 42, 49, 67, 58, 73, 60, 63, 50, 25];
+    const newCaseNumbers = [42, 0, 35, 31, 27, 1, 32, 22, 34, 19, 28, 17, 15, 4, 30, 29, 23, 12, 33, 37, 54, 3, 56, 38, 14, 48, 64, 52, 46, 6, 11, 61, 10, 71, 41, 5, 59, 73, 58, 16, 60, 53, 20, 49, 40, 8, 62, 67, 25, 26, 2, 36, 18, 44, 9, 21, 7, 13, 24, 57, 69, 68, 55, 51, 39, 45, 65, 72, 70, 43, 47, 50, 66, 63];
     // Create a map from old case numbers to new case numbers
     const caseMap = {
         52: newCaseNumbers[0], 0: newCaseNumbers[1], 34: newCaseNumbers[2], 46: newCaseNumbers[3], 51: newCaseNumbers[4],
