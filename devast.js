@@ -1,9 +1,7 @@
 // Spacebar = on/off aim
 
 function SendWSmsg(message) {
-    if (window.ws && window.ws.readyState === WebSocket.OPEN) {
-        window.ws.send(JSON.stringify(message));
-    }
+    if (window.ws != null && window.ws.readyState == WebSocket.OPEN) window.ws.send(JSON.stringify(message));
 }
 
 class HackCon {
@@ -44,91 +42,84 @@ class HackCon {
         this.autoFire = false;
         this.lockId = -1;
         this.mouseFov = 12345;
-        this.buildingOwner = false;
+
+        this.lag = false;
+        this.lagItem = 96;
+        this.lagSlot = 0
 
         this.token = "";
         this.userId = 0;
         this.tokenId = 0;
+        
     }
-
     static save() {
-        navigator.clipboard.writeText(JSON.stringify(MOD));
-        alert("cfg was copied to your clipboard");
+        navigator.clipboard.writeText(JSON.stringify(MOD)), alert("cfg was copied to your clipboard");
     }
-
     static load() {
-        MOD = JSON.parse(prompt("paste your cfg here"));
-        alert("cfg was successfully loaded");
+        MOD = JSON.parse(prompt("paste your cfg here")), alert("cfg was successfully loaded");
     }
 }
 
 class GetAllTargetsCon {
     constructor() {
-        this.players = Array.from({ length: 121 }, (_, i) => new GetTarget(i));
-        this.ghouls = Array.from({ length: 999 }, (_, i) => new GetTarget(i));
-        this.obstacles = [];
-        this.lines = [
-            new LinesCon(0.6, 1, "#EEEEEE"),
-            new LinesCon(0.8, 3, "#FF0000"),
-            new LinesCon(0.8, 3, "#00FF00"),
-            new LinesCon(0.8, 2, "#0000FF"),
-        ];
-        this.mousePosition = { x: 0, y: 0 };
-        this.mouseMapCords = { x: 0, y: 0 };
-        this.tappedForLast140mills = false;
-        this.shifting = false;
-        this.menuActive = false;
-        this.menuX = 0;
-        this.menuY = 0;
-        this.menuWidth = 0;
-        this.menuHeight = 0;
-        this.lastId = 0;
+        this.players = [];
+        this.ghouls = [];
+
+        for (let player = 1; player < 121; player++) {
+            this.players[player] = new GetTarget(player);
+        }
+
+        for (let ghoul = 1; ghoul < 999; ghoul++) {
+            this.ghouls[ghoul] = new GetTarget(ghoul);
+        }
+
+        this.obstacles = [],
+        this.lines = [],
+        this.lines.push(new LinesCon(0.6, 1, "#EEEEEE")),
+        this.lines.push(new LinesCon(0.8, 3, "#FF0000")),
+        this.lines.push(new LinesCon(0.8, 3, "#00FF00")),
+        this.lines.push(new LinesCon(0.8, 2, "#0000FF")),
+        this.mousePosition = {x: 0, y: 0},
+        this.mouseMapCords = {x: 0, y: 0},
+        this.tappedForLast140mills = false,
+        this.shifting = false,
+        this.menuActive = false,
+        this.menuX = 0,
+        this.menuY = 0,
+        this.menuWidth = 0,
+        this.menuHeight = 0,
+        this.lastId = 0,
         this.myLastMoveDirection = 0;
     }
-
+    
     getPlayerById(pID) {
-        return this.players[pID];
+      return this.players[pID];
     }
 
     getGhoulByUid(uID) {
         return this.ghouls[uID];
-    }
+      }
 
-    resetLines() {
-        this.lines.forEach(line => line.reset());
-    }
-
-}
+};
 
 class GetTarget {
     constructor(id) {
-        this.id = id;
-        this.x = -1;
-        this.y = -1;
-        this.prevX = Array(3).fill(-1);
-        this.prevY = Array(3).fill(-1);
-        this.active = false;
-        this.weapon = -1;
-        this.gear = -1;
+      this.id = id, this.x = -1, this.y = -1, this.prevX = [], this.prevY = [], this.active = false, this.weapon = -1, this.gear = -1;
+      for (let lastpos = 0; lastpos < 3; lastpos++) {
+        this.prevX.push(-1), this.prevY.push(-1);
+      }
     }
-
     update(ux, uy) {
-        this.active = true;
-        this.prevX = [this.x, ...this.prevX.slice(0, 2)];
-        this.prevY = [this.y, ...this.prevY.slice(0, 2)];
-        this.x = ux;
-        this.y = uy;
+      this.active = true, this.prevX[2] = this.prevX[1], this.prevX[1] = this.prevX[0], this.prevX[0] = this.x, this.x = ux, this.prevY[2] = this.prevY[1], this.prevY[1] = this.prevY[0], this.prevY[0] = this.y, this.y = uy;
     }
-
     setInactive() {
-        this.x = -1;
-        this.y = -1;
-        this.prevX.fill(-1);
-        this.prevY.fill(-1);
-        this.active = false;
-        GetAllTargets.resetLines();
+      this.x = -1, this.y = -1;
+      for (let lastposs = 0; lastposs < 3; lastposs++) {
+        this.prevX[lastposs] = -1, this.prevY[lastposs] = -1;
+      }
+      this.active = false;
     }
-}
+};
 
 class AimbotCon {
     constructor() {
@@ -137,194 +128,373 @@ class AimbotCon {
     }
 
     wannaFire(watarget = this.targetPlayer) {
-        if (!watarget) return false;
-        const [x0, x1, x2] = watarget.prevX;
-        const [y0, y1, y2] = watarget.prevY;
-        return ((watarget.x - x0 > 0) !== (x0 - x1 > 0)) || ((watarget.y - y0 > 0) !== (y0 - y1 > 0));
+        if (watarget === null) return false;
+
+        const isXIncreasing = watarget.x - watarget.prevX[0] > 0;
+        const isXDecreasing = watarget.prevX[0] - watarget.prevX[1] > 0;
+        const isYIncreasing = watarget.y - watarget.prevY[0] > 0;
+        const isYDecreasing = watarget.prevY[0] - watarget.prevY[1] > 0;
+
+        return (isXIncreasing !== isXDecreasing) || (isYIncreasing !== isYDecreasing);
     }
 
     resolve() {
-        const myPlayer = GetAllTargets.getPlayerById(World.PLAYER.id);
-        let target;
+        switch (MOD.resolverType) {
+            case 1:
+                const myPlayerResolverType1 = GetAllTargets.getPlayerById(World.PLAYER.id);
+                const targetResolverType1 = this.findNearestPlayerTo(myPlayerResolverType1, 2500);
 
-        if (MOD.lockId > -1) {
-            target = GetAllTargets.getPlayerById(MOD.lockId);
-        } else {
-            target = MOD.mouseFovEnable
-                ? this.findNearestPlayerTo(GetAllTargets.mouseMapCords, MOD.mouseFov)
-                : this.findNearestPlayerTo(myPlayer, 2500);
-        }
+                if (targetResolverType1 === null) return this.lastAngle;
 
-        this.targetPlayer = target;
+                let targetXResolverType1, targetYResolverType1;
 
-        if (!target) return this.lastAngle;
+                if (targetResolverType1.prevX[0] === -1) {
+                    targetXResolverType1 = targetResolverType1.x;
+                    targetYResolverType1 = targetResolverType1.y;
+                } else {
+                    const distance = Math.sqrt((myPlayerResolverType1.x - targetResolverType1.x) ** 2 + (myPlayerResolverType1.y - targetResolverType1.y) ** 2);
+                    const coefficient = distance / MOD.distanceCoefficient;
+                    targetXResolverType1 = targetResolverType1.x + coefficient * (targetResolverType1.x - targetResolverType1.prevX[0]);
+                    targetYResolverType1 = targetResolverType1.y + coefficient * (targetResolverType1.y - targetResolverType1.prevY[0]);
+                }
 
-        const distance = Math.hypot(myPlayer.x - target.x, myPlayer.y - target.y);
-        const coefficient = distance / MOD.distanceCoefficient + MOD.offsetCoefficient;
-        const targetX = target.prevX[0] === -1 ? target.x : target.x + coefficient * (target.x - target.prevX[0]);
-        const targetY = target.prevY[0] === -1 ? target.y : target.y + coefficient * (target.y - target.prevY[0]);
+                const angleResolverType1 = Math.atan2(targetYResolverType1 - myPlayerResolverType1.y, targetXResolverType1 - myPlayerResolverType1.x) * (180 / Math.PI);
+                this.lastAngle = angleResolverType1;
+                console.log(angleResolverType1);
+                return angleResolverType1;
 
-        const angle = Math.atan2(targetY - myPlayer.y, targetX - myPlayer.x) * (180 / Math.PI);
-        this.lastAngle = angle;
+            case 'linear':
+                const myPlayerResolverLinear = GetAllTargets.getPlayerById(World.PLAYER.id);
+                let targetLinear;
 
-        if (MOD.visualizeResolving) {
-            GetAllTargets.lines[0].reset(myPlayer.x, myPlayer.y, targetX, targetY);
-        }
+                if (MOD.lockId > -1) {
+                    targetLinear = GetAllTargets.getPlayerById(MOD.lockId);
+                } else {
+                    if (MOD.mouseFovEnable) {
+                        targetLinear = this.findNearestPlayerTo(GetAllTargets.mouseMapCords, MOD.mouseFov);
+                    } else {
+                        targetLinear = this.findNearestPlayerTo(myPlayerResolverLinear, 2500);
+                    }
+                }
 
-        return Math.round(angle);
+                this.targetPlayer = targetLinear;
+
+                if (targetLinear === null) return this.lastAngle;
+
+                let targetXResolverLinear, targetYResolverLinear;
+
+                if (targetLinear.prevX[0] === -1) {
+                    targetXResolverLinear = targetLinear.x;
+                    targetYResolverLinear = targetLinear.y;
+                } else {
+                    const distance = Math.sqrt((myPlayerResolverLinear.x - targetLinear.x) ** 2 + (myPlayerResolverLinear.y - targetLinear.y) ** 2);
+                    const coefficient = distance / MOD.distanceCoefficient + MOD.offsetCoefficient;
+                    targetXResolverLinear = targetLinear.x + coefficient * (targetLinear.x - targetLinear.prevX[0]);
+                    targetYResolverLinear = targetLinear.y + coefficient * (targetLinear.y - targetLinear.prevY[0]);
+                }
+
+                const angleResolverLinear = Math.atan2(targetYResolverLinear - myPlayerResolverLinear.y, targetXResolverLinear - myPlayerResolverLinear.x) * (180 / Math.PI);
+
+                this.lastAngle = angleResolverLinear;
+
+                if (MOD.visualizeResolving) {
+                    GetAllTargets.lines[0].reset(myPlayerResolverLinear.x, myPlayerResolverLinear.y, targetXResolverLinear, targetYResolverLinear);
+                }
+
+                return angleResolverLinear
     }
 
-    findNearestPlayerTo(cords, fov) {
-        let closest = null;
-        let minDistance = fov;
+    }
 
-        const checkEntities = (entities) => {
-            for (let entity of entities) {
-                if (entity.active && entity.id !== World.PLAYER.id && (World.players[entity.id].team !== World.PLAYER.team || World.PLAYER.team === -1)) {
-                    const distance = Math.hypot(cords.x - entity.x, cords.y - entity.y);
-                    if (distance < minDistance) {
-                        closest = entity;
-                        minDistance = distance;
+    findNearestPlayerTo(cords, Fov) {
+        let fov = Fov;
+        let selected = null;
+    
+        // Check players
+        if ((MOD.target === 'players') || (MOD.target === 'all')) {
+            for (let id = 1; id < GetAllTargets.players.length; id++) {
+                const player = GetAllTargets.getPlayerById(id);
+        
+                if (player.active && player.id !== World.PLAYER.id && (World.players[player.id].team !== World.PLAYER.team || World.PLAYER.team === -1)) {
+                    const distance = Math.sqrt((cords.x - player.x) ** 2 + (cords.y - player.y) ** 2);
+        
+                    if (distance < fov) {
+                        selected = player;
+                        fov = distance;
                     }
                 }
             }
-        };
-
-        if (MOD.target === 'players' || MOD.target === 'all') {
-            checkEntities(GetAllTargets.players);
         }
-        if (MOD.target === 'ghouls' || MOD.target === 'all') {
-            checkEntities(GetAllTargets.ghouls);
+        if ((MOD.target === 'ghouls') || (MOD.target === 'all')) {
+            // Check ghouls
+            for (let uid = 1; uid < GetAllTargets.ghouls.length; uid++) {
+                const ghoul = GetAllTargets.getGhoulByUid(uid);
+        
+                if (ghoul.active) {
+                    const distance = Math.sqrt((cords.x - ghoul.x) ** 2 + (cords.y - ghoul.y) ** 2);
+        
+                    if (distance < fov) {
+                        selected = ghoul;
+                        fov = distance;
+                    }
+                }
+            }
         }
 
-        return closest;
+        return selected;
+
     }
 }
 
 class LinesCon {
     constructor(alpha, width, color) {
-        this.x1 = -10;
-        this.x2 = -10;
-        this.y1 = -10;
-        this.y2 = -10;
-        this.alpha = alpha;
-        this.width = width;
-        this.color = color;
+      this.x1 = -10;
+      this.x2 = -10;
+      this.y1 = -10;
+      this.y2 = -10;
+      this.alpha = alpha;
+      this.width = width;
+      this.color = color;
     }
-
+  
     reset(x1, y1, x2, y2) {
-        this.x1 = x1;
-        this.y1 = y1;
-        this.x2 = x2;
-        this.y2 = y2;
+      this.x1 = x1;
+      this.y1 = y1;
+      this.x2 = x2;
+      this.y2 = y2;
     }
-}
+};
 
 function AimbotRefresh() {
-    if (World.PLAYER.id === 0) {
-        if (GetAllTargets.lastId !== 0) {
-            GetAllTargets.lastId = 0;
-            for (let player of GetAllTargets.players) player.setInactive();
-        }
-        return;
+    if (World.PLAYER.id == 0) {
+      if (GetAllTargets.lastId != 0) {
+        GetAllTargets.lastId = 0;
+        for (let allplayers = 1; allplayers < 121; allplayers++) GetAllTargets.getPlayerById(allplayers).setInactive();
+      }
+      return;
     }
     GetAllTargets.lastId = World.PLAYER.id;
     if (MOD.AimBotEnable) {
-        SendWSmsg([6, Aimbot.resolve()]);
-        if (MOD.autoFire && Aimbot.wannaFire()) {
-            SendWSmsg([4]);
-            SendWSmsg([5]);
-        }
+        SendWSmsg([6, Aimbot.resolve()]), MOD.autoFire && Aimbot.wannaFire() && (SendWSmsg([4]), SendWSmsg([5]));
     }
-}
+    if (MOD.lag) {
+        if (MOD.lagSlot > -1) SendWSmsg([8, World.PLAYER.inventory[MOD.lagSlot][0], World.PLAYER.inventory[MOD.lagSlot][1], World.PLAYER.inventory[MOD.lagSlot][2], World.PLAYER.inventory[MOD.lagSlot][3]]); else SendWSmsg([8, MOD.lagItem, 1, 1, 255]);
+    }
+};
 
-var GetAllTargets = new GetAllTargetsCon();
-var MOD = new HackCon();
-var Aimbot = new AimbotCon();
+var GetAllTargets = new GetAllTargetsCon;
+var MOD = new HackCon;
+var Aimbot = new AimbotCon;
 setInterval(AimbotRefresh, 50);
+
+let timeout;
+window.addEventListener("keydown", event => {
+    if (chatvisible != 0) return;
+        if (event.keyCode === 32) MOD.AimBotEnable = !MOD.AimBotEnable;
+        else if (event.keyCode === 88) {
+            MOD.lag = !MOD.lag;
+            if (!MOD.lag) timeout = setTimeout(() => {
+                SendWSmsg([8, 96, 1, 0, 255]);
+            }, 300); else clearTimeout(timeout);
+        }
+});
 
 
 window.addEventListener("mousemove", event => {
     GetAllTargets.mousePosition.x = event.clientX, GetAllTargets.mousePosition.y = event.clientY;
 });
 
-window.addEventListener("keydown", event => {
-    if (chatvisible != 0) return;
-        if (event.keyCode === 32) MOD.AimBotEnable = !MOD.AimBotEnable;
-        if (event.keyCode === 66) MOD.autoLoot = !MOD.autoLoot;
-});
-
 // Your main script
 window.onload = () => {
-    // Create a GUI
-    const gui = new dat.GUI({ name: 'devast.MOD' });
-
+      
+    // Create a pane
+    const pane = new Tweakpane.Pane({
+    title: 'devast.MOD',
+    });
     //-----------------------------------
-    const visuals = gui.addFolder('Visuals');
-    visuals.open();
-    
-    const showFolder = visuals.addFolder('Show');
-    showFolder.add(MOD, 'showPID');
-    showFolder.add(MOD, 'ShowHP');
-    showFolder.add(MOD, 'showLandmines');
-    showFolder.add(MOD, 'showSpikes');
-    showFolder.add(MOD, 'showWires');
-    showFolder.add(MOD, 'mouseScale');
-    showFolder.add(MOD, 'showRealAngles', ['always', 'withAim']);
-    showFolder.add(MOD, 'buildingOwner');
+    const visuals = pane.addFolder({
+    expanded: false,
+    title: 'Visuals',
+    });
 
-    const teamFolder = visuals.addFolder('Team');
-    teamFolder.add(MOD, 'drawNamesOnMap');
+    const visualstab = visuals.addTab({
+    pages: [
+        {title: 'Show'},
+        {title: 'Team'},
+        {title: 'Lines'},
+    ],
+    });
+    visualstab.pages[0].addInput(MOD, 'showPID');
+    visualstab.pages[0].addInput(MOD, 'ShowHP');
+    visualstab.pages[0].addInput(MOD, 'showLandmines');
+    visualstab.pages[0].addInput(MOD, 'showSpikes');
+    visualstab.pages[0].addInput(MOD, 'showWires');
+    visualstab.pages[0].addSeparator();
+    visualstab.pages[0].addInput(MOD, 'mouseScale');
+    visualstab.pages[0].addInput(MOD, 'showRealAngles', {
+        options: {
+        always: 'always',
+        withAim: 'withAim',
+        },
+    });
+    visualstab.pages[1].addInput(MOD, "drawNamesOnMap");
 
-    teamFolder.add(MOD, 'ColorizeTeam');
+    const btnCT = visualstab.pages[1].addButton({
+        title: 'ColorizeTeam',
+    });
+      
+    btnCT.on('click', () => {
+    teamcolor.disabled = !teamcolor.disabled;
+    enemycolor.disabled = !enemycolor.disabled;
+    MOD.ColorizeTeam = !MOD.ColorizeTeam;
+    });
 
-    const teamcolor = teamFolder.addColor(MOD, 'TeamColor').domElement;
-    teamcolor.disabled = true;
-    
-    const enemycolor = teamFolder.addColor(MOD, 'EnemyColor').domElement;
-    enemycolor.disabled = true;
+    const teamcolor = visualstab.pages[1].addInput(MOD, 'TeamColor', {
+        disabled: true,
+        picker: 'inline',
+        expanded: false,
+      });
 
+      const enemycolor = visualstab.pages[1].addInput(MOD, 'EnemyColor', {
+        disabled: true,
+        picker: 'inline',
+        expanded: false,
+      });
 
-    const linesFolder = visuals.addFolder('Lines');
-    linesFolder.add(MOD, 'DrawLines');
+    const btnLs = visualstab.pages[2].addButton({
+        title: 'DrawLines',
+    });
+      
+    btnLs.on('click', () => {
+    linesopas.disabled = !linesopas.disabled;
+    MOD.DrawLines = !MOD.DrawLines;
+    });
 
-    const linesopas = linesFolder.add(MOD, 'linesOpacity', 0, 1, 0.1).domElement;
-    linesopas.disabled = true;
+    const linesopas = visualstab.pages[2].addInput(MOD, 'linesOpacity', {
+        disabled: true,
+        step: 0.1,
+        min: 0,
+        max: 1,
+    });
 
     //-------------------------------------
-    const automation = gui.addFolder('Automation');
-    automation.open();
+    const automation = pane.addFolder({
+        expanded: false,
+        title: 'Automation',
+    });
+    const automationtab = automation.addTab({
+    pages: [
+        {title: 'AutoLoot'},
+        {title: 'AutoEat'},
+    ],
+    });
+    automationtab.pages[0].addInput(MOD, "autoLoot");    
 
-    const autoLootFolder = automation.addFolder('AutoLoot');
-    autoLootFolder.add(MOD, 'autoLoot');
-    autoLootFolder.add(MOD, "useLootData");
+    const btn = automationtab.pages[1].addButton({
+        title: 'autoEat',
+    });
+      
+    btn.on('click', () => {
+    i.disabled = !i.disabled;
+    MOD.autoEat = !MOD.autoEat;
+    });
 
 
-    const autoEatFolder = automation.addFolder('AutoEat');
-    autoEatFolder.add(MOD, 'autoEat');
+    const i = automationtab.pages[1].addInput(MOD, 'hungryLevel', {
+        disabled: true,
+        step: 10,
+        min: 0,
+        max: 255,
+    })
 
-    const i = autoEatFolder.add(MOD, 'hungryLevel', 0, 255, 10).domElement;
-    i.disabled = true;
+    automationtab.pages[1].addMonitor(MOD, 'gaugesFood', {
+        interval: 1000,
+    });
+      
+    //------------------------------------------
 
+    const aimbotfolder = pane.addFolder({
+        expanded: false,
+        title: 'Aim Bot',
+    });
+    aimbotfolder.addInput(MOD, "AimBotEnable");
+
+    aimbotfolder.addInput(MOD, 'target', {
+        options: {
+        players: 'players',
+        ghouls: 'ghouls',
+        all: 'all',
+        },
+    });
+
+    aimbotfolder.addInput(MOD, 'distanceCoefficient', {
+        step: 10,
+        min: 10,
+        max: 1000,
+    });
+    aimbotfolder.addInput(MOD, 'bulletSpeedCoefficient', {
+        step: 0.25,
+        min: 1,
+        max: 15,
+    });
+    aimbotfolder.addInput(MOD, 'offsetCoefficient', {
+        step: 0.1,
+        min: 0,
+        max: 3,
+    });
+    //------------------------------------------
+
+    const lagfolder = pane.addFolder({
+        expanded: false,
+        title: 'Lag',
+    });
+
+    lagfolder.addInput(MOD, 'lag');
+
+    lagfolder.addInput(MOD, 'lagSlot', {
+        step: 1,
+        min: 0,
+        max: 15,
+    });
+
+    lagfolder.addInput(MOD, 'lagItem', {
+        step: 1,
+        min: 0,
+        max: 96,
+    })
 
     //------------------------------------------
-    const aimbotfolder = gui.addFolder('Aim Bot');
-    aimbotfolder.add(MOD, 'AimBotEnable');
-    aimbotfolder.add(MOD, 'target', ['players', 'ghouls', 'all']);
-    aimbotfolder.add(MOD, 'distanceCoefficient', 10, 1000, 10);
-    aimbotfolder.add(MOD, 'bulletSpeedCoefficient', 1, 15, 0.25);
-    aimbotfolder.add(MOD, 'offsetCoefficient', 0, 3, 0.1);
-    
-    //------------------------------------------
-    const skinchanger = gui.addFolder('Skin');
-    skinchanger.add(MOD, 'changeMyModel');
-    const sc = skinchanger.add(MOD, 'myPlayerModel', 0, 14, 1).domElement;
-    sc.disabled = true;
+    const skinchanger = pane.addFolder({
+        expanded: false,
+        title: 'Skin',
+    });
 
+    const btnskinchanger = skinchanger.addButton({
+        title: 'Change Skin',
+    });
+      
+    btnskinchanger.on('click', () => {
+    sc.disabled = !sc.disabled;
+    MOD.changeMyModel = !MOD.changeMyModel;
+    });
+
+    const sc = skinchanger.addInput(MOD, 'myPlayerModel', {
+        disabled: true,
+        step: 1,
+        min: 0,
+        max: 14,
+    });
     //--------------------------------------
-    const tokenchanger = gui.addFolder('Token Changer');
-    const btnCopyToken = tokenchanger.add({ Copy: () => {} }, 'Copy');
-    btnCopyToken.onChange(() => {
+    const tokenchanger = pane.addFolder({
+    expanded: false,
+    title: 'Token Changer',
+    });
+    
+    const btnCopyToken = tokenchanger.addButton({
+        title: 'Copy',
+    });
+            
+    btnCopyToken.on('click', () => {
         const token = localStorage.getItem('token');
         const tokenId = localStorage.getItem('tokenId');
         const userId = localStorage.getItem('userId');
@@ -334,227 +504,44 @@ window.onload = () => {
         navigator.clipboard.writeText(messages);
     });
 
-    tokenchanger.add(MOD, 'token');
+    tokenchanger.addInput(MOD, 'token');
 
-    const btnChangeToken = tokenchanger.add({ Change: () => {} }, 'Change');
-    btnChangeToken.onChange(async () => {
-        try {
-            const clipboardText = MOD.token;
-            const extractedValues = extractValuesFromText(clipboardText);
-            
-            if (extractedValues) {
-                const { token, tokenId, userId } = extractedValues;
-        
-                localStorage.setItem('token', token);
-                localStorage.setItem('tokenId', tokenId);
-                localStorage.setItem('userId', userId);
-            }
-        } catch (error) {
-            console.error('Failed to read token:', error);
-        }
+    const btnChangeToken = tokenchanger.addButton({
+        title: 'Change',
     });
-
+      
     function extractValuesFromText(pastedText) {
         const values = pastedText.match(/"([^"]*)"/g);
         
         if (values && values.length === 3) {
-            return {
-                token: values[0].slice(1, -1),
-                tokenId: values[1].slice(1, -1),
-                userId: values[2].slice(1, -1),
-            };
+          return {
+            token: values[0].slice(1, -1),
+            tokenId: values[1].slice(1, -1),
+            userId: values[2].slice(1, -1),
+          };
         } else {
-            return null;
+          return null;
         }
     }
 
-    const lootdata = gui.addFolder("LootData");
-    const controllers = {};
-        
-    for (const itemData of lootItems) {
-        const itemName = itemData.name;
+    btnChangeToken.on('click', async () => {
+        try {
+          const clipboardText = MOD.token;
+          const extractedValues = extractValuesFromText(clipboardText);
+          
+          if (extractedValues) {
+            const { token, tokenId, userId } = extractedValues;
+      
+            localStorage.setItem('token', token);
+            localStorage.setItem('tokenId', tokenId);
+            localStorage.setItem('userId', userId);
+          }
+        } catch (error) {
+          console.error('Failed to read token:', error);
+        }
+    });
+    };
     
-        const controller = lootdata.add(itemData, "acquire").name(itemName);
-        controller.onChange(function (value) {
-            controllers[itemName].object.acquire = value; // Update the controller value
-            LootData[itemName].acquire = value; // Update the LootData object
-        });
-    
-        controllers[itemName] = controller;
-    }
-
-    var cfg = gui.addFolder("CFG");
-    cfg.add(HackCon, "save");
-    cfg.add(HackCon, "load");
-
-    
-};
-
-    const lootItems = [
-    {name:"smallwood",acquire:true,extra:0},
-    {name:"mediumwood",acquire:true,extra:1},
-    {name:"bigwood",acquire:true,extra:2},
-    {name:"smallstone",acquire:true,extra:3},
-    {name:"mediumstone",acquire:true,extra:4},
-    {name:"bigstone",acquire:true,extra:5},
-    {name:"steel",acquire:true,extra:6},
-    {name:"animalfat",acquire:true,extra:7},
-    {name:"animaltendon",acquire:true,extra:8},
-    {name:"string",acquire:true,extra:9},
-    {name:"leatherboar",acquire:true,extra:10},
-    {name:"shapedmetal",acquire:true,extra:11},
-    {name:"rawsteak",acquire:true,extra:12},
-    {name:"cookedsteak",acquire:true,extra:13},
-    {name:"rottensteak",acquire:true,extra:14},
-    {name:"orange",acquire:true,extra:15},
-    {name:"rottenorange",acquire:true,extra:16},
-    {name:"seedorange",acquire:true,extra:17},
-    {name:"hachet",acquire:true,extra:18},
-    {name:"stonepickaxe",acquire:true,extra:19},
-    {name:"steelpickaxe",acquire:true,extra:20},
-    {name:"stoneaxe",acquire:true,extra:21},
-    {name:"workbench",acquire:true,extra:22},
-    {name:"woodspear",acquire:true,extra:23},
-    {name:"woodbow",acquire:true,extra:24},
-    {name:"9mm",acquire:true,extra:25},
-    {name:"deserteagle",acquire:true,extra:26},
-    {name:"shotgun",acquire:true,extra:27},
-    {name:"ak47",acquire:true,extra:28},
-    {name:"sniper",acquire:true,extra:29},
-    {name:"woodwall",acquire:true,extra:30},
-    {name:"stonewall",acquire:true,extra:31},
-    {name:"steelwall",acquire:true,extra:32},
-    {name:"wooddoor",acquire:true,extra:33},
-    {name:"stonedoor",acquire:true,extra:34},
-    {name:"steeldoor",acquire:true,extra:35},
-    {name:"campfire",acquire:true,extra:36},
-    {name:"bullet9mm",acquire:true,extra:37},
-    {name:"bulletshotgun",acquire:true,extra:38},
-    {name:"bulletsniper",acquire:true,extra:39},
-    {name:"medikit",acquire:true,extra:40},
-    {name:"bandage",acquire:true,extra:41},
-    {name:"soda",acquire:true,extra:42},
-    {name:"mp5",acquire:true,extra:43},
-    {name:"headscarf",acquire:true,extra:44},
-    {name:"chapka",acquire:true,extra:45},
-    {name:"wintercoat",acquire:true,extra:46},
-    {name:"gazmask",acquire:true,extra:47},
-    {name:"gazprotection",acquire:true,extra:48},
-    {name:"radiationsuit",acquire:true,extra:49},
-    {name:"woodarrow",acquire:true,extra:50},
-    {name:"campfirebbq",acquire:true,extra:51},
-    {name:"smelter",acquire:true,extra:52},
-    {name:"woodbigdoor",acquire:true,extra:53},
-    {name:"stonebigdoor",acquire:true,extra:54},
-    {name:"steelbigdoor",acquire:true,extra:55},
-    {name:"sulfur",acquire:true,extra:56},
-    {name:"shapeduranium",acquire:true,extra:57},
-    {name:"workbench2",acquire:true,extra:58},
-    {name:"uranium",acquire:true,extra:59},
-    {name:"weaving",acquire:true,extra:60},
-    {name:"gasoline",acquire:true,extra:61},
-    {name:"sulfurpickaxe",acquire:true,extra:62},
-    {name:"chest",acquire:true,extra:63},
-    {name:"fridge",acquire:true,extra:64},
-    {name:"woodfloor",acquire:true,extra:65},
-    {name:"hammer",acquire:true,extra:66},
-    {name:"sleepingbag",acquire:true,extra:67},
-    {name:"repairhammer",acquire:true,extra:68},
-    {name:"nails",acquire:true,extra:69},
-    {name:"woodlightfloor",acquire:true,extra:70},
-    {name:"woodsmallwall",acquire:true,extra:71},
-    {name:"stonesmallwall",acquire:true,extra:72},
-    {name:"steelsmallwall",acquire:true,extra:73},
-    {name:"tomatosoup",acquire:true,extra:74},
-    {name:"syringe",acquire:true,extra:75},
-    {name:"chemicalcomponent",acquire:true,extra:76},
-    {name:"radaway",acquire:true,extra:77},
-    {name:"seedtomato",acquire:true,extra:78},
-    {name:"tomato",acquire:true,extra:79},
-    {name:"rottentomato",acquire:true,extra:80},
-    {name:"can",acquire:true,extra:81},
-    {name:"woodcrossbow",acquire:true,extra:82},
-    {name:"woodcrossarrow",acquire:true,extra:83},
-    {name:"nailgun",acquire:true,extra:84},
-    {name:"sawedoffshotgun",acquire:true,extra:85},
-    {name:"stonefloor",acquire:true,extra:86},
-    {name:"tilingfloor",acquire:true,extra:87},
-    {name:"crisps",acquire:true,extra:88},
-    {name:"rottencrisps",acquire:true,extra:89},
-    {name:"electronics",acquire:true,extra:90},
-    {name:"junk",acquire:true,extra:91},
-    {name:"wire",acquire:true,extra:92},
-    {name:"energycells",acquire:true,extra:93},
-    {name:"laserpistol",acquire:true,extra:94},
-    {name:"tesla",acquire:true,extra:95},
-    {name:"alloys",acquire:true,extra:96},
-    {name:"sulfuraxe",acquire:true,extra:97},
-    {name:"landmine",acquire:true,extra:98},
-    {name:"dynamite",acquire:true,extra:99},
-    {name:"c4",acquire:true,extra:100},
-    {name:"c4trigger",acquire:true,extra:101},
-    {name:"compost",acquire:true,extra:102},
-    {name:"armorphysic1",acquire:true,extra:103},
-    {name:"armorphysic2",acquire:true,extra:104},
-    {name:"armorphysic3",acquire:true,extra:105},
-    {name:"armorfire1",acquire:true,extra:106},
-    {name:"armorfire2",acquire:true,extra:107},
-    {name:"armorfire3",acquire:true,extra:108},
-    {name:"armordeminer",acquire:true,extra:109},
-    {name:"armortesla1",acquire:true,extra:110},
-    {name:"armortesla2",acquire:true,extra:111},
-    {name:"woodspike",acquire:true,extra:112},
-    {name:"lasersubmachine",acquire:true,extra:113},
-    {name:"grenade",acquire:true,extra:114},
-    {name:"superhammer",acquire:true,extra:115},
-    {name:"ghoulblood",acquire:true,extra:116},
-    {name:"camouflagegear",acquire:true,extra:117},
-    {name:"agitator",acquire:true,extra:118},
-    {name:"ghouldrug",acquire:true,extra:119},
-    {name:"mushroom1",acquire:true,extra:120},
-    {name:"mushroom2",acquire:true,extra:121},
-    {name:"mushroom3",acquire:true,extra:122},
-    {name:"rottenmushroom1",acquire:true,extra:123},
-    {name:"rottenmushroom2",acquire:true,extra:124},
-    {name:"rottenmushroom3",acquire:true,extra:125},
-    {name:"lapadone",acquire:true,extra:126},
-    {name:"lapabotrepair",acquire:true,extra:127},
-    {name:"smallwire",acquire:true,extra:128},
-    {name:"pumpkin",acquire:true,extra:129},
-    {name:"rottenpumpkin",acquire:true,extra:130},
-    {name:"seedghoul",acquire:true,extra:131},
-    {name:"extractor",acquire:true,extra:132},
-    {name:"antidote",acquire:true,extra:133},
-    {name:"antidoteflower",acquire:true,extra:134},
-    {name:"seedtree",acquire:true,extra:135},
-    {name:"acorn",acquire:true,extra:136},
-    {name:"rottenacorn",acquire:true,extra:137},
-    {name:"lasersniper",acquire:true,extra:138},
-    {name:"halbot",acquire:true,extra:139},
-    {name:"teslabot",acquire:true,extra:140},
-    {name:"cable0",acquire:true,extra:141},
-    {name:"cable1",acquire:true,extra:142},
-    {name:"cable2",acquire:true,extra:143},
-    {name:"cable3",acquire:true,extra:144},
-    {name:"switch",acquire:true,extra:145},
-    {name:"gateor",acquire:true,extra:146},
-    {name:"gateand",acquire:true,extra:147},
-    {name:"gatenot",acquire:true,extra:148},
-    {name:"lamp",acquire:true,extra:149},
-    {name:"cablewall",acquire:true,extra:150},
-    {name:"automaticdoor",acquire:true,extra:151},
-    {name:"platform",acquire:true,extra:152},
-    {name:"stonecave",acquire:true,extra:153},
-    {name:"bunkerwall",acquire:true,extra:154},
-    {name:"goldfloor",acquire:true,extra:155},
-    {name:"redfloor",acquire:true,extra:156},
-    {name:"weldingmachine",acquire:true,extra:157},
-    {name:"cable4",acquire:true,extra:158},
-    {name:"gatetimer",acquire:true,extra:159},
-    {name:"gatexorcounter",acquire:true,extra:16}
-];
-
-const LootData = Object.fromEntries(lootItems.map(({ name, acquire, extra }) => [name, { acquire, extra }]));
 
 //---------------------------------------------------------------------------------------------------------------------------------------------//
 
@@ -606,54 +593,48 @@ var setx;
 var sety;
 var rowx;
 var rowy;
-
-
-
-
-
-
 var canvas;
 var canw, canh, canw2, canh2, canw4, canh4, canwns, canhns, canw2ns, canh2ns, canw4ns, canh4ns;
 var ctx;
-var delta = 0;
-var previousTimestamp = 0;
-var scaleby = 1;
-var fpsAvg = 100;
-var canvasQuality = 1;
+var delta               = 0;
+var previousTimestamp   = 0;
+var scaleby             = 1;
+var fpsAvg              = 100;
+var canvasQuality       = 1;
 
 var __RESIZE_METHOD_SCALE__ = 1;
-var __RESIZE_METHOD_CSS__ = 0;
+var __RESIZE_METHOD_CSS__   = 0;
 
 var CanvasUtils = (function() {
-    var frameSampleCount = 5;
-    var elapsedTime = 0;
-    var frameCount = 0;
-    var currentFPS = 0;
-    var sampleIndex = 0;
-    var fpsSamples = new window.Array(frameSampleCount);
+    var wmWnm = 5;
+    var nnW = 0;
+    var vision = 0;
+    var WVNmV = 0;
+    var wMmNw = 0;
+    var VVWwv = new window.Array(wmWnm);
 
     var options = {
-        resizeMethod: __RESIZE_METHOD_SCALE__,
-        size: window.innerWidth,
-        aliasing: true,
-        deviceRatio: window.devicePixelRatio || 1,
-        scheduledRatio: window.devicePixelRatio || 1,
-        backingStoreRatio: 1,
-        forceResolution: 0,
-        ratio: 0,
-        ratioX: 1,
-        ratioY: 1,
-        can: "can",
-        bod: "bod"
+        resizeMethod:       __RESIZE_METHOD_SCALE__,
+        size:               window.innerWidth,
+        aliasing:           true,
+        deviceRatio:        window.devicePixelRatio || 1,
+        scheduledRatio:     window.devicePixelRatio || 1,
+        backingStoreRatio:  1,
+        forceResolution:    0,
+        ratio:              0,
+        ratioX:             1,
+        ratioY:             1,
+        can:                "can",
+        bod:                "bod"
     };
 
-    function initAnimatedCanvas(renderer, resizeMethod, can, bod, size, pixelRatio, aliasing) {
-        setRenderer(renderer);
+    function initAnimatedCanvas(wMN, resizeMethod, can, bod, size, mnV, aliasing) {
+        setRenderer(wMN);
         if (resizeMethod !== window.undefined) options.resizeMethod = resizeMethod;
         if (can !== window.undefined) options.can = can;
         if (bod !== window.undefined) options.bod = bod;
         if (size !== window.undefined) options.size = size;
-        if (pixelRatio !== window.undefined) options.ratio = pixelRatio;
+        if (mnV !== window.undefined) options.ratio = mnV;
         if (aliasing !== window.undefined) options.aliasing = aliasing;
         canvas = window.document.getElementById(options.can);
         ctx = canvas.getContext('2d');
@@ -671,20 +652,20 @@ var CanvasUtils = (function() {
         };
         win.onresize = bodOnResize;
         bodOnResize();
-        animate();
+        vNwwn();
     };
 
     function bodOnResize() {
-        var aspectRatio, width, height;
+        var mnV, width, height;
         if (options.resizeMethod === __RESIZE_METHOD_CSS__) {
             if (window.innerWidth > window.innerHeight) {
-                aspectRatio = window.innerHeight / window.innerWidth;
+                mnV = window.innerHeight / window.innerWidth;
                 width = options.size;
-                height = window.Math.floor(width * aspectRatio);
+                height = window.Math.floor(width * mnV);
             } else {
-                aspectRatio = window.innerWidth / window.innerHeight;
+                mnV = window.innerWidth / window.innerHeight;
                 height = options.size;
-                width = window.Math.floor(height * aspectRatio);
+                width = window.Math.floor(height * mnV);
             }
         } else {
             width = window.innerWidth;
@@ -698,33 +679,33 @@ var CanvasUtils = (function() {
         canh4 = window.Math.floor(canh / 4);
         options.ratioX = canw / window.innerWidth;
         options.ratioY = canh / window.innerHeight;
-        pixelRatio = options.scheduledRatio / options.backingStoreRatio;
-        if (options.ratio !== 0) pixelRatio *= options.ratio;
-        canvas.width = canw * pixelRatio;
-        canvas.height = canh * pixelRatio;
+        mnV = options.scheduledRatio / options.backingStoreRatio;
+        if (options.ratio !== 0) mnV *= options.ratio;
+        canvas.width = canw * mnV;
+        canvas.height = canh * mnV;
         if (options.resizeMethod === __RESIZE_METHOD_SCALE__) {
             scaleby = window.Math.max(height / ((options.size * 11) / 16), width / options.size);
             canvas.style.width = width + "px";
             canvas.style.height = height + "px";
         }
-        canwns = canw / scaleby;
-        canhns = canh / scaleby;
+        canwns  = canw / scaleby;
+        canhns  = canh / scaleby;
         canw2ns = canw2 / scaleby;
         canh2ns = canh2 / scaleby;
         canw4ns = canw4 / scaleby;
         canh4ns = canh4 / scaleby;
-        ctx.scale(pixelRatio, pixelRatio);
+        ctx.scale(mnV, mnV);
         setAntialiasing(ctx, options.aliasing);
-        renderer.update();
+        nWMmW.update();
     };
 
     function initReqAnimationFrame() {
         var lastTime = 0;
         var vandorprefix = ['ms', 'moz', 'webkit', 'o'];
-        for (var i = 0;
-            (i < vandorprefix.length) && !window.requestAnimationFrame; ++i) {
-            window.requestAnimationFrame = window[vandorprefix[i] + 'RequestAnimationFrame'];
-            window.cancelAnimationFrame = window[vandorprefix[i] + 'CancelAnimationFrame'] || window[vandorprefix[i] + 'CancelRequestAnimationFrame'];
+        for (var wX = 0;
+            (wX < vandorprefix.length) && !window.requestAnimationFrame; ++wX) {
+            window.requestAnimationFrame = window[vandorprefix[wX] + 'RequestAnimationFrame'];
+            window.cancelAnimationFrame = window[vandorprefix[wX] + 'CancelAnimationFrame'] || window[vandorprefix[wX] + 'CancelRequestAnimationFrame'];
         }
         if (!window.requestAnimationFrame) window.requestAnimationFrame = function(callback, element) {
             var currTime = (new window.Date).getTime();
@@ -740,33 +721,33 @@ var CanvasUtils = (function() {
         };
     };
 
-    function setResolution(resolution) {
-        if (((resolution === 1) || (resolution === 2)) || (resolution === 3)) {
-            if (resolution === options.forceResolution) {
-                resolution = 0;
+    function setResolution(mvWMM) {
+        if (((mvWMM === 1) || (mvWMM === 2)) || (mvWMM === 3)) {
+            if (mvWMM === options.forceResolution) {
+                mvWMM = 0;
                 options.scheduledRatio = options.deviceRatio / canvasQuality;
             } else
-                options.scheduledRatio = options.deviceRatio / resolution;
-            options.forceResolution = resolution;
+                options.scheduledRatio = options.deviceRatio / mvWMM;
+            options.forceResolution = mvWMM;
             bodOnResize();
         }
     };
 
-    function updateFrameStats() {
-        frameCount++;
-        elapsedTime += delta;
-        if (elapsedTime >= 1000) {
-            currentFPS = (1000 * frameCount) / elapsedTime;
-            fpsSamples[sampleIndex] = currentFPS;
-            sampleIndex++;
-            if (sampleIndex === frameSampleCount) {
-                var averageFPS = 0;
-                for (var i = 0; i < frameSampleCount; i++)
-                    averageFPS += fpsSamples[i];
-                averageFPS = averageFPS / frameSampleCount;
+    function nwMNV() {
+        vision++;
+        nnW += delta;
+        if (nnW >= 1000) {
+            WVNmV = (1000 * vision) / nnW;
+            VVWwv[wMmNw] = WVNmV;
+            wMmNw++;
+            if (wMmNw === wmWnm) {
+                var mmmWv = 0;
+                for (var i = 0; i < wmWnm; i++)
+                    mmmWv += VVWwv[i];
+                mmmWv = mmmWv / wmWnm;
                 var mnV = options.deviceRatio / options.backingStoreRatio;
-                if (((options.forceResolution === 0) && (mnV === 2)) && (window.Math.abs(fpsAvg - averageFPS) < 5)) {
-                    if ((averageFPS < 22) && (fpsAvg < 22)) {
+                if (((options.forceResolution === 0) && (mnV === 2)) && (window.Math.abs(fpsAvg - mmmWv) < 5)) {
+                    if ((mmmWv < 22) && (fpsAvg < 22)) {
                         if (canvasQuality === 1) {
                             canvasQuality = 2;
                             options.scheduledRatio = options.deviceRatio / 2;
@@ -776,7 +757,7 @@ var CanvasUtils = (function() {
                             options.scheduledRatio = options.deviceRatio / 3;
                             bodOnResize();
                         }
-                    } else if ((options.deviceRatio > options.scheduledRatio) && ((averageFPS + fpsAvg) > 119)) {
+                    } else if ((options.deviceRatio > options.scheduledRatio) && ((mmmWv + fpsAvg) > 119)) {
                         if (canvasQuality === 2) {
                             canvasQuality = 1;
                             options.scheduledRatio = options.deviceRatio;
@@ -788,116 +769,115 @@ var CanvasUtils = (function() {
                         }
                     }
                 }
-                fpsAvg = averageFPS;
-                sampleIndex = 0;
+                fpsAvg = mmmWv;
+                wMmNw = 0;
             }
-            elapsedTime = 0;
-            frameCount = 0;
+            nnW = 0;
+            vision = 0;
         }
     };
 
-    function animate(timestamp) {
-        window.requestAnimationFrame(animate);
-        if (timestamp !== window.undefined) {
-            delta = timestamp - previousTimestamp;
-            previousTimestamp = timestamp;
+    function vNwwn(vWVVW) {
+        window.requestAnimationFrame(vNwwn);
+        if (vWVVW !== window.undefined) {
+            delta = vWVVW - previousTimestamp;
+            previousTimestamp = vWVVW;
         }
-        updateFrameStats();
-        renderer.draw();
+        nwMNV();
+        nWMmW.draw();
     };
 
-    function modifyAntialiasing(ctx, isEnabled) {
-        ctx.imageSmoothingEnabled = isEnabled;
-        ctx.webkitImageSmoothingEnabled = isEnabled;
-        ctx.mozImageSmoothingEnabled = isEnabled;
-        ctx.msImageSmoothingEnabled = isEnabled;
-        ctx.oImageSmoothingEnabled = isEnabled;
+    function modifyAntialiasing(ctx, vW) {
+        ctx.imageSmoothingEnabled       = vW;
+        ctx.webkitImageSmoothingEnabled = vW;
+        ctx.mozImageSmoothingEnabled    = vW;
+        ctx.msImageSmoothingEnabled     = vW;
+        ctx.oImageSmoothingEnabled      = vW;
     };
 
-    function setAntialiasing(ctx, isEnabled) {
-        if (isEnabled === false) window.document.getElementById(options.can).style.imageRendering = "pixelated";
+    function setAntialiasing(ctx, vW) {
+        if (vW === false) window.document.getElementById(options.can).style.imageRendering = "pixelated";
         else window.document.getElementById(options.can).style.imageRendering = "auto";
-        modifyAntialiasing(ctx, isEnabled);
+        modifyAntialiasing(ctx, vW);
     };
 
-    function canvasToImage(canvas) {
-        var img = new window.Image;
-        img.src = canvas.toDataURL("image/png");
-        img.width = canvas.width;
-        img.height = canvas.height;
+    function canvasToImage(c) {
+        var img     = new window.Image;
+        img.src     = c.toDataURL("image/png");
+        img.width   = c.width;
+        img.height  = c.height;
         return img;
     };
 
-    function line(ctx, startX, startY, endX, endY) {
+    function line(ctx, moveTo, MMNwm, lineTo, Vvwwm) {
         ctx.beginPath();
-        ctx.moveTo(startX * scaleby, startY * scaleby);
-        ctx.lineTo(endX * scaleby, endY * scaleby);
+        ctx.moveTo(moveTo * scaleby, MMNwm * scaleby);
+        ctx.lineTo(lineTo * scaleby, Vvwwm * scaleby);
     };
 
-    function drawPath(ctx, fillColor, strokeColor, lineWidth) {
-        if (fillColor !== window.undefined) {
-            ctx.fillStyle = fillColor;
+    function drawPath(ctx, MWnvm, wNNwN, width) {
+        if (MWnvm !== window.undefined) {
+            ctx.fillStyle = MWnvm;
             ctx.fill();
         }
-        if (strokeColor !== window.undefined) {
-            if (lineWidth !== window.undefined)
-                ctx.lineWidth = lineWidth;
-            ctx.strokeStyle = strokeColor;
+        if (wNNwN !== window.undefined) {
+            if (width !== window.undefined)
+                ctx.lineWidth = width;
+            ctx.strokeStyle = wNNwN;
             ctx.stroke();
         }
     };
 
-    function rect(ctx, x, y, width, height) {
+    function rect(ctx, wX, wY, w, h) {
         ctx.beginPath();
-        ctx.rect(x * scaleby, y * scaleby, width * scaleby, height * scaleby);
-    }
+        ctx.rect(wX * scaleby, wY * scaleby, w * scaleby, h * scaleby);
+    };
+
 
     function randomColor() {
-        let color = "#";
-        for (let i = 0; i < 3; i++) {
-            let component = Math.floor(Math.random() * 256);
-            color += component < 16 ? ("0" + component.toString(16)) : component.toString(16);
+        var color = "#";
+        for (var i = 0; i < 3; i++) {
+            var N = window.Math.floor(window.Math.random() * 256);
+            color += (N < 16) ? ("0" + N.toString(16)) : N.toString(16);
         }
         return color;
-    }
+    };
 
-    function colorTransition(colors, factor) {
-        const len = colors.length;
-        const index = Math.floor(factor * len);
-        const startColor = colors[Math.max(0, index - 1)];
-        const endColor = colors[Math.min(index, len - 1)];
-        factor = (factor % (1 / len)) * len;
-
-        let color = "#";
-        for (let i = 0; i < 3; i++) {
-            const channel = Math.floor((endColor[i] - startColor[i]) * factor + startColor[i]);
-            color += channel < 16 ? ("0" + channel.toString(16)) : channel.toString(16);
+    function colorTransition(nMwVV, vW) {
+        var len = nMwVV.length;
+        var VmVNN = window.Math.floor(vW * len);
+        var WNMVw = nMwVV[window.Math.max(0, VmVNN - 1)];
+        var VnmVm = nMwVV[window.Math.min(VmVNN, len - 1)];
+        vW = (vW % (1 / len)) * len;
+        var color = "#";
+        for (var i = 0; i < 3; i++) {
+            var c = window.Math.floor(((VnmVm[i] - WNMVw[i]) * vW) + WNMVw[i]);
+            color += (c < 16) ? ("0" + c.toString(16)) : c.toString(16);
         }
         return color;
-    }
+    };
 
-    function fillRect(ctx, x, y, width, height, color) {
+    function fillRect(ctx, wX, wY, w, h, color) {
         ctx.beginPath();
         ctx.fillStyle = color;
-        ctx.fillRect(x * scaleby, y * scaleby, width * scaleby, height * scaleby);
-    }
+        ctx.fillRect(wX * scaleby, wY * scaleby, w * scaleby, h * scaleby);
+    };
 
-    function circle(ctx, x, y, radius) {
+    function circle(ctx, wX, wY, N) {
         ctx.beginPath();
-        ctx.arc(x * scaleby, y * scaleby, radius * scaleby, 0, Math.PI * 2);
-    }
+        ctx.arc(wX * scaleby, wY * scaleby, N * scaleby, 0, window.Math.PI * 2);
+    };
 
-    function arc(ctx, x, y, radius, startAngle, endAngle) {
+    function vNmNM(ctx, wX, wY, N, a1, a2) {
         ctx.beginPath();
-        ctx.arc(x * scaleby, y * scaleby, radius * scaleby, startAngle, endAngle);
-    }
+        ctx.arc(wX * scaleby, wY * scaleby, N * scaleby, a1, a2);
+    };
+    var nWMmW = window.undefined;
 
-    var renderer = undefined;
+    function setRenderer(wMN) {
+        nWMmW = wMN;
+    };
 
-    function setRenderer(newRenderer) {
-        renderer = newRenderer;
-    }
-    
     function onloadimg() {
         this.isLoaded = 1;
         this.wh = this.width / 2;
@@ -908,14 +888,14 @@ var CanvasUtils = (function() {
         this.isLoaded = 0;
     };
 
-    function loadImage(src, img) {
+    function loadImage(cont, img) {
         if ((img !== window.undefined) && (img.isLoaded === 2))
             return img;
         img = new window.Image;
         img.isLoaded = 2;
         img.onload = onloadimg;
         img.onerror = onloadimgerror;
-        img.src = src;
+        img.src = cont;
         return img;
     };
 
@@ -928,169 +908,162 @@ var CanvasUtils = (function() {
 
     function enableFullscreen() {
         var getbod = window.document.getElementById("bod");
-        if (getbod.requestFullscreen) getbod.requestFullscreen();
-        else if (getbod.msRequestFullscreen) getbod.msRequestFullscreen();
-        else if (getbod.mozRequestFullScreen) getbod.mozRequestFullScreen();
+        if (getbod.requestFullscreen)            getbod.requestFullscreen();
+        else if (getbod.msRequestFullscreen)     getbod.msRequestFullscreen();
+        else if (getbod.mozRequestFullScreen)    getbod.mozRequestFullScreen();
         else if (getbod.webkitRequestFullscreen) getbod.webkitRequestFullscreen();
     };
 
     function disableFullscreen() {
-        if (window.document.exitFullscreen) window.document.exitFullscreen();
-        else if (window.document.msExitFullscreen) window.document.msExitFullscreen();
-        else if (window.document.mozCancelFullscreen) window.document.mozCancelFullscreen();
-        else if (window.document.webkitExitFullscreen) window.document.webkitExitFullscreen();
+        if (window.document.exitFullscreen)             window.document.exitFullscreen();
+        else if (window.document.msExitFullscreen)      window.document.msExitFullscreen();
+        else if (window.document.mozCancelFullscreen)   window.document.mozCancelFullscreen();
+        else if (window.document.webkitExitFullscreen)  window.document.webkitExitFullscreen();
     };
 
-    function createImageContainer(src) {
+    function createImageContainer(cont) {
         return {
-            src: src,
+            src: cont,
             img: {
                 isLoaded: 0
             }
         };
     };
 
-    function loadImageContainer(src) {
-        var container = createImageContainer(src);
-        container.img = CanvasUtils.loadImage(container.src, container.img);
-        return container;
+    function loadImageContainer(cont) {
+        var WVV = createImageContainer(cont);
+        WVV.img = CanvasUtils.loadImage(WVV.src, WVV.img);
+        return WVV;
     };
 
-    function drawImageHd(container, x, y, angle, offsetX, offsetY, scale) {
-        var img = container.img;
+    function drawImageHd(WVV, wX, wY, angle, wWNWN, wnwnM, imgMovement) {
+        var img = WVV.img;
         if (img.isLoaded !== 1) {
-            container.img = loadImage(container.src, container.img);
+            WVV.img = CanvasUtils.loadImage(WVV.src, WVV.img);
             return;
         }
-        scale *= scaleby;
-        x *= scaleby;
-        y *= scaleby;
-        var width = img.wh * scale;
-        var height = img.h2 * scale;
-        var offsetXScaled = (-width / 2) + (offsetX * scale);
-        var offsetYScaled = (-height / 2) + (offsetY * scale);
-        if ((x + offsetXScaled + width < 0) || (y + offsetYScaled + height < 0) ||
-            (x - width - canw > 0) || (y - height - canh > 0)) {
+        imgMovement *= scaleby;
+        wX *= scaleby;
+        wY *= scaleby;
+        var w = img.wh * imgMovement;
+        var h = img.h2 * imgMovement;
+        var nnvvn = (-w / 2) + (wWNWN * imgMovement);
+        var nNmWM = (-h / 2) + (wnwnM * imgMovement);
+        if ((((((wX + nnvvn) + w) < 0) || (((wY + nNmWM) + h) < 0)) || (((wX - w) - canw) > 0)) || (((wY - h) - canh) > 0))
             return;
-        }
         ctx.save();
-        ctx.translate(x, y);
+        ctx.translate(wX, wY);
         ctx.rotate(angle);
-        ctx.drawImage(img, offsetXScaled, offsetYScaled, width, height);
-        ctx.restore();
-    }
-
-    function drawImageHd2(container, x, y, angle, offsetX, offsetY, scale, rotation, additionalOffsetX, additionalOffsetY) {
-        var img = container.img;
-        if (img.isLoaded !== 1) {
-            container.img = CanvasUtils.loadImage(container.src, container.img);
-            return;
-        }
-        scale *= scaleby;
-        var w = img.wh * scale;
-        var h = img.h2 * scale;
-        ctx.save();
-        ctx.translate(x * scaleby, y * scaleby);
-        ctx.rotate(angle);
-        ctx.translate(offsetX * scale, offsetY * scale);
-        ctx.rotate(rotation);
-        ctx.drawImage(img, (-w / 2) + (additionalOffsetX * scale), (-h / 2) + (additionalOffsetY * scale), w, h);
+        ctx.drawImage(img, nnvvn, nNmWM, w, h);
         ctx.restore();
     };
 
-    function drawImageHdCrop(container, x, y, angle, srcX, srcY, srcWidth, srcHeight, scale) {
-        var img = container.img;
+    function drawImageHd2(WVV, wX, wY, angle, wWNWN, wnwnM, imgMovement, wwvMW, nMmWV, vwWmv) {
+        var img = WVV.img;
         if (img.isLoaded !== 1) {
-            container.img = CanvasUtils.loadImage(container.src, container.img);
+            WVV.img = CanvasUtils.loadImage(WVV.src, WVV.img);
             return;
         }
-        scale *= scaleby;
-        x *= scaleby;
-        y *= scaleby;
-        var w = (srcWidth / 2) * scale;
-        var h = (srcHeight / 2) * scale;
-        var offsetX = -w / 2;
-        var offsetY = -h / 2;
-        if ((((((x + offsetX) + w) < 0) || (((y + offsetY) + h) < 0)) || (((x - w) - canw) > 0)) || (((y - h) - canh) > 0))
-            return;
+        imgMovement *= scaleby;
+        var w = img.wh * imgMovement;
+        var h = img.h2 * imgMovement;
         ctx.save();
-        ctx.translate(x, y);
+        ctx.translate(wX * scaleby, wY * scaleby);
         ctx.rotate(angle);
-        ctx.drawImage(img, srcX, srcY, srcWidth, srcHeight, offsetX, offsetY, w, h);
+        ctx.translate(wWNWN * imgMovement, wnwnM * imgMovement);
+        ctx.rotate(wwvMW);
+        ctx.drawImage(img, (-w / 2) + (nMmWV * imgMovement), (-h / 2) + (vwWmv * imgMovement), w, h);
         ctx.restore();
     };
 
-    function roundRect(ctx, x, y, width, height, radius) {
-        ctx.beginPath();
-        ctx.moveTo(x + radius, y);
-        ctx.arcTo(x + width, y, x + width, y + height, radius);
-        ctx.arcTo(x + width, y + height, x, y + height, radius);
-        ctx.arcTo(x, y + height, x, y, radius);
-        ctx.arcTo(x, y, x + width, y, radius);
-        ctx.closePath();
-    }
+    function drawImageHdCrop(WVV, wX, wY, angle, mnmvW, vNwWN, nwmmW, wVnWn, imgMovement) {
+        var img = WVV.img;
+        if (img.isLoaded !== 1) {
+            WVV.img = CanvasUtils.loadImage(WVV.src, WVV.img);
+            return;
+        }
+        imgMovement *= scaleby;
+        wX *= scaleby;
+        wY *= scaleby;
+        var w = (nwmmW / 2) * imgMovement;
+        var h = (wVnWn / 2) * imgMovement;
+        var nnvvn = -w / 2;
+        var nNmWM = -h / 2;
+        if ((((((wX + nnvvn) + w) < 0) || (((wY + nNmWM) + h) < 0)) || (((wX - w) - canw) > 0)) || (((wY - h) - canh) > 0))
+            return;
+        ctx.save();
+        ctx.translate(wX, wY);
+        ctx.rotate(angle);
+        ctx.drawImage(img, mnmvW, vNwWN, nwmmW, wVnWn, nnvvn, nNmWM, w, h);
+        ctx.restore();
+    };
 
+    function roundRect(WvMwm, a, M, WvvVn, c, N) {
+        WvMwm.beginPath();
+        WvMwm.moveTo(a + N, M);
+        WvMwm.arcTo(a + WvvVn, M, a + WvvVn, M + c, N);
+        WvMwm.arcTo(a + WvvVn, M + c, a, M + c, N);
+        WvMwm.arcTo(a, M + c, a, M, N);
+        WvMwm.arcTo(a, M, a + WvvVn, M, N);
+        WvMwm.closePath();
+    };
     return {
-        options: options,
-        initAnimatedCanvas: initAnimatedCanvas,
-        setAntialiasing: setAntialiasing,
-        modifyAntialiasing: modifyAntialiasing,
-        setResolution: setResolution,
-        canvasToImage: canvasToImage,
-        rect: rect,
-        fillRect: fillRect,
-        circle: circle,
-        roundRect: roundRect,
-        randomColor: randomColor,
-        colorTransition: colorTransition,
-        line: line,
-        drawPath: drawPath,
-        setRenderer: setRenderer,
-        loadImage: loadImage,
-        lerp: lerp,
-        enableFullscreen: enableFullscreen,
-        disableFullscreen: disableFullscreen,
-        drawImageHd: drawImageHd,
-        drawImageHd2: drawImageHd2,
-        drawImageHdCrop: drawImageHdCrop,
-        createImageContainer: createImageContainer,
-        loadImageContainer: loadImageContainer
+        options:                options,
+        initAnimatedCanvas:     initAnimatedCanvas,
+        setAntialiasing:        setAntialiasing,
+        modifyAntialiasing:     modifyAntialiasing,
+        setResolution:          setResolution,
+        canvasToImage:          canvasToImage,
+        rect:                   rect,
+        fillRect:               fillRect,
+        circle:                 circle,
+        roundRect:              roundRect,
+        randomColor:            randomColor,
+        colorTransition:        colorTransition,
+        line:                   line,
+        drawPath:               drawPath,
+        setRenderer:            setRenderer,
+        loadImage:              loadImage,
+        lerp:                   lerp,
+        enableFullscreen:       enableFullscreen,
+        disableFullscreen:      disableFullscreen,
+        drawImageHd:            drawImageHd,
+        drawImageHd2:           drawImageHd2,
+        drawImageHdCrop:        drawImageHdCrop,
+        createImageContainer:   createImageContainer,
+        loadImageContainer:     loadImageContainer
     };
 })();
-
 
 var Math2d = (function() {
-    function angle(x1, y1, x2, y2) {
-        var deltaY = y2 - y1;
-        var deltaX = x2 - x1;
-        return window.Math.atan2(deltaY, deltaX);
-    }
+    function angle(ax, ay, Nnvnw, NVNwW) {
+        var WWNwv = NVNwW - ay;
+        var wNmNv = Nnvnw - ax;
+        return window.Math.atan2(WWNwv, wNmNv);
+    };
 
-    function distance(x1, y1, x2, y2) {
-        var diffX = x2 - x1;
-        var diffY = y2 - y1;
-        return window.Math.sqrt((diffX * diffX) + (diffY * diffY));
-    }
+    function dist(ax, ay, Nnvnw, NVNwW) {
+        var wX = Nnvnw - ax;
+        var wY = NVNwW - ay;
+        return window.Math.sqrt((wX * wX) + (wY * wY));
+    };
 
-    function fastDist(x1, y1, x2, y2) {
-        var diffX = x2 - x1;
-        var diffY = y2 - y1;
-        return (diffX * diffX) + (diffY * diffY);
-    }
-
+    function fastDist(ax, ay, Nnvnw, NVNwW) {
+        var wX = Nnvnw - ax;
+        var wY = NVNwW - ay;
+        return (wX * wX) + (wY * wY);
+    };
     return {
-        angle: angle,
-        distance:     distance,
-        fastDist: fastDist
+        angle:      angle,
+        dist:       dist,
+        fastDist:   fastDist
     };
 })();
-
 var MathUtils = (function() {
     var PI2 = window.Math.PI * 2;
-
     var Ease = {
-        speedLimit: function(t, easingFunction, speed) {
-            return window.Math.min((speed * t) + easingFunction(t), 1);
+        speedLimit: function(t, fun, speed) {
+            return window.Math.min((speed * t) + fun(t), 1);
         },
         linear: function(t) {
             return t;
@@ -1154,53 +1127,52 @@ var MathUtils = (function() {
         } else return n.toString();
     };
 
-    function lerp(value1, value2, weight) {
-        return ((1 - weight) * value1) + (value2 * weight);
+    function lerp(p1, p2, w) {
+        return ((1 - w) * p1) + (p2 * w);
     };
 
-    function beautifyNumber(inputNumber) {
-        var numberStr = inputNumber + "";
-        var beautifiedStr = "";
-        var length = numberStr.length;
-        for (var i = length - 1, j = 0; i >= 0; i--, j++) {
-            var currentChar = numberStr[i];
-            if ((j > 2) && (currentChar !== '-')) {
+    function beautifyNumber(vW) {
+        var n = vW + "";
+        var V = "";
+        var len = n.length;
+        for (var i = len - 1, j = 0; i >= 0; i--, j++) {
+            var c = n[i];
+            if ((j > 2) && (c !== '-')) {
                 j = 0;
-                beautifiedStr = "," + beautifiedStr;
+                V = "," + V;
             }
-            beautifiedStr = currentChar + beautifiedStr;
+            V = c + V;
         }
-        return beautifiedStr;
+        return V;
     };
 
-    function randomizeList(list, randomNumberGenerator) {
-        var newList = [];
-        newList.push.apply(newList, list);
-        var randomArray = [];
-        while (newList.length > 0) {
-            var randomIndex = window.Math.floor(randomNumberGenerator() * newList.length);
-            randomArray.push(newList[randomIndex]);
-            newList.splice(randomIndex, 1);
+    function randomizeList(l, wWn) {
+        a = [];
+        a.push.apply(a, l);
+        var ra = [];
+        while (a.length > 0) {
+            var N = window.Math.floor(wWn() * a.length);
+            ra.push(a[N]);
+            a.splice(N, 1);
         }
-        return randomArray;
+        return ra;
     };
 
-    function reduceAngle(angle1, angle2) {
-        return angle2 + (window.Math.round((angle1 - angle2) / PI2) * PI2);
+    function reduceAngle(a1, a2) {
+        return a2 + (window.Math.round((a1 - a2) / PI2) * PI2);
     };
 
     return {
-        Ease:    Ease,
-        inflateNumber:      inflateNumber,
-        simplifyNumber:     simplifyNumber,
-        beautifyNumber:     beautifyNumber,
-        randomizeList:      randomizeList,
-        reduceAngle:        reduceAngle,
-        lerp:               lerp
+        Ease:           Ease,
+        lerp:           lerp,
+        inflateNumber:  inflateNumber,
+        simplifyNumber: simplifyNumber,
+        beautifyNumber: beautifyNumber,
+        randomizeList:  randomizeList,
+        reduceAngle:    reduceAngle
     };
 
 })();
-
 
 var Mouse = (function() {
     function updatePosition(event, state) {
@@ -1217,7 +1189,7 @@ var Mouse = (function() {
     };
 
     function updateDist() {
-        Mouse.distance = Math2d.distance(canw2ns, canh2ns, Mouse.x, Mouse.y);
+        Mouse.dist = Math2d.dist(canw2ns, canh2ns, Mouse.x, Mouse.y);
     };
 
     function updatePosAngle(event, state) {
@@ -1260,46 +1232,46 @@ var Mouse = (function() {
         sx:                 0,
         sy:                 0,
         angle:              0,
-        distance:               0,
+        dist:               0,
         touchToMouseEvent:  touchToMouseEvent,
         LocalMouseEvent:    LocalMouseEvent
     };
 })();
 
 var GUI = (function() {
-    function roundRect(ctx, x, y, width, height, radius) {
+    function roundRect(ctx, vnvMN, mWvWn, width, height, radius) {
         (width < (2 * radius)) && (radius = width / 2);
         (height < (2 * radius)) && (radius = height / 2);
         (0 > radius) && (radius = 0);
         ctx.beginPath();
-        ctx.moveTo(x + radius, y);
-        ctx.arcTo(x + width, y, x + width, y + height, radius);
-        ctx.arcTo(x + width, y + height, x, y + height, radius);
-        ctx.arcTo(x, y + height, x, y, radius);
-        ctx.arcTo(x, y, x + width, y, radius);
+        ctx.moveTo(vnvMN + radius, mWvWn);
+        ctx.arcTo(vnvMN + width, mWvWn, vnvMN + width, mWvWn + height, radius);
+        ctx.arcTo(vnvMN + width, mWvWn + height, vnvMN, mWvWn + height, radius);
+        ctx.arcTo(vnvMN, mWvWn + height, vnvMN, mWvWn, radius);
+        ctx.arcTo(vnvMN, mWvWn, vnvMN + width, mWvWn, radius);
         ctx.closePath();
     };
 
-    function createSprite(width, height, imageSrc, frameDelay, frameDelay) {
+    function createSprite(width, height, mMm, VmWnw, VWnmW) {
         var pos = {
             x: 0,
             y: 0
         };
-        var imageSrc = imageSrc;
-        var img = CanvasUtils.loadImage(imageSrc);
-        var frameCount = 0;
-        var currentFrame = 0;
-        var frameDelayCounter = frameDelay;
+        var mMm = mMm;
+        var img = CanvasUtils.loadImage(mMm);
+        var vvWww = 0;
+        var VNWnw = 0;
+        var WvWMm = VmWnw;
 
         function draw() {
             if (img.isLoaded !== 1)
                 return;
-            frameCount += window.Math.min(delta, 3 * frameDelay);
-            if (frameCount > frameDelay) {
-                frameCount -= frameDelay;
-                currentFrame = window.Math.floor((currentFrame + 1) % (img.width / frameDelayCounter));
+            vvWww += window.Math.min(delta, 3 * VWnmW);
+            if (vvWww > VWnmW) {
+                vvWww -= VWnmW;
+                VNWnw = window.Math.floor((VNWnw + 1) % (img.width / WvWMm));
             }
-            ctx.drawImage(img, frameDelayCounter * currentFrame, 0, frameDelayCounter, img.height, pos.x, pos.y, width * scaleby, height * scaleby);
+            ctx.drawImage(img, WvWMm * VNWnw, 0, WvWMm, img.height, pos.x, pos.y, width * scaleby, height * scaleby);
         };
         return {
             draw:   draw,
@@ -1307,16 +1279,16 @@ var GUI = (function() {
         };
     };
 
-    function createBackground(width, height, imageSrc) {
+    function createBackground(width, height, mMm) {
         var pos = {
             x: 0,
             y: 0,
             disable: 0
         };
-        var imageSrc = imageSrc;
+        var mMm = mMm;
         var img;
-        if (imageSrc !== window.undefined)
-            img = CanvasUtils.loadImage(imageSrc);
+        if (mMm !== window.undefined)
+            img = CanvasUtils.loadImage(mMm);
         else
             pos.disable = 1;
 
@@ -1341,29 +1313,29 @@ var GUI = (function() {
         };
     };
 
-    function createButton(width, height, normalImages, stateImages) {
+    function createButton(width, height, Vwvwv, wvnwv) {
         var pos = {
             x: 0,
             y: 0,
             disable: 0
         };
         var state = 0;
-        if (stateImages === window.undefined) {
-            stateImages = [];
-            if (normalImages !== window.undefined) {
-                for (var i = 0; i < normalImages.length; i++)
-                    stateImages[i] = CanvasUtils.loadImage(normalImages[i]);
+        if (wvnwv === window.undefined) {
+            wvnwv = [];
+            if (Vwvwv !== window.undefined) {
+                for (var i = 0; i < Vwvwv.length; i++)
+                    wvnwv[i] = CanvasUtils.loadImage(Vwvwv[i]);
             } else
                 pos.disable = 1;
         }
 
-        function setImages(normalImages, state) {
-            stateImages = state;
+        function setImages(Vwvwv, wWwmv) {
+            wvnwv = wWwmv;
             for (var i = 0; i < 3; i++) {
-                var img = stateImages[i];
-                var src = normalImages[i];
+                var img = wvnwv[i];
+                var n = Vwvwv[i];
                 if (img.isLoaded !== 1)
-                    stateImages[i] = CanvasUtils.loadImage(src, img);
+                    wvnwv[i] = CanvasUtils.loadImage(n, img);
             }
         };
 
@@ -1375,8 +1347,8 @@ var GUI = (function() {
             pos.disable = 0;
         };
 
-        function setState(newState) {
-            state = newState;
+        function setState(wwMmM) {
+            state = wwMmM;
         };
 
         function getState() {
@@ -1386,8 +1358,8 @@ var GUI = (function() {
         function draw() {
             if (pos.disable === 1)
                 return;
-            var img = stateImages[state];
-            if (stateImages[state].isLoaded !== 1)
+            var img = wvnwv[state];
+            if (wvnwv[state].isLoaded !== 1)
                 return;
             ctx.drawImage(img, 0, 0, img.width, img.height, pos.x, pos.y, width * scaleby, height * scaleby);
         };
@@ -1506,7 +1478,7 @@ function onUnits(data, ui8) {
         isRef16 += 9
 
         ) {
-            var entity        = null;
+            var UNIT        = null;
             var pid         = ui8[isRef8];
             var uid         = ui8[isRef8 + 1];
             var type        = ui8[isRef8 + 3];
@@ -1514,17 +1486,12 @@ function onUnits(data, ui8) {
             var id          = ui16[isRef16 + 3];
             var extra       = ui16[isRef16 + 8];
 
-            if (state === 0) { 
-                Entitie.remove(pid, id, uid, type, extra);
-                if (type === 0) GetAllTargets.getPlayerById(pid).setInactive();
-                if (type === 13) GetAllTargets.getGhoulByUid(uid).setInactive();
-                continue;
-            }
+            if (state === 0) { Entitie.remove(pid, id, uid, type, extra); continue;}
 
-            entity            = Entitie.get(pid, id, uid, type);
+            UNIT            = Entitie.get(pid, id, uid, type);
 
             setEntitie(
-            entity, 
+            UNIT, 
             pid, 
             uid, 
             id, 
@@ -1539,12 +1506,11 @@ function onUnits(data, ui8) {
             );
 
             var update = ENTITIES[type].update;
-            if (update !== window.undefined) update(entity, ui16[isRef16 + 4], ui16[isRef16 + 5]);
+            if (update !== window.undefined) update(UNIT, ui16[isRef16 + 4], ui16[isRef16 + 5]);
 
             //here
-
-            if (pid !== 0 && type === 0) GetAllTargets.getPlayerById(pid).update(ui16[isRef16 + 6], ui16[isRef16 + 7]);
-            if (uid !== 0 && type === 13) GetAllTargets.getGhoulByUid(uid).update(ui16[isRef16 + 6], ui16[isRef16 + 7]);
+            if (ui8[isRef8] != 0 && ui8[isRef8 + 3] == 0) GetAllTargets.getPlayerById(ui8[isRef8]).update(ui16[isRef16 + 6], ui16[isRef16 + 7]);
+            if (ui8[isRef8 + 1] != 0 && ui8[isRef8 + 3] == 13) GetAllTargets.getGhoulByUid(ui8[isRef8 + 1]).update(ui16[isRef16 + 6], ui16[isRef16 + 7]);
 
         }
 };
@@ -1607,9 +1573,9 @@ function onHandshake(data, ui8) {
 
     World.PLAYER.id     = ui8[1];
     var ui16          = new window.Uint16Array(data);
-    var duration             = ui16[3] << 5;
+    var nnW             = ui16[3] << 5;
 
-    World.initDayCycle((duration >= World.__DAY__) ? 1 : 0, duration);
+    World.initDayCycle((nnW >= World.__DAY__) ? 1 : 0, nnW);
     Client.handshake();
     Render.reset();
 
@@ -1840,8 +1806,8 @@ function onNewItem(IID) {
     }
 };
 
-function onPlayerLife(value) {
-    World.gauges.life.value = value;
+function onPlayerLife(vW) {
+    World.gauges.life.value = vW;
 };
 
 function onLifeDecreas() {
@@ -1879,69 +1845,61 @@ function onReplaceItem(IID) {
 };
 
 function onStackItem(data) {
-    var inventory = World.PLAYER.inventory;
-    var firstIndex = -1;
-    var secondIndex = -1;
-
-    for (var i = 0; i < inventory.length; i++) {
-        if ((((firstIndex === -1) && (inventory[i][0] === data[1])) && (inventory[i][1] === data[2])) && (inventory[i][2] === data[3]))
-            firstIndex = i;
-        else if (((inventory[i][0] === data[1]) && (inventory[i][1] === data[4])) && (inventory[i][2] === data[5]))
-            secondIndex = i;
+    var invtr = World.PLAYER.inventory;
+    var wWnWW = -1;
+    var MNmNm = -1;
+    for (var i = 0; i < invtr.length; i++) {
+        if ((((wWnWW === -1) && (invtr[i][0] === data[1])) && (invtr[i][1] === data[2])) && (invtr[i][2] === data[3]))
+            wWnWW = i;
+        else if (((invtr[i][0] === data[1]) && (invtr[i][1] === data[4])) && (invtr[i][2] === data[5]))
+            MNmNm = i;
     }
-
     var item = INVENTORY[data[1]];
-    var totalStack = data[2] + data[4];
-
-    if (item.stack < totalStack) {
-        inventory[secondIndex][3] = window.Math.min(255, window.Math.max(0, window.Math.floor(((inventory[firstIndex][3] * inventory[firstIndex][1]) + (inventory[secondIndex][3] * (item.stack - inventory[firstIndex][1]))) / item.stack)));
-        inventory[firstIndex][1] = totalStack - item.stack;
-        inventory[secondIndex][1] = item.stack;
+    var NVwnN = data[2] + data[4];
+    if (item.stack < NVwnN) {
+        invtr[MNmNm][3] = window.Math.min(255, window.Math.max(0, window.Math.floor(((invtr[wWnWW][3] * invtr[wWnWW][1]) + (invtr[MNmNm][3] * (item.stack - invtr[wWnWW][1]))) / item.stack)));
+        invtr[wWnWW][1] = NVwnN - item.stack;
+        invtr[MNmNm][1] = item.stack;
     } else {
-        inventory[secondIndex][3] = window.Math.min(255, window.Math.max(0, window.Math.floor(((inventory[firstIndex][3] * inventory[firstIndex][1]) + (inventory[secondIndex][3] * inventory[secondIndex][1])) / totalStack)));
-        inventory[firstIndex][0] = 0;
-        inventory[firstIndex][1] = 0;
-        inventory[firstIndex][2] = 0;
-        inventory[firstIndex][3] = 0;
-        inventory[secondIndex][1] = totalStack;
+        invtr[MNmNm][3] = window.Math.min(255, window.Math.max(0, window.Math.floor(((invtr[wWnWW][3] * invtr[wWnWW][1]) + (invtr[MNmNm][3] * invtr[MNmNm][1])) / NVwnN)));
+        invtr[wWnWW][0] = 0;
+        invtr[wWnWW][1] = 0;
+        invtr[wWnWW][2] = 0;
+        invtr[wWnWW][3] = 0;
+        invtr[MNmNm][1] = NVwnN;
     }
-
     if ((Game.getSkillBoxState() === 1) && (World.PLAYER.craftCategory === -1))
         World.buildCraftList(World.PLAYER.craftArea);
 };
 
 function onSplitItem(data) {
-    var inventory = World.PLAYER.inventory;
+    var invtr = World.PLAYER.inventory;
     var amount = window.Math.floor(data[2] / 2);
-    var firstIndex = -1;
-    var secondIndex = -1;
-
-    for (var i = 0; i < inventory.length; i++) {
-        if ((((secondIndex === -1) && (inventory[i][0] === data[1])) && (inventory[i][1] === data[2])) && (inventory[i][2] === data[3])) {
-            secondIndex = i;
-            inventory[i][1] -= amount;
-        } else if ((firstIndex === -1) && (inventory[i][0] === 0)) {
-            firstIndex = i;
-            inventory[i][0] = data[1];
-            inventory[i][1] = amount;
-            inventory[i][2] = data[4];
+    var nvMvW = -1;
+    var VVmWn = -1;
+    for (var i = 0; i < invtr.length; i++) {
+        if ((((VVmWn === -1) && (invtr[i][0] === data[1])) && (invtr[i][1] === data[2])) && (invtr[i][2] === data[3])) {
+            VVmWn = i;
+            invtr[i][1] -= amount;
+        } else if ((nvMvW === -1) && (invtr[i][0] === 0)) {
+            nvMvW = i;
+            invtr[i][0] = data[1];
+            invtr[i][1] = amount;
+            invtr[i][2] = data[4];
             Game.inventory[i].setImages(INVENTORY[data[1]].itemButton.src, INVENTORY[data[1]].itemButton.img);
         }
     }
-
-    inventory[firstIndex][3] = inventory[secondIndex][3];
-
+    invtr[nvMvW][3] = invtr[VVmWn][3];
     if ((Game.getSkillBoxState() === 1) && (World.PLAYER.craftCategory === -1))
         World.buildCraftList(World.PLAYER.craftArea);
 };
-
 
 function onStaminaStop()        { World.gauges.stamina.decrease = 0;  };
 function onStaminaDecrease()    { World.gauges.stamina.decrease = 1;  };
 function onColdIncrease()       { World.gauges.cold.decrease    = -1; };
 function onColdStop()           { World.gauges.cold.decrease    = 0;  };
 function onColdDecrease()       { World.gauges.cold.decrease    = 1;  };
-function onPlayerStamina(value)    { World.gauges.stamina.value    = value; };
+function onPlayerStamina(vW)    { World.gauges.stamina.value    = vW; };
 function onLifeIncrease()       { World.gauges.life.decrease    = -1; };
 
 function onReplaceAmmo(IID) {
@@ -1964,11 +1922,10 @@ function NvmWv(IID) {
     }
   };
 
-  
-function onStartInteraction(delayMultiplier) {
-    World.PLAYER.interaction = 1;
-    World.PLAYER.interactionDelay = delayMultiplier * 100;
-    World.PLAYER.interactionWait = World.PLAYER.interactionDelay;
+function onStartInteraction(mM) {
+    World.PLAYER.interaction      = 1;
+    World.PLAYER.interactionDelay = mM * 100;
+    World.PLAYER.interactionWait  = World.PLAYER.interactionDelay;
 };
 
 function onInterruptInteraction() {
@@ -2250,13 +2207,13 @@ function onTeamPosition(ui8) {
     for (var i = 0; i < len; i++) {
         var id = ui8[3 + (i * 3)];
         if (World.PLAYER.id !== id) {
-            var offsetX = ui8[1 + (i * 3)];
-            var offsetY = ui8[2 + (i * 3)];
+            var wX = ui8[1 + (i * 3)];
+            var wY = ui8[2 + (i * 3)];
             var PLAYER = World.players[id];
             pos[j].id = id;
             pos[j].old = 14000;
-            PLAYER.x = offsetX * Render.__TRANSFORM__;
-            PLAYER.y = offsetY * Render.__TRANSFORM__;
+            PLAYER.x = wX * Render.__TRANSFORM__;
+            PLAYER.y = wY * Render.__TRANSFORM__;
             if (Math2d.fastDist(PLAYER.rx, PLAYER.ry, PLAYER.x, PLAYER.y) > 3000000) {
                 PLAYER.rx = PLAYER.x;
                 PLAYER.ry = PLAYER.y;
@@ -2340,31 +2297,91 @@ function onResetDrug(id, withdrawal) {
     PLAYER.repellent = Render.globalTime;
 };
 
-function onDramaticChrono(duration) {
-    World.PLAYER.nextAreas = duration * 10000;
+function onDramaticChrono(nnW) {
+    World.PLAYER.nextAreas = nnW * 10000;
 };
 
 function onMessageRaw(data) {
     var ui8 = new window.Uint8Array(data);
     // New case numbers array
-    const newCaseNumbers = [42, 0, 35, 31, 27, 1, 32, 22, 34, 19, 28, 17, 15, 4, 30, 29, 23, 12, 33, 37, 54, 3, 56, 38, 14, 48, 64, 52, 46, 6, 11, 61, 10, 71, 41, 5, 59, 73, 58, 16, 60, 53, 20, 49, 40, 8, 62, 67, 25, 26, 2, 36, 18, 44, 9, 21, 7, 13, 24, 57, 69, 68, 55, 51, 39, 45, 65, 72, 70, 43, 47, 50, 66, 63];
+    const newCaseNumbers = [22, 45, 0, 43, 19, 28, 14, 51, 40, 12, 9, 46, 34, 31, 2, 33, 7, 30, 15, 59, 36, 70, 1, 11, 29, 47, 13, 68, 20, 71, 26, 16, 3, 24, 57, 72, 61, 17, 55, 48, 5, 39, 44, 8, 35, 62, 38, 56, 27, 32, 4, 69, 10, 23, 21, 37, 18, 64, 41, 6, 65, 53, 54, 66, 52, 42, 49, 67, 58, 73, 60, 63, 50, 25];
+
     // Create a map from old case numbers to new case numbers
     const caseMap = {
-        52: newCaseNumbers[0], 0: newCaseNumbers[1], 34: newCaseNumbers[2], 46: newCaseNumbers[3], 51: newCaseNumbers[4],
-        63: newCaseNumbers[5], 6: newCaseNumbers[6], 65: newCaseNumbers[7], 56: newCaseNumbers[8], 72: newCaseNumbers[9],
-        71: newCaseNumbers[10], 55: newCaseNumbers[11], 17: newCaseNumbers[12], 1: newCaseNumbers[13], 40: newCaseNumbers[14],
-        58: newCaseNumbers[15], 64: newCaseNumbers[16], 30: newCaseNumbers[17], 48: newCaseNumbers[18], 35: newCaseNumbers[19],
-        29: newCaseNumbers[20], 54: newCaseNumbers[21], 9: newCaseNumbers[22], 69: newCaseNumbers[23], 39: newCaseNumbers[24],
-        3: newCaseNumbers[25], 38: newCaseNumbers[26], 21: newCaseNumbers[27], 43: newCaseNumbers[28], 20: newCaseNumbers[29],
-        44: newCaseNumbers[30], 42: newCaseNumbers[31], 12: newCaseNumbers[32], 18: newCaseNumbers[33], 47: newCaseNumbers[34],
-        73: newCaseNumbers[35], 61: newCaseNumbers[36], 25: newCaseNumbers[37], 66: newCaseNumbers[38], 59: newCaseNumbers[39],
-        24: newCaseNumbers[40], 41: newCaseNumbers[41], 19: newCaseNumbers[42], 57: newCaseNumbers[43], 67: newCaseNumbers[44],
-        37: newCaseNumbers[45], 32: newCaseNumbers[46], 22: newCaseNumbers[47], 4: newCaseNumbers[48], 60: newCaseNumbers[49],
-        53: newCaseNumbers[50], 8: newCaseNumbers[51], 13: newCaseNumbers[52], 16: newCaseNumbers[53], 7: newCaseNumbers[54],
-        31: newCaseNumbers[55], 68: newCaseNumbers[56], 50: newCaseNumbers[57], 45: newCaseNumbers[58], 28: newCaseNumbers[59],
-        49: newCaseNumbers[60], 10: newCaseNumbers[61], 62: newCaseNumbers[62], 27: newCaseNumbers[63], 26: newCaseNumbers[64],
-        5: newCaseNumbers[65], 15: newCaseNumbers[66], 23: newCaseNumbers[67], 70: newCaseNumbers[68], 14: newCaseNumbers[69],
-        33: newCaseNumbers[70], 2: newCaseNumbers[71], 36: newCaseNumbers[72], 11: newCaseNumbers[73]
+        52: newCaseNumbers[0],
+        0: newCaseNumbers[1], 
+        34: newCaseNumbers[2], 
+        46: newCaseNumbers[3], 
+        51: newCaseNumbers[4],
+        63: newCaseNumbers[5], 
+        6: newCaseNumbers[6], 
+        65: newCaseNumbers[7],
+        56: newCaseNumbers[8], 
+        72: newCaseNumbers[9],
+        71: newCaseNumbers[10], 
+        55: newCaseNumbers[11], 
+        17: newCaseNumbers[12], 
+        1: newCaseNumbers[13], 
+        40: newCaseNumbers[14],
+        58: newCaseNumbers[15], 
+        64: newCaseNumbers[16], 
+        30: newCaseNumbers[17],
+        48: newCaseNumbers[18], 
+        35: newCaseNumbers[19],
+        29: newCaseNumbers[20], 
+        54: newCaseNumbers[21], 
+        9: newCaseNumbers[22], 
+        69: newCaseNumbers[23], 
+        39: newCaseNumbers[24],
+        3: newCaseNumbers[25], 
+        38: newCaseNumbers[26], 
+        21: newCaseNumbers[27],
+        43: newCaseNumbers[28], 
+        20: newCaseNumbers[29],
+        44: newCaseNumbers[30], 
+        42: newCaseNumbers[31], 
+        12: newCaseNumbers[32], 
+        18: newCaseNumbers[33],
+        47: newCaseNumbers[34],
+        73: newCaseNumbers[35], 
+        61: newCaseNumbers[36], 
+        25: newCaseNumbers[37], 
+        66: newCaseNumbers[38], 
+        59:newCaseNumbers[39],
+        24: newCaseNumbers[40], 
+        41: newCaseNumbers[41], 
+        19: newCaseNumbers[42], 
+        57: newCaseNumbers[43], 
+        67: newCaseNumbers[44],
+        37: newCaseNumbers[45], 
+        32: newCaseNumbers[46], 
+        22: newCaseNumbers[47], 
+        4: newCaseNumbers[48], 
+        60: newCaseNumbers[49],
+        53: newCaseNumbers[50], 
+        8: newCaseNumbers[51],
+        13: newCaseNumbers[52], 
+        16: newCaseNumbers[53], 
+        7: newCaseNumbers[54],
+        31: newCaseNumbers[55], 
+        68: newCaseNumbers[56], 
+        50: newCaseNumbers[57], 
+        45: newCaseNumbers[58], 
+        28: newCaseNumbers[59],
+        49: newCaseNumbers[60], 
+        10: newCaseNumbers[61], 
+        62: newCaseNumbers[62], 
+        27: newCaseNumbers[63],
+        26: newCaseNumbers[64],
+        5: newCaseNumbers[65], 
+        15: newCaseNumbers[66], 
+        23: newCaseNumbers[67], 
+        70: newCaseNumbers[68], 
+        14: newCaseNumbers[69],
+        33: newCaseNumbers[70], 
+        2: newCaseNumbers[71], 
+        36: newCaseNumbers[72], 
+        11: newCaseNumbers[73]
     };
 
     // Decode data with updated case numbers
@@ -2493,7 +2510,7 @@ function onNicknamesToken(data) {
     MOD.token = data[len];
 };
 
-function onAlert() {};
+function onAlert(vvMVW) {};
 
 function onNewTeam(data) {
     var team = World.teams[data[1]];
@@ -2551,7 +2568,6 @@ function onFirstMessage(dat) {
             Home.ads = -1;
         }
     }
-    Home.adblocker = 0 // make sure we do indeed get the items
     return [dat, token, tokenId, userid, state, nickname, skin, Home.adblocker, password];
 };
 
@@ -2571,57 +2587,60 @@ var Client = (function() {
         __STOLEN_SESSION__:          1024
     };
 
+    var VMVmm = 0;
     var hostname = 1;
     var port = 2;
-    var CONNECTION_TIMEOUT = 3000;
-    var RECONNECTION_TIMEOUT = 1500;
+    var vNNmW = 3;
+    var Wmvmm = 4;
+    var VMvvn = 3000;
+    var WmNnm = 1500;
     var string0 = window.JSON.stringify([0]);
-    var MOUSE_ROTATION_TIMEOUT = 150;
-    var FAST_MOUSE_ROTATION_TIMEOUT = 60;
+    var MMvMv = 150;
+    var mvNWn = 60;
     var LEFT = 0;
     var RIGHT = 1;
     var socket = window.undefined;
-    var connectionAttempts = 0;
+    var Nvwnv = 0;
     var isconnected = 0;
     var delay = 0;
-    var previousDelay = CONNECTION_TIMEOUT;
-    var lastActivityTimestamp = 0;
-    var reconnectionDelay = 0;
-    var lastMoveState = 0;
-    var lastShiftState = 0;
+    var NvVVv = VMvvn;
+    var vVw = 0;
+    var wwNNN = 0;
+    var NMmmW = 0;
+    var nnvmV = 0;
     var getServList = "";
     var dat = 0;
-    var connectionAttemptsLimit = 0;
+    var nwmmM = 0;
     var timeoutnb = 0;
-    var reconnectionAttempts = 0;
-    var lastChatTimestamp = 0;
-    var chatMessageDelay = 0;
-    var lastMouseDirection = 0;
+    var nVMNw = 0;
+    var wVmvv = 0;
+    var wVmvW = 0;
+    var MmnWW = 0;
     var MouseAngle = Mouse.angle;
-    var lastMouseAngleUpdate = 0;
+    var nmVmM = 0;
     var onMessageJSON = window.undefined;
     var onMessageRaw = window.undefined;
-    var startMessage = window.undefined;
+    var nnwwV = window.undefined;
 
-    function init(version, rejoin, joinServerDelay, joinServerAttempts, pingServerDelay, inactivityTimeoutt, RawMessage, JsonMessage, FirstMessage) {
+    function init(nmnVn, NWNnv, vVVWm, NvwVV, mWnNN, NwvVN, MnmWV, Wnmwv, WvnMM) {
         //getServList = (wwwWN !== window.undefined) ? wwwWN : "json/servers.json";
-        dat = (version !== window.undefined) ? version : 0;
-        connectionAttemptsLimit = (rejoin !== window.undefined) ? rejoin : 15000;
-        reconnectionAttempts = (joinServerAttempts !== window.undefined) ? joinServerAttempts : 3;
-        reconnectionDelay = (pingServerDelay !== window.undefined) ? pingServerDelay : 20000;
-        windowFocusDelay = (inactivityTimeoutt !== window.undefined) ? inactivityTimeoutt : 10000;
-        onMessageRaw = (RawMessage !== window.undefined) ? RawMessage : (function() {});
-        onMessageJSON = (JsonMessage !== window.undefined) ? JsonMessage : (function() {});
-        startMessage = (FirstMessage !== window.undefined) ? FirstMessage : (function() {});
-        timeoutnb = (joinServerDelay !== window.undefined) ? joinServerDelay : 2000;
-        lastMouseAngleUpdate = previousTimestamp;
+        dat = (nmnVn !== window.undefined) ? nmnVn : 0;
+        nwmmM = (NWNnv !== window.undefined) ? NWNnv : 15000;
+        nVMNw = (NvwVV !== window.undefined) ? NvwVV : 3;
+        wwNNN = (mWnNN !== window.undefined) ? mWnNN : 20000;
+        windowFocusDelay = (NwvVN !== window.undefined) ? NwvVN : 10000;
+        onMessageRaw = (MnmWV !== window.undefined) ? MnmWV : (function() {});
+        onMessageJSON = (Wnmwv !== window.undefined) ? Wnmwv : (function() {});
+        nnwwV = (WvnMM !== window.undefined) ? WvnMM : (function() {});
+        timeoutnb = (vVVWm !== window.undefined) ? vVVWm : 2000;
+        nmVmM = previousTimestamp;
         var serverversion = localStorage2.getItem("serverVersion");
         if ((localStorage2.getItem("token") === null) || (serverversion !== ("" + dat)))
             localStorage2.setItem("token", chngtoken());
         localStorage2.setItem("serverVersion", dat);
     };
 
-    function handleDisconnection() {
+    function WmMnn() {
         if (((Client.state & State.__CONNECTED__) === 0) || ((Client.state & State.__CONNECTION_LOST__) > 0))
             return;
         Client.state = State.__CONNECTION_LOST__;
@@ -2629,12 +2648,12 @@ var Client = (function() {
         checkConnection();
     };
 
-    function attemptReconnection() {
+    function WNmnv() {
         if (delta > windowFocusDelay)
             delay = previousTimestamp;
-        if ((previousTimestamp - delay) > connectionAttemptsLimit) {
+        if ((previousTimestamp - delay) > nwmmM) {
             delay = previousTimestamp;
-            handleDisconnection();
+            WmMnn();
         }
     };
 
@@ -2656,10 +2675,10 @@ var Client = (function() {
         }
     };
 
-    function handleReconnectionAttempts() {
+    function mnnMw() {
         isconnected++;
         socket.close();
-        if (isconnected >= reconnectionAttempts) {
+        if (isconnected >= nVMNw) {
             Client.state = State.__ATTEMPTS_LIMIT_EXCEEDED__ + (Client.state & State.__CONNECTION_LOST__);
             if ((Client.state & State.__CONNECTION_LOST__) > 0)
                 onError();
@@ -2668,24 +2687,24 @@ var Client = (function() {
     };
 
     function sendPacket(NwnNM) {
-        lastActivityTimestamp = previousTimestamp;
+        vVw = previousTimestamp;
         socket.send(NwnNM);
     };
 
-    function sendKeepAlive() {
-        if ((previousTimestamp - lastActivityTimestamp) > reconnectionDelay) {
+    function MNVNn() {
+        if ((previousTimestamp - vVw) > wwNNN) {
             socket.send(string0);
-            lastActivityTimestamp = previousTimestamp;
+            vVw = previousTimestamp;
         }
     };
 
     function sendChatMessage(message) {
-        if ((previousTimestamp - lastChatTimestamp) > chatMessageDelay) {
-            lastActivityTimestamp = previousTimestamp;
+        if ((previousTimestamp - wVmvv) > wVmvW) {
+            vVw = previousTimestamp;
             socket.send(window.JSON.stringify([1, message]));
             return 0;
         }
-        return chatMessageDelay - (previousTimestamp - lastChatTimestamp);
+        return wVmvW - (previousTimestamp - wVmvv);
     };
 
     function sendWSmsg(ss) {
@@ -2716,11 +2735,11 @@ var Client = (function() {
 
 
     function sendMouseAngle() {
-            if ((previousTimestamp - lastMouseAngleUpdate) > MOUSE_ROTATION_TIMEOUT) {
+            if ((previousTimestamp - nmVmM) > MMvMv) {
                 var rotation = (((((Mouse.angle - MouseAngle) * 180) / window.Math.PI) % 360) + 360) % 360;
                 if (rotation > 2) {
-                    lastActivityTimestamp = previousTimestamp;
-                    lastMouseAngleUpdate = previousTimestamp;
+                    vVw = previousTimestamp;
+                    nmVmM = previousTimestamp;
                     MouseAngle = Mouse.angle;
                     rotation = window.Math.floor(((((Mouse.angle * 180) / window.Math.PI) % 360) + 360) % 360);
                     if (!MOD.AimBotEnable) socket.send(window.JSON.stringify([6, rotation]));
@@ -2729,11 +2748,11 @@ var Client = (function() {
     };
 
     function sendFastMouseAngle() {
-            if ((previousTimestamp - lastMouseAngleUpdate) > FAST_MOUSE_ROTATION_TIMEOUT) {
+            if ((previousTimestamp - nmVmM) > mvNWn) {
                 var rotation = (((((Mouse.angle - MouseAngle) * 180) / window.Math.PI) % 360) + 360) % 360;
                 if (rotation > 2) {
-                    lastActivityTimestamp = previousTimestamp;
-                    lastMouseAngleUpdate = previousTimestamp;
+                    vVw = previousTimestamp;
+                    nmVmM = previousTimestamp;
                     MouseAngle = Mouse.angle;
                     rotation = window.Math.floor(((((Mouse.angle * 180) / window.Math.PI) % 360) + 360) % 360);
                     if (!MOD.AimBotEnable) socket.send(window.JSON.stringify([6, rotation]));
@@ -2743,37 +2762,37 @@ var Client = (function() {
 
     function sendShift() {
         var shift = Keyboard.isShift();
-        if (shift !== lastShiftState) {
-            lastActivityTimestamp = previousTimestamp;
+        if (shift !== nnvmV) {
+            vVw = previousTimestamp;
             window.console.log("sendShift", shift);
-            lastShiftState = shift;
+            nnvmV = shift;
             socket.send(window.JSON.stringify([7, shift]));
         }
     };
 
     function sendMouseRightLeft() {
         if (Mouse.x >= canw2ns) {
-            if (lastMouseDirection !== RIGHT) {
-                lastActivityTimestamp = previousTimestamp;
-                lastMouseDirection = RIGHT;
+            if (MmnWW !== RIGHT) {
+                vVw = previousTimestamp;
+                MmnWW = RIGHT;
                 socket.send(window.JSON.stringify([3, RIGHT]));
             }
         } else {
-            if (lastMouseDirection !== LEFT) {
-                lastActivityTimestamp = previousTimestamp;
-                lastMouseDirection = LEFT;
+            if (MmnWW !== LEFT) {
+                vVw = previousTimestamp;
+                MmnWW = LEFT;
                 socket.send(window.JSON.stringify([3, LEFT]));
             }
         }
     };
 
     function sendMouseDown() {
-        lastActivityTimestamp = previousTimestamp;
+        vVw = previousTimestamp;
         socket.send(window.JSON.stringify([4]));
     };
 
     function sendMouseUp() {
-        lastActivityTimestamp = previousTimestamp;
+        vVw = previousTimestamp;
         socket.send(window.JSON.stringify([5]));
     };
 
@@ -2783,9 +2802,9 @@ var Client = (function() {
         if (Keyboard.isRight()  === 1)      move |= 2;
         if (Keyboard.isBottom() === 1)      move |= 4;
         if (Keyboard.isTop()    === 1)      move |= 8;
-        if (lastMoveState !== move) {
-            lastActivityTimestamp = previousTimestamp;
-            lastMoveState = move;
+        if (NMmmW !== move) {
+            vVw = previousTimestamp;
+            NMmmW = move;
             socket.send(window.JSON.stringify([2, move]));
         }
     };
@@ -2793,27 +2812,27 @@ var Client = (function() {
     function completeConnection(rivetToken) {
         var ip = Client.connectedLobby['ports']['default']['hostname'];
         var port = Client.connectedLobby['ports']['default']['port'];
-        var isTLS = Client.connectedLobby['ports']['default']['is_tls'] ? 1 : 0;
-        socket = new window.WebSocket("ws" + (isTLS === 1 ? "s" : "") + "://" + ip + ":" + port + '/?token=' + rivetToken);
+        var NnnNv = Client.connectedLobby['ports']['default']['is_tls'] ? 1 : 0;
+        socket = new window.WebSocket("ws" + (NnnNv === 1 ? "s" : "") + "://" + ip + ":" + port + '/?token=' + rivetToken);
         window.ws = socket;
-        connectionAttempts++;
-        socket.currentId = connectionAttempts;
-        var currentId = connectionAttempts;
+        Nvwnv++;
+        socket.currentId = Nvwnv;
+        var currentId = Nvwnv;
 
 
         socket.binaryType = "arraybuffer";
         socket.onerror = function() {
-            if (this.currentId !== connectionAttempts)
+            if (this.currentId !== Nvwnv)
                 return;
-            handleDisconnection();
+            WmMnn();
         };
         socket.onclose = function(event) {
-            if (this.currentId !== connectionAttempts)
+            if (this.currentId !== Nvwnv)
                 return;
-            handleDisconnection();
+            WmMnn();
         };
-        socket.onmessage = function(event) {
-            if (this.currentId !== connectionAttempts)
+        socket.onmessage = function(event, vnWMw) {
+            if (this.currentId !== Nvwnv)
                 return;
 
             delay = previousTimestamp;
@@ -2825,20 +2844,20 @@ var Client = (function() {
         };
         
         socket.onopen = function(event) {
-            lastMouseDirection = -1;
-            lastActivityTimestamp = previousTimestamp;
+            MmnWW = -1;
+            vVw = previousTimestamp;
             onOtherDie();
             socket.send(window.JSON.stringify(onFirstMessage(dat)));
             cannotJoinServerHandler = window.setTimeout(function() {
-                if (currentId !== connectionAttempts)
+                if (currentId !== Nvwnv)
                     return;
-                handleReconnectionAttempts();
+                mnnMw();
             }, timeoutnb);
         };
         cannotJoinServerHandler = window.setTimeout(function() {
-            if (currentId !== connectionAttempts)
+            if (currentId !== Nvwnv)
                 return;
-            handleReconnectionAttempts();
+            mnnMw();
         }, timeoutnb);
     };
 
@@ -2847,8 +2866,8 @@ var Client = (function() {
     };
 
     function muted(delay) {
-        lastChatTimestamp = previousTimestamp;
-        chatMessageDelay = delay * 60000;
+        wVmvv = previousTimestamp;
+        wVmvW = delay * 60000;
     };
 
     function stolenSession() {
@@ -2926,8 +2945,8 @@ var Client = (function() {
 
     function update() {
         if (Client.state === Client.State.__CONNECTED__) {
-            attemptReconnection();
-            sendKeepAlive();
+            WNmnv();
+            MNVNn();
         }
     };
 
@@ -3176,29 +3195,29 @@ var World = (function() {
         }
     };
 
-    function moveEntitie(entity) {
-        offsetX = entity.rx + ((delta * entity.speed) * entity.angleX);
-        offsetY = entity.ry + ((delta * entity.speed) * entity.angleY);
-        if (Math2d.fastDist(entity.rx, entity.ry, entity.nx, entity.ny) < Math2d.fastDist(offsetX, offsetY, entity.rx, entity.ry)) {
-            entity.rx = entity.nx;
-            entity.ry = entity.ny;
+    function moveEntitie(UNIT) {
+        wX = UNIT.rx + ((delta * UNIT.speed) * UNIT.angleX);
+        wY = UNIT.ry + ((delta * UNIT.speed) * UNIT.angleY);
+        if (Math2d.fastDist(UNIT.rx, UNIT.ry, UNIT.nx, UNIT.ny) < Math2d.fastDist(wX, wY, UNIT.rx, UNIT.ry)) {
+            UNIT.rx = UNIT.nx;
+            UNIT.ry = UNIT.ny;
         } else {
-            entity.rx = offsetX;
-            entity.ry = offsetY;
+            UNIT.rx = wX;
+            UNIT.ry = wY;
         }
-        entity.x = MathUtils.lerp(entity.x, entity.rx, entity.lerp);
-        entity.y = MathUtils.lerp(entity.y, entity.ry, entity.lerp);
-        entity.i = window.Math.max(0, window.Math.min(worldY, window.Math.floor(entity.y / Render.__TILE_SIZE__)));
-        entity.j = window.Math.max(0, window.Math.min(worldX, window.Math.floor(entity.x / Render.__TILE_SIZE__)));
-        if ((World.PLAYER.id === entity.pid) && (entity.id === 0)) {
-            if (MOD.showRealAngles === "always") entity.angle = MathUtils.lerp(entity.angle, entity.nangle, entity.lerp * 2);
-            else if ((MOD.showRealAngles === "withAim") && (MOD.AimBotEnable)) entity.angle = MathUtils.lerp(entity.angle, entity.nangle, entity.lerp * 2);
-            else entity.angle = Mouse.angle;
+        UNIT.x = MathUtils.lerp(UNIT.x, UNIT.rx, UNIT.lerp);
+        UNIT.y = MathUtils.lerp(UNIT.y, UNIT.ry, UNIT.lerp);
+        UNIT.i = window.Math.max(0, window.Math.min(worldY, window.Math.floor(UNIT.y / Render.__TILE_SIZE__)));
+        UNIT.j = window.Math.max(0, window.Math.min(worldX, window.Math.floor(UNIT.x / Render.__TILE_SIZE__)));
+        if ((World.PLAYER.id === UNIT.pid) && (UNIT.id === 0)) {
+            if (MOD.showRealAngles === "always") UNIT.angle = MathUtils.lerp(UNIT.angle, UNIT.nangle, UNIT.lerp * 2);
+            else if ((MOD.showRealAngles === "withAim") && (MOD.AimBotEnable)) UNIT.angle = MathUtils.lerp(UNIT.angle, UNIT.nangle, UNIT.lerp * 2);
+            else UNIT.angle = Mouse.angle;
         } else {
-            if (entity.pid === 0)
-                entity.angle = MathUtils.lerp(entity.angle, entity.nangle, entity.lerp / 2);
+            if (UNIT.pid === 0)
+                UNIT.angle = MathUtils.lerp(UNIT.angle, UNIT.nangle, UNIT.lerp / 2);
             else
-                entity.angle = MathUtils.lerp(entity.angle, entity.nangle, entity.lerp * 2);
+                UNIT.angle = MathUtils.lerp(UNIT.angle, UNIT.nangle, UNIT.lerp * 2);
         }
     };
 
@@ -3238,7 +3257,7 @@ var World = (function() {
         World.newLeaderboard = 1;
     };
 
-    function Gauge() {
+    function VmmnM() {
         this.current    = 0;
         this.value      = 0;
         this._max       = 0;
@@ -3248,99 +3267,99 @@ var World = (function() {
         this.bonus      = 0;
     };
 
-    function initGauge(gauge, value, speedInc, speedDec, decrease) {
-        gauge.current     = value;
-        gauge.value       = value;
-        gauge._max        = value;
-        gauge.speedInc    = speedInc;
-        gauge.speedDec    = speedDec;
-        gauge.decrease    = decrease;
-        gauge.bonus       = 0;
+    function nVnwv(Vnv, vW, speedInc, speedDec, decrease) {
+        Vnv.current     = vW;
+        Vnv.value       = vW;
+        Vnv._max        = vW;
+        Vnv.speedInc    = speedInc;
+        Vnv.speedDec    = speedDec;
+        Vnv.decrease    = decrease;
+        Vnv.bonus       = 0;
     };
 
     function initGauges() {
-        var playerGauges = ENTITIES[__ENTITIE_PLAYER__].gauges;
-        initGauge(gauges.life, playerGauges.life._max, playerGauges.life.speedInc, playerGauges.life.speedDec, 0);
+        var WvW = ENTITIES[__ENTITIE_PLAYER__].gauges;
+        nVnwv(gauges.life, WvW.life._max, WvW.life.speedInc, WvW.life.speedDec, 0);
         if (PLAYER.ghoul === 0) {
-            initGauge(gauges.food, playerGauges.food._max, playerGauges.food.speedInc, playerGauges.food.speedDec, 1);
-            initGauge(gauges.cold, playerGauges.cold._max, playerGauges.cold.speedInc, playerGauges.cold.speedDec, 0);
-            initGauge(gauges.stamina, playerGauges.stamina._max, playerGauges.stamina.speedInc, playerGauges.stamina.speedDec, -1);
-            initGauge(gauges.rad, playerGauges.rad._max, playerGauges.rad.speedInc, playerGauges.rad.speedDec, 0);
+            nVnwv(gauges.food, WvW.food._max, WvW.food.speedInc, WvW.food.speedDec, 1);
+            nVnwv(gauges.cold, WvW.cold._max, WvW.cold.speedInc, WvW.cold.speedDec, 0);
+            nVnwv(gauges.stamina, WvW.stamina._max, WvW.stamina.speedInc, WvW.stamina.speedDec, -1);
+            nVnwv(gauges.rad, WvW.rad._max, WvW.rad.speedInc, WvW.rad.speedDec, 0);
         } else {
-            initGauge(gauges.food, playerGauges.food._max, playerGauges.food.speedInc, 0, 1);
-            initGauge(gauges.cold, playerGauges.cold._max, playerGauges.cold.speedInc, 0, 0);
-            initGauge(gauges.stamina, playerGauges.stamina._max, playerGauges.stamina.speedInc * 2, playerGauges.stamina.speedDec / 2, -1);
-            initGauge(gauges.rad, playerGauges.rad._max, playerGauges.rad.speedInc, 0, 0);
+            nVnwv(gauges.food, WvW.food._max, WvW.food.speedInc, 0, 1);
+            nVnwv(gauges.cold, WvW.cold._max, WvW.cold.speedInc, 0, 0);
+            nVnwv(gauges.stamina, WvW.stamina._max, WvW.stamina.speedInc * 2, WvW.stamina.speedDec / 2, -1);
+            nVnwv(gauges.rad, WvW.rad._max, WvW.rad.speedInc, 0, 0);
         }
-        initGauge(gauges.xp, 255, 0, 0, 0);
+        nVnwv(gauges.xp, 255, 0, 0, 0);
         gauges.xp.value = 0;
         gauges.xp.current = 0;
         PLAYER.nextLevel = __XP_START__;
-        if (day === DAY_NIGHT_CYCLE)
+        if (day === NwVWM)
             gauges.cold.decrease = 1;
     };
 
-    function updateGauge(gauge) {
-        if (gauge.decrease === 1)
-            gauge.value = window.Math.min(gauge._max, window.Math.max(gauge.value - (delta * (gauge.speedDec - gauge.bonus)), 0));
-        else if (gauge.decrease === -1)
-            gauge.value = window.Math.min(gauge.value + (delta * (gauge.speedInc + gauge.bonus)), gauge._max);
-        gauge.current = MathUtils.lerp(gauge.current, gauge.value, 0.1);
+    function nMmNW(Vnv) {
+        if (Vnv.decrease === 1)
+            Vnv.value = window.Math.min(Vnv._max, window.Math.max(Vnv.value - (delta * (Vnv.speedDec - Vnv.bonus)), 0));
+        else if (Vnv.decrease === -1)
+            Vnv.value = window.Math.min(Vnv.value + (delta * (Vnv.speedInc + Vnv.bonus)), Vnv._max);
+        Vnv.current = MathUtils.lerp(Vnv.current, Vnv.value, 0.1);
     };
 
     function updateGauges() {
-        updateGauge(gauges.life);
-        updateGauge(gauges.food);
-        updateGauge(gauges.cold);
-        updateGauge(gauges.rad);
-        updateGauge(gauges.stamina);
-        updateGauge(gauges.xp);
+        nMmNW(gauges.life);
+        nMmNW(gauges.food);
+        nMmNW(gauges.cold);
+        nMmNW(gauges.rad);
+        nMmNW(gauges.stamina);
+        nMmNW(gauges.xp);
         World.PLAYER.VWMmM += delta;
         if (gauges.rad.current > 254)
             AudioManager.geiger = 0;
         else
             AudioManager.geiger = window.Math.min(1, window.Math.max(0, 1 - (gauges.rad.current / 255)));
-        updatePlayerXP();
+        vNvmW();
     };
     var gauges = {
-        life: new Gauge,
-        food: new Gauge,
-        cold: new Gauge,
-        rad: new Gauge,
-        stamina: new Gauge,
-        xp: new Gauge
+        life: new VmmnM,
+        food: new VmmnM,
+        cold: new VmmnM,
+        rad: new VmmnM,
+        stamina: new VmmnM,
+        xp: new VmmnM
     };
-    var DAY_NIGHT_CYCLE = 1;
+    var NwVWM = 1;
     var __DAY__ = 0;
     var day = __DAY__;
-    var elapsedTime = 0;
+    var wVnVV = 0;
 
     function changeDayCycle() {
-        var temp;
-        temp = INVENTORY2;
+        var mWN;
+        mWN = INVENTORY2;
         INVENTORY2 = INVENTORY;
-        INVENTORY = temp;
-        temp = PARTICLES2;
+        INVENTORY = mWN;
+        mWN = PARTICLES2;
         PARTICLES2 = PARTICLES;
-        PARTICLES = temp;
-        temp = LOOT2;
+        PARTICLES = mWN;
+        mWN = LOOT2;
         LOOT2 = LOOT;
-        LOOT = temp;
-        temp = RESOURCES2;
+        LOOT = mWN;
+        mWN = RESOURCES2;
         RESOURCES2 = RESOURCES;
-        RESOURCES = temp;
-        temp = ENTITIES2;
+        RESOURCES = mWN;
+        mWN = ENTITIES2;
         ENTITIES2 = ENTITIES;
-        ENTITIES = temp;
-        temp = LIGHTFIRE2;
+        ENTITIES = mWN;
+        mWN = LIGHTFIRE2;
         LIGHTFIRE2 = LIGHTFIRE;
-        LIGHTFIRE = temp;
-        temp = GROUND2;
+        LIGHTFIRE = mWN;
+        mWN = GROUND2;
         GROUND2 = GROUND;
-        GROUND = temp;
-        temp = AI2;
+        GROUND = mWN;
+        mWN = AI2;
         AI2 = AI;
-        AI = temp;
+        AI = mWN;
         day = (day + 1) % 2;
         World.day = day;
         if (day === 0) {
@@ -3350,33 +3369,33 @@ var World = (function() {
             window.document.getElementById("bod").style.backgroundColor = "#0B2129";
             canvas.style.backgroundColor = "#0B2129";
         }
-        elapsedTime = 0;
+        wVnVV = 0;
     };
 
-    function setDayCycle(cycle, newElapsedTime) {
+    function setDayCycle(cycle, MVNvn) {
         if (cycle !== day)
             World.transition = 1000;
         World.day = day;
-        elapsedTime = newElapsedTime;
+        wVnVV = MVNvn;
     };
 
-    function initDayCycle(cycle, newElapsedTime) {
+    function initDayCycle(cycle, MVNvn) {
         if (cycle !== day)
             changeDayCycle();
         World.day = day;
-        elapsedTime = newElapsedTime;
+        wVnVV = MVNvn;
     };
 
     function updateHour() {
-        elapsedTime += delta;
-        return (elapsedTime % World.__DAY__) + (day * 10000000);
+        wVnVV += delta;
+        return (wVnVV % World.__DAY__) + (day * 10000000);
     };
 
     function selectRecipe(id) {
         var len = 0;
         var item = INVENTORY[id];
         Game.preview.setImages(item.itemButton.src, item.itemButton.img);
-        var recipeDetails = item.detail.recipe;
+        var MWVwN = item.detail.recipe;
         var canvasZ = item.detail.area;
         var recipe = Game.recipe;
         var tools = Game.tools;
@@ -3394,50 +3413,50 @@ var World = (function() {
         }
         PLAYER.toolsLen = len;
         len = 0;
-        if (recipeDetails !== window.undefined) {
-            for (i = 0; i < recipeDetails.length; i++) {
-                item = INVENTORY[recipeDetails[i][0]];
+        if (MWVwN !== window.undefined) {
+            for (i = 0; i < MWVwN.length; i++) {
+                item = INVENTORY[MWVwN[i][0]];
                 recipe[len].setImages(item.itemButton.src, item.itemButton.img);
                 recipeList[len] = item.id;
                 len++;
             }
         }
         PLAYER.recipeLen = len;
-        updateRecipeAvailability(recipeDetails);
+        MMMWN(MWVwN);
     };
 
-    function _CheckSkillState(id, detail) {
-        if ((PLAYER.skillUnlocked[id] === 1) || (detail.level === -1))
+    function _CheckSkillState(id, NW) {
+        if ((PLAYER.skillUnlocked[id] === 1) || (NW.level === -1))
             return 2;
-        else if (((detail.level > PLAYER.level) || (PLAYER.skillPoint < detail.price)) || ((detail.previous !== -1) && (PLAYER.skillUnlocked[detail.previous] === window.undefined)))
+        else if (((NW.level > PLAYER.level) || (PLAYER.skillPoint < NW.price)) || ((NW.previous !== -1) && (PLAYER.skillUnlocked[NW.previous] === window.undefined)))
             return 0;
         return 1;
     };
 
-    function updateRecipeAvailability(recipe) {
-        var availableRecip = PLAYER.recipeAvailable;
+    function MMMWN(recipe) {
+        var MvmWv = PLAYER.recipeAvailable;
         var invtr = PLAYER.inventory;
-        var canCraft = 1;
+        var mNmnm = 1;
         if (recipe === window.undefined)
-            return canCraft;
+            return mNmnm;
         for (var i = 0; i < recipe.length; i++) {
-            var recipeItem = recipe[i];
+            var VWVMW = recipe[i];
             for (var j = 0; j < invtr.length; j++) {
                 var IID = invtr[j];
-                if (IID[0] === recipeItem[0]) {
-                    if (IID[1] >= recipeItem[1]) {
-                        availableRecip[i] = recipeItem[1];
+                if (IID[0] === VWVMW[0]) {
+                    if (IID[1] >= VWVMW[1]) {
+                        MvmWv[i] = VWVMW[1];
                         break;
                     } else
-                        availableRecip[i] = -recipeItem[1];
+                        MvmWv[i] = -VWVMW[1];
                 }
             }
             if (j === invtr.length) {
-                availableRecip[i] = -recipeItem[1];
-                canCraft = 0;
+                MvmWv[i] = -VWVMW[1];
+                mNmnm = 0;
             }
         }
-        return canCraft;
+        return mNmnm;
     };
 
     function releaseBuilding() {
@@ -3490,15 +3509,15 @@ var World = (function() {
         var craftList = Game.craft;
         for (var i = 1; i < INVENTORY.length; i++) {
             var item = INVENTORY[i];
-            var detail = item.detail;
-            if (((detail.area !== window.undefined) && (detail.area.indexOf(area) !== -1)) && ((detail.level === -1) || (PLAYER.skillUnlocked[item.id] === 1))) {
+            var NW = item.detail;
+            if (((NW.area !== window.undefined) && (NW.area.indexOf(area) !== -1)) && ((NW.level === -1) || (PLAYER.skillUnlocked[item.id] === 1))) {
                 if ((receipe === 0) || (previous === i)) {
                     receipe = i;
                     selected = len;
                 }
                 craftList[len].setImages(item.itemButton.src, item.itemButton.img);
                 craft[len] = i;
-                craftAvailable[len] = updateRecipeAvailability(detail.recipe);
+                craftAvailable[len] = MMMWN(NW.recipe);
                 len++;
             }
         }
@@ -3519,7 +3538,7 @@ var World = (function() {
         return xp;
     };
 
-    function updatePlayerXP() {
+    function vNvmW() {
         if ((PLAYER.xp > 0) && (window.Math.abs(gauges.xp.current - gauges.xp.value) < 0.6)) {
             if (gauges.xp.value === 255) {
                 gauges.xp.current = 0;
@@ -3689,24 +3708,23 @@ var World = (function() {
     };
 
 })();
-
 var Entitie = (function() {
-    var maxUnitsPerType = 0;
+    var MwvWW = 0;
     var units = [];
     var border = [];
-    var entityCache = [];
-    var localUnitsCount = 0;
+    var WVMvm = [];
+    var MnMWW = 0;
 
-    function init(unitCountPerType, maxUnitsMaster, localUnits) {
+    function init(WvwVn, maxUnitsMaster, localUnits) {
         Entitie.maxUnitsMaster = (maxUnitsMaster === window.undefined) ? 0 : maxUnitsMaster;
         Entitie.localUnits = (localUnits === window.undefined) ? 0 : localUnits;
-        localUnitsCount = Entitie.localUnits + Entitie.maxUnitsMaster;
-        maxUnitsPerType = ENTITIES.length;
+        MnMWW = Entitie.localUnits + Entitie.maxUnitsMaster;
+        MwvWW = ENTITIES.length;
         var len = ENTITIES.length + 1;
         for (var i = 0; i < len; i++) {
-            border[i] = new Border.Border(unitCountPerType);
+            border[i] = new Border.Border(WvwVn);
             units[i] = [];
-            for (var j = 0; j < unitCountPerType; j++)
+            for (var j = 0; j < WvwVn; j++)
                 units[i][j] = Entitie.create(i);
         }
     };
@@ -3718,27 +3736,27 @@ var Entitie = (function() {
     function removeAll() {
         for (var i = 0; i < ENTITIES.length; i++)
             border[i].border = 0;
-        entityCache = [];
+        WVMvm = [];
     };
 
-    function remove(pid, id, uid, type, keepInCache) {
+    function remove(pid, id, uid, type, nVmNV) {
         var i = 0;
-        var entityIndex = (((pid === 0) ? 0 : localUnitsCount) + (pid * Entitie.unitsPerPlayer)) + id;
-        var entity = entityCache[entityIndex];
-        if (((entity !== window.undefined) && (entity.type === type)) && (entity.uid === uid))
-            entityCache[entityIndex] = window.undefined;
-        var entityBorder = border[type];
-        var entityUnits = units[type];
-        var len = entityBorder.border;
+        var mMnVn = (((pid === 0) ? 0 : MnMWW) + (pid * Entitie.unitsPerPlayer)) + id;
+        var UNIT = WVMvm[mMnVn];
+        if (((UNIT !== window.undefined) && (UNIT.type === type)) && (UNIT.uid === uid))
+            WVMvm[mMnVn] = window.undefined;
+        var M = border[type];
+        var NMwVv = units[type];
+        var len = M.border;
         for (i = 0; i < len; i++) {
-            var entity = entityUnits[entityBorder.cycle[i]];
-            if (((entity.uid === uid) && (entity.pid === pid)) && (entity.id === id)) {
-                Border.fastKillIdentifier(entityBorder, i);
-                if ((ENTITIES[entity.type].remove > 0) && (keepInCache === 1)) {
-                    var newEntity = units[maxUnitsPerType][Border.forceNewIdentifier(border[maxUnitsPerType])];
-                    for (var j in entity)
-                        newEntity[j] = entity[j];
-                    newEntity.removed = 1;
+            var UNIT = NMwVv[M.cycle[i]];
+            if (((UNIT.uid === uid) && (UNIT.pid === pid)) && (UNIT.id === id)) {
+                Border.fastKillIdentifier(M, i);
+                if ((ENTITIES[UNIT.type].remove > 0) && (nVmNV === 1)) {
+                    var VWvMW = units[MwvWW][Border.forceNewIdentifier(border[MwvWW])];
+                    for (var j in UNIT)
+                        VWvMW[j] = UNIT[j];
+                    VWvMW.removed = 1;
                 }
                 return;
             }
@@ -3746,31 +3764,31 @@ var Entitie = (function() {
     };
 
     function get(pid, id, uid, type) {
-        var entityIndex = (((pid === 0) ? 0 : localUnitsCount) + (pid * Entitie.unitsPerPlayer)) + id;
-        var entity = entityCache[entityIndex];
-        if ((entity === window.undefined) || (entity.uid !== uid)) {
-            var newEntityIndex = Border.forceNewIdentifier(border[type]);
-            entity = units[type][newEntityIndex];
-            if (entity === window.undefined) {
+        var mMnVn = (((pid === 0) ? 0 : MnMWW) + (pid * Entitie.unitsPerPlayer)) + id;
+        var UNIT = WVMvm[mMnVn];
+        if ((UNIT === window.undefined) || (UNIT.uid !== uid)) {
+            var wmWnw = Border.forceNewIdentifier(border[type]);
+            UNIT = units[type][wmWnw];
+            if (UNIT === window.undefined) {
                 window.console.log("Memory Warn: new entitie created");
-                units[type][newEntityIndex] = Entitie.create(type);
-                entity = units[type][newEntityIndex];
+                units[type][wmWnw] = Entitie.create(type);
+                UNIT = units[type][wmWnw];
             }
-            entityCache[entityIndex] = entity;
-            entity.update = 0;
-            entity.removed = 0;
+            WVMvm[mMnVn] = UNIT;
+            UNIT.update = 0;
+            UNIT.removed = 0;
         }
-        return entity;
+        return UNIT;
     };
 
     function cleanRemoved() {
-        var entityBorder = border[maxUnitsPerType];
-        var entityUnits = units[maxUnitsPerType];
-        var len = entityBorder.border;
+        var M = border[MwvWW];
+        var NMwVv = units[MwvWW];
+        var len = M.border;
         for (i = 0; i < len; i++) {
-            var entity = entityUnits[entityBorder.cycle[i]];
-            if (entity.removed !== 1) {
-                Border.fastKillIdentifier(entityBorder, i);
+            var UNIT = NMwVv[M.cycle[i]];
+            if (UNIT.removed !== 1) {
+                Border.fastKillIdentifier(M, i);
                 len--;
                 i--;
             }
@@ -3778,11 +3796,11 @@ var Entitie = (function() {
     };
 
     function findEntitie(type, pid, id) {
-        var entityUnits = units[type];
-        var entityBorder = border[type];
-        var len = entityBorder.border;
+        var NMwVv = units[type];
+        var M = border[type];
+        var len = M.border;
         for (var i = 0; i < len; i++) {
-            var player = entityUnits[entityBorder.cycle[i]];
+            var player = NMwVv[M.cycle[i]];
             if ((player.id === id) && (player.pid === pid))
                 return player;
         }
@@ -4725,7 +4743,7 @@ var ENTITIES = [{
         stamina: 2,
         radius: 30,
         malusSpeed: 0,
-        distance: 47,
+        dist: 47,
         consumable: 0,
         trigger: 0
     }, {
@@ -4752,14 +4770,14 @@ var ENTITIES = [{
             angle: 0,
             x: 33,
             y: 28,
-            distance: 8,
+            dist: 8,
             rotation: 1.8
         },
         leftArm: {
             angle: 0,
             x: 30,
             y: -28,
-            distance: -14,
+            dist: -14,
             rotation: 1
         },
         breath: 0.02,
@@ -4773,7 +4791,7 @@ var ENTITIES = [{
         knockback: 15,
         stamina: 5,
         radius: 50,
-        distance: 56,
+        dist: 56,
         consumable: 0,
         trigger: 0
     }, {
@@ -4800,14 +4818,14 @@ var ENTITIES = [{
             angle: 0,
             x: 33,
             y: 28,
-            distance: 8,
+            dist: 8,
             rotation: 1.8
         },
         leftArm: {
             angle: 0,
             x: 30,
             y: -28,
-            distance: -14,
+            dist: -14,
             rotation: 1
         },
         breath: 0.02,
@@ -4821,7 +4839,7 @@ var ENTITIES = [{
         knockback: 15,
         stamina: 5,
         radius: 50,
-        distance: 56,
+        dist: 56,
         consumable: 0,
         trigger: 0
     }, {
@@ -4848,14 +4866,14 @@ var ENTITIES = [{
             angle: 0,
             x: 33,
             y: 28,
-            distance: 8,
+            dist: 8,
             rotation: 1.8
         },
         leftArm: {
             angle: 0,
             x: 30,
             y: -28,
-            distance: -14,
+            dist: -14,
             rotation: 1
         },
         breath: 0.02,
@@ -4869,7 +4887,7 @@ var ENTITIES = [{
         knockback: 10,
         stamina: 4,
         radius: 40,
-        distance: 59,
+        dist: 59,
         consumable: 0,
         trigger: 0
     }, {
@@ -4896,14 +4914,14 @@ var ENTITIES = [{
             angle: 0,
             x: 33,
             y: 28,
-            distance: 8,
+            dist: 8,
             rotation: 1.8
         },
         leftArm: {
             angle: 0,
             x: 30,
             y: -28,
-            distance: -14,
+            dist: -14,
             rotation: 1
         },
         breath: 0.05,
@@ -4916,7 +4934,7 @@ var ENTITIES = [{
         knockback: 20,
         stamina: 4,
         radius: 46,
-        distance: 72,
+        dist: 72,
         consumable: 0,
         trigger: 0
     }, {
@@ -4961,7 +4979,7 @@ var ENTITIES = [{
         impactClient: 100,
         stamina: 15,
         x: -40,
-        distance: 47,
+        dist: 47,
         distance: 60,
         consumable: 0,
         trigger: 0
@@ -5015,7 +5033,7 @@ var ENTITIES = [{
         impactClient: 100,
         stamina: 8,
         x: -1,
-        distance: 47,
+        dist: 47,
         distance: -8,
         consumable: 0,
         trigger: 0
@@ -5071,7 +5089,7 @@ var ENTITIES = [{
         stamina: 0,
         x: 0,
         path: 600,
-        distance: 47,
+        dist: 47,
         consumable: 0,
         trigger: 0
     }, {
@@ -5126,7 +5144,7 @@ var ENTITIES = [{
         stamina: 0,
         x: 0,
         path: 800,
-        distance: 47,
+        dist: 47,
         consumable: 0,
         trigger: 0
     }, {
@@ -5181,7 +5199,7 @@ var ENTITIES = [{
         stamina: 0,
         x: 0,
         path: 900,
-        distance: 47,
+        dist: 47,
         consumable: 0,
         trigger: 0
     }, {
@@ -5236,7 +5254,7 @@ var ENTITIES = [{
         stamina: 0,
         x: 0,
         path: 900,
-        distance: 47,
+        dist: 47,
         consumable: 0,
         trigger: 0
     }, {
@@ -5291,7 +5309,7 @@ var ENTITIES = [{
         stamina: 0,
         x: 0,
         path: 1100,
-        distance: 47,
+        dist: 47,
         consumable: 0,
         trigger: 0
     }, {
@@ -5654,7 +5672,7 @@ var ENTITIES = [{
         stamina: 0,
         x: 0,
         path: 900,
-        distance: 47,
+        dist: 47,
         trigger: 0
     }, {
         type: 6,
@@ -5711,14 +5729,14 @@ var ENTITIES = [{
             angle: 0,
             x: 33,
             y: 28,
-            distance: 8,
+            dist: 8,
             rotation: 1.8
         },
         leftArm: {
             angle: 0,
             x: 30,
             y: -28,
-            distance: -14,
+            dist: -14,
             rotation: 1
         },
         breath: 0.02,
@@ -5732,7 +5750,7 @@ var ENTITIES = [{
         knockback: 15,
         stamina: 5,
         radius: 50,
-        distance: 56,
+        dist: 56,
         consumable: 0,
         trigger: 0
     }, {
@@ -5759,14 +5777,14 @@ var ENTITIES = [{
             angle: 0,
             x: 33,
             y: 28,
-            distance: 8,
+            dist: 8,
             rotation: 1.8
         },
         leftArm: {
             angle: 0,
             x: 30,
             y: -28,
-            distance: -14,
+            dist: -14,
             rotation: 1
         },
         breath: 0.02,
@@ -5780,7 +5798,7 @@ var ENTITIES = [{
         knockback: 30,
         stamina: 15,
         radius: 40,
-        distance: 56,
+        dist: 56,
         consumable: 0,
         trigger: 0
     }, {
@@ -5803,14 +5821,14 @@ var ENTITIES = [{
             angle: 0,
             x: 33,
             y: 28,
-            distance: 8,
+            dist: 8,
             rotation: 1.8
         },
         leftArm: {
             angle: 0,
             x: 30,
             y: -28,
-            distance: -14,
+            dist: -14,
             rotation: 1
         },
         breath: 0.02,
@@ -5824,7 +5842,7 @@ var ENTITIES = [{
         knockback: 10,
         stamina: 6,
         radius: 40,
-        distance: 59,
+        dist: 59,
         consumable: 0,
         trigger: 0
     }, {
@@ -6035,7 +6053,7 @@ var ENTITIES = [{
         stamina: 12,
         x: 0,
         path: 800,
-        distance: 47,
+        dist: 47,
         consumable: 0,
         trigger: 0
     }, {
@@ -6090,7 +6108,7 @@ var ENTITIES = [{
         stamina: 0,
         x: 0,
         path: 500,
-        distance: 47,
+        dist: 47,
         consumable: 0,
         trigger: 0
     }, {
@@ -6145,7 +6163,7 @@ var ENTITIES = [{
         stamina: 0,
         x: 0,
         path: 400,
-        distance: 47,
+        dist: 47,
         consumable: 0,
         trigger: 0
     }, {
@@ -6280,7 +6298,7 @@ var ENTITIES = [{
         stamina: 0,
         x: 0,
         path: 900,
-        distance: 47,
+        dist: 47,
         consumable: 0,
         trigger: 0
     }, {
@@ -6307,14 +6325,14 @@ var ENTITIES = [{
             angle: 0,
             x: 33,
             y: 28,
-            distance: 8,
+            dist: 8,
             rotation: 1.8
         },
         leftArm: {
             angle: 0,
             x: 30,
             y: -28,
-            distance: -14,
+            dist: -14,
             rotation: 1
         },
         breath: 0.05,
@@ -6327,7 +6345,7 @@ var ENTITIES = [{
         knockback: 20,
         stamina: 4,
         radius: 46,
-        distance: 72,
+        dist: 72,
         consumable: 0,
         trigger: 0
     }, {
@@ -6418,7 +6436,7 @@ var ENTITIES = [{
         stamina: 0,
         x: 0,
         path: 900,
-        distance: 47,
+        dist: 47,
         consumable: 0,
         trigger: 0
     }, {
@@ -6459,7 +6477,7 @@ var ENTITIES = [{
         impactClient: 100,
         stamina: 15,
         x: -50,
-        distance: 47,
+        dist: 47,
         distance: 25,
         consumable: 0,
         trigger: 0
@@ -6483,14 +6501,14 @@ var ENTITIES = [{
             angle: 0,
             x: 33,
             y: 28,
-            distance: 8,
+            dist: 8,
             rotation: 1.8
         },
         leftArm: {
             angle: 0,
             x: 30,
             y: -28,
-            distance: -14,
+            dist: -14,
             rotation: 1
         },
         breath: 0.02,
@@ -6504,7 +6522,7 @@ var ENTITIES = [{
         knockback: 30,
         stamina: 15,
         radius: 40,
-        distance: 56,
+        dist: 56,
         consumable: 0,
         trigger: 0
     }, {
@@ -7067,7 +7085,7 @@ var ENTITIES = [{
         stamina: 0,
         x: 0,
         path: 1100,
-        distance: 47,
+        dist: 47,
         consumable: 0,
         trigger: 0
     }, {
@@ -7234,14 +7252,14 @@ var ENTITIES = [{
             angle: 0,
             x: 33,
             y: 28,
-            distance: 8,
+            dist: 8,
             rotation: 1.8
         },
         leftArm: {
             angle: 0,
             x: 30,
             y: -28,
-            distance: -14,
+            dist: -14,
             rotation: 1
         },
         breath: 0.02,
@@ -7255,7 +7273,7 @@ var ENTITIES = [{
         knockback: 20,
         stamina: 16,
         radius: 50,
-        distance: 56,
+        dist: 56,
         consumable: 0,
         trigger: 0
     }, {
@@ -7637,54 +7655,54 @@ function EntitieClass(type) {
         });
 };
 
-function setEntitie(entity, pid, uid, id, type, offsetX, offsetY, nx, ny, extra, angle, state) {
+function setEntitie(UNIT, pid, uid, id, type, wX, wY, nx, ny, extra, angle, state) {
 
-    entity.pid      = pid;
-    entity.uid      = uid;
-    entity.id       = id;
-    entity.nangle   = MathUtils.reduceAngle(entity.angle, ((angle * 2) * window.Math.PI) / 255);
-    entity.state    = state;
-    entity.nx       = nx;
-    entity.ny       = ny;
-    entity.extra    = extra;
+    UNIT.pid      = pid;
+    UNIT.uid      = uid;
+    UNIT.id       = id;
+    UNIT.nangle   = MathUtils.reduceAngle(UNIT.angle, ((angle * 2) * window.Math.PI) / 255);
+    UNIT.state    = state;
+    UNIT.nx       = nx;
+    UNIT.ny       = ny;
+    UNIT.extra    = extra;
 
-    if (entity.update === 0) {
+    if (UNIT.update === 0) {
 
-        var playerGauges         = ENTITIES[type];
-        entity.speed        = playerGauges.speed;
-        entity.angle        = entity.nangle;
-        entity.x            = offsetX;
-        entity.y            = offsetY;
-        entity.z            = playerGauges.z;
-        entity.lerp         = playerGauges.lerp;
-        entity.rx           = offsetX;
-        entity.ry           = offsetY;
-        entity.i            = window.Math.floor(offsetY / Render.__TILE_SIZE__);
-        entity.j            = window.Math.floor(offsetX / Render.__TILE_SIZE__);
-        entity.hit          = 0;
-        entity.hitMax       = 0;
-        entity.hurt         = 0;
-        entity.hurt2        = 0;
-        entity.hurtAngle    = 0;
-        entity.heal         = 0;
-        entity.death        = 0;
-        entity.breath       = 0;
-        entity.breath2      = 0;
-        entity.born         = 0;
-        entity.broke        = 0;
-        entity.subtype      = 0;
-        entity.draw         = null;
+        var WvW         = ENTITIES[type];
+        UNIT.speed        = WvW.speed;
+        UNIT.angle        = UNIT.nangle;
+        UNIT.x            = wX;
+        UNIT.y            = wY;
+        UNIT.z            = WvW.z;
+        UNIT.lerp         = WvW.lerp;
+        UNIT.rx           = wX;
+        UNIT.ry           = wY;
+        UNIT.i            = window.Math.floor(wY / Render.__TILE_SIZE__);
+        UNIT.j            = window.Math.floor(wX / Render.__TILE_SIZE__);
+        UNIT.hit          = 0;
+        UNIT.hitMax       = 0;
+        UNIT.hurt         = 0;
+        UNIT.hurt2        = 0;
+        UNIT.hurtAngle    = 0;
+        UNIT.heal         = 0;
+        UNIT.death        = 0;
+        UNIT.breath       = 0;
+        UNIT.breath2      = 0;
+        UNIT.born         = 0;
+        UNIT.broke        = 0;
+        UNIT.subtype      = 0;
+        UNIT.draw         = null;
 
-        var init = playerGauges.init;
+        var init = WvW.init;
 
         if (init !== window.undefined)
-            init(entity);
+            init(UNIT);
 
     }
-    var angle = Math2d.angle(entity.rx, entity.ry, nx, ny);
-    entity.angleX = window.Math.cos(angle);
-    entity.angleY = window.Math.sin(angle);
-    entity.update = 1;
+    var angle = Math2d.angle(UNIT.rx, UNIT.ry, nx, ny);
+    UNIT.angleX = window.Math.cos(angle);
+    UNIT.angleY = window.Math.sin(angle);
+    UNIT.update = 1;
 };
 var Border = (function() {
     function forceNewIdentifier(M) {
@@ -7702,21 +7720,21 @@ var Border = (function() {
         return -1;
     };
 
-    function fastKillIdentifier(M, index) {
+    function fastKillIdentifier(M, WMwNN) {
         M.border--;
-        var lastValue = M.cycle[M.border];
-        M.cycle[M.border] = M.cycle[index];
-        M.cycle[index] = lastValue;
+        var NNMwv = M.cycle[M.border];
+        M.cycle[M.border] = M.cycle[WMwNN];
+        M.cycle[WMwNN] = NNMwv;
     };
 
-    function killIdentifier(M, valueIndex) {
+    function killIdentifier(M, WMWmm) {
         M.border--;
-        var lastValue = M.cycle[M.border];
-        var valueLocator = M.locator[valueIndex];
-        M.cycle[M.border] = valueIndex;
-        M.cycle[valueLocator] = lastValue;
-        M.locator[lastValue] = valueLocator;
-        M.locator[valueIndex] = M.border;
+        var NNMwv = M.cycle[M.border];
+        var wMmvn = M.locator[WMWmm];
+        M.cycle[M.border] = WMWmm;
+        M.cycle[wMmvn] = NNMwv;
+        M.locator[NNMwv] = wMmvn;
+        M.locator[WMWmm] = M.border;
     };
 
     function Border(size) {
@@ -7733,19 +7751,19 @@ var Border = (function() {
     function ImperfectBorder(size) {
         var border = new Border(size);
         var cycle = border.cycle;
-        var dataStore = new window.Array(size);
+        var VnMNn = new window.Array(size);
         this.length = 0;
         this.reset = function vision() {
             border.border = 0;
             this.length = 0;
         };
-        this.add = function vmMVw(data) {
-            dataStore[forceNewIdentifier(border)] = data;
+        this.add = function vmMVw(vMV) {
+            VnMNn[forceNewIdentifier(border)] = vMV;
             this.length++;
         };
-        this.remove = function remove(data) {
+        this.remove = function remove(vMV) {
             for (var i = 0; i < this.length; i++) {
-                if (dataStore[cycle[i]] === data) {
+                if (VnMNn[cycle[i]] === vMV) {
                     fastKillIdentifier(border, i);
                     this.length--;
                     return;
@@ -7753,41 +7771,41 @@ var Border = (function() {
             }
         };
         this.get = function get(i) {
-            return dataStore[cycle[i]];
+            return VnMNn[cycle[i]];
         };
     };
 
     function PerfectBorder(size) {
         var border = new Border(size);
         var cycle = border.cycle;
-        var dataStore = new window.Array(size);
+        var VnMNn = new window.Array(size);
         var i = 0;
-        var valueLocator = [];
+        var wnVvv = [];
         for (i = 0; i < size; i++)
-            valueLocator[i] = -1;
+            wnVvv[i] = -1;
         this.length = 0;
         this.reset = function vision() {
             border.border = 0;
             this.length = 0;
         };
-        this.add = function vmMVw(data) {
+        this.add = function vmMVw(vMV) {
             var pos = forceNewIdentifier(border);
-            dataStore[pos] = data;
-            valueLocator[data] = border.border - 1;
+            VnMNn[pos] = vMV;
+            wnVvv[vMV] = border.border - 1;
             this.length++;
         };
-        this.remove = function remove(data) {
-            var pos = valueLocator[data];
+        this.remove = function remove(vMV) {
+            var pos = wnVvv[vMV];
             if (pos === -1)
                 return;
-            valueLocator[data] = -1;
+            wnVvv[vMV] = -1;
             fastKillIdentifier(border, pos);
             this.length--;
             if (this.length > 0)
-                valueLocator[dataStore[cycle[pos]]] = pos;
+                wnVvv[VnMNn[cycle[pos]]] = pos;
         };
         this.get = function get(i) {
-            return dataStore[cycle[i]];
+            return VnMNn[cycle[i]];
         };
     };
 
@@ -7822,6 +7840,48 @@ var RNG = (function() {
     };
 })();
 
+var Quicksort = (function() {
+    function MvWmM(WwN, NvNNM, vVmmm, MMM, VWmWN) {
+        var WnWnN = MMM;
+        var nmnVv = WwN[vVmmm];
+        var wWNMV = WwN[vVmmm];
+        WwN[vVmmm] = WwN[VWmWN];
+        WwN[VWmWN] = wWNMV;
+        for (var VwvNN = MMM; VwvNN < VWmWN; VwvNN++) {
+            if (NvNNM(WwN[VwvNN], nmnVv) <= 0) {
+                var wWNMV = WwN[VwvNN];
+                WwN[VwvNN] = WwN[WnWnN];
+                WwN[WnWnN] = wWNMV;
+                WnWnN++;
+            }
+        }
+        var wWNMV = WwN[VWmWN];
+        WwN[VWmWN] = WwN[WnWnN];
+        WwN[WnWnN] = wWNMV;
+        return WnWnN;
+    };
+
+    function nMNWM(WwN, NvNNM, MMM, VWmWN) {
+        var vVmmm = 0;
+        if (MMM < VWmWN) {
+            vVmmm = MMM + window.Math.ceil((VWmWN - MMM) * 0.5);
+            NMmnN = MvWmM(WwN, NvNNM, vVmmm, MMM, VWmWN);
+            nMNWM(WwN, NvNNM, MMM, NMmnN - 1);
+            nMNWM(WwN, NvNNM, NMmnN + 1, VWmWN);
+        }
+    };
+
+    function MvvmM(WwN, NvNNM) {
+        try {
+            nMNWM(WwN, NvNNM, 0, WwN.length - 1);
+        } catch (error) {
+            WwN.sort(NvNNM);
+        }
+    };
+    return {
+        sort: MvvmM
+    };
+})();
 var TextManager = (function() {
     var __COUNTER__ = 0;
     var languages = {
@@ -7834,55 +7894,55 @@ var TextManager = (function() {
         pol: [__COUNTER__++, "pl"],
         pt: [__COUNTER__++, "pt"]
     };
-    var defaultLanguage = languages.eng;
-    var currentLanguage = defaultLanguage[0];
-    var currentLanguageIndex = [];
+    var lang = languages.eng;
+    var VNWww = lang[0];
+    var VmvWv = [];
     for (var i = 0; i < __COUNTER__; i++)
-        currentLanguageIndex[i] = [];
-    var languageStrings = languages.eng;
+        VmvWv[i] = [];
+    var NWNnM = languages.eng;
 
-    function setCurrentLanguage(language) {
-        defaultLanguage = language;
-        TextManager.defaultLanguage = defaultLanguage;
-        currentLanguage = defaultLanguage[0];
-        localStorage2.setItem("defaultLanguage", window.JSON.stringify(defaultLanguage));
+    function nMmMN(wnWwm) {
+        lang = wnWwm;
+        TextManager.lang = lang;
+        VNWww = lang[0];
+        localStorage2.setItem("lang", window.JSON.stringify(lang));
     };
 
     function get(id) {
-        if ((currentLanguageIndex[currentLanguage] === window.undefined) || (currentLanguageIndex[currentLanguage][id] === window.undefined))
-            return currentLanguageIndex[languageStrings[0]][id];
+        if ((VmvWv[VNWww] === window.undefined) || (VmvWv[VNWww][id] === window.undefined))
+            return VmvWv[NWNnM[0]][id];
         else
-            return currentLanguageIndex[currentLanguage][id];
+            return VmvWv[VNWww][id];
     };
 
     function getFormatted(id) {
         var code;
-        if ((currentLanguageIndex[currentLanguage] === window.undefined) || (currentLanguageIndex[currentLanguage][id] === window.undefined))
-            formattedString = currentLanguageIndex[languageStrings][id];
+        if ((VmvWv[VNWww] === window.undefined) || (VmvWv[VNWww][id] === window.undefined))
+            wmwww = VmvWv[NWNnM][id];
         else
-            formattedString = currentLanguageIndex[currentLanguage][id];
+            wmwww = VmvWv[VNWww][id];
         for (var i = 1; i < arguments.length; i++)
-            formattedString[0] = formattedString[0].replace("%d", arguments[i]);
-        return formattedString;
+            wmwww[0] = wmwww[0].replace("%d", arguments[i]);
+        return wmwww;
     };
 
-    function setLanguageStrings(strings) {
-        for (var i = 0; i < strings.length; i++)
-            currentLanguageIndex[currentLanguage][i] = [strings[i]];
+    function NvMWn(vNvWn) {
+        for (var i = 0; i < vNvWn.length; i++)
+            VmvWv[VNWww][i] = [vNvWn[i]];
     };
 
-    function loadLanguage(language, callback) {
-        setCurrentLanguage(language);
-        if (currentLanguageIndex[language[0]].length !== 0) {
+    function loadLanguage(wnWwm, callback) {
+        nMmMN(wnWwm);
+        if (VmvWv[wnWwm[0]].length !== 0) {
             if (callback !== window.undefined)
                 callback();
             return;
         }
         var xObj = new window.XMLHttpRequest;
-        xObj.open("GET", ("json/defaultLanguage" + language[1]) + ".json", true);
+        xObj.open("GET", ("json/lang" + wnWwm[1]) + ".json", true);
         xObj.onreadystatechange = function() {
             if ((xObj.readyState === 4) && (this.status === 200)) {
-                setLanguageStrings(window.JSON.parse(this.responseText));
+                NvMWn(window.JSON.parse(this.NWMnMvN));
                 if (callback !== window.undefined)
                     callback();
             }
@@ -7890,52 +7950,52 @@ var TextManager = (function() {
         xObj.send();
     };
 
-    function init(strings, fallback, callback) {
-        if (fallback !== window.undefined)
-            languageStrings = fallback;
-        if (strings !== window.undefined) {
-            var temp = currentLanguage;
-            currentLanguage = languageStrings[0];
-            setLanguageStrings(strings);
-            currentLanguage = temp;
+    function init(vNvWn, nVnNv, callback) {
+        if (nVnNv !== window.undefined)
+            NWNnM = nVnNv;
+        if (vNvWn !== window.undefined) {
+            var mWN = VNWww;
+            VNWww = NWNnM[0];
+            NvMWn(vNvWn);
+            VNWww = mWN;
         }
-        var storedLanguage = localStorage2.getItem("defaultLanguage");
-        if (storedLanguage === null) {
-            var userLanguage = window.navigator.language || window.navigator.userLanguage;
-            switch (userLanguage) {
+        var WVNNM = localStorage2.getItem("lang");
+        if (WVNNM === null) {
+            var vnmnw = window.navigator.language || window.navigator.userLanguage;
+            switch (vnmnw) {
                 case "ru":
-                    defaultLanguage = languages.rus;
+                    lang = languages.rus;
                     break;
                 case "en":
-                    defaultLanguage = languages.eng;
+                    lang = languages.eng;
                     break;
                 case "es":
-                    defaultLanguage = languages.spa;
+                    lang = languages.spa;
                     break;
                 case "fr":
-                    defaultLanguage = languages.fra;
+                    lang = languages.fra;
                     break;
                 case "it":
-                    defaultLanguage = languages.ita;
+                    lang = languages.ita;
                     break;
                 case "pl":
-                    defaultLanguage = languages.pol;
+                    lang = languages.pol;
                     break;
                 case "de":
-                    defaultLanguage = languages.deu;
+                    lang = languages.deu;
                     break;
                 case "pt":
-                    defaultLanguage = languages.pt;
+                    lang = languages.pt;
                     break;
             }
         } else
-            defaultLanguage = window.JSON.parse(storedLanguage);
-        loadLanguage(defaultLanguage, callback);
+            lang = window.JSON.parse(WVNNM);
+        loadLanguage(lang, callback);
     };
 
     return {
         languages:      languages,
-        defaultLanguage:defaultLanguage,
+        lang:           lang,
         get:            get,
         getFormatted:   getFormatted,
         init:           init,
@@ -8081,17 +8141,13 @@ var Keyboard = (function() {
     };
 
 })();
-
 var AudioUtils = (function() {
-    var MAX_FADE_INTERVAL = 30000;
-    var DISTANCE_THRESHOLD = 300;
-
+    var WMNnN = 30000;
+    var nnnMV = 300;
     window.AudioContext = window.AudioContext || window.webkitAudioContext;
-    var audioContext = new window.AudioContext;
-
-    if (!audioContext.createGain)
-        audioContext.createGain = audioContext.createGainNode;
-
+    var NVNWw = new window.AudioContext;
+    if (!NVNWw.createGain)
+        NVNWw.createGain = NVNWw.createGainNode;
     stream = null;
     mediaRecorder = null;
     chunks = [];
@@ -8103,14 +8159,14 @@ var AudioUtils = (function() {
     };
 
     function initStream() {
-        stream = audioContext.createMediaStreamDestination();
+        stream = NVNWw.createMediaStreamDestination();
         mediaRecorder = new window.MediaRecorder(stream.stream);
         mediaRecorder.ondataavailable = function(event) {
             chunks.push(event.data);
         };
         mediaRecorder.onstop = function(event) {
-            var mimeOptions = window.JSON.parse('{ "type" : "audio/ogg; codecs=opus" }');
-            blob = new window.Blob(chunks, mimeOptions);
+            var VwNMM = window.JSON.parse('{ "type" : "audio/ogg; codecs=opus" }');
+            blob = new window.Blob(chunks, VwNMM);
             record = window.URL.createObjectURL(blob);
         };
     };
@@ -8130,14 +8186,14 @@ var AudioUtils = (function() {
         isAudio: 1
     };
     try {
-        var value = localStorage2.getItem("isFx");
-        if (value !== null)
-            options.isFx = window.Number(value);
+        var vW = localStorage2.getItem("isFx");
+        if (vW !== null)
+            options.isFx = window.Number(vW);
         else if (isTouchScreen === 1)
             options.isFx = 0;
-        value = localStorage2.getItem("isAudio");
-        if (value !== null)
-            options.isAudio = window.Number(value);
+        vW = localStorage2.getItem("isAudio");
+        if (vW !== null)
+            options.isAudio = window.Number(vW);
         else if (isTouchScreen === 1)
             options.isAudio = 0;
     } catch (error) {
@@ -8147,49 +8203,49 @@ var AudioUtils = (function() {
         }
     }
 
-    function setAudio(value) {
-        if ((value === 0) && (options.isAudio !== value)) {
-            for (var soundKey in AudioUtils.audio) {
-                var audio = AudioUtils.audio[soundKey];
+    function setAudio(vW) {
+        if ((vW === 0) && (options.isAudio !== vW)) {
+            for (var mmnNv in AudioUtils.audio) {
+                var audio = AudioUtils.audio[mmnNv];
                 stopSound(audio);
             }
         }
-        options.isAudio = value;
-        localStorage2.setItem("isAudio", "" + value);
+        options.isAudio = vW;
+        localStorage2.setItem("isAudio", "" + vW);
     };
 
-    function setFx(value) {
-        if ((value === 0) && (options.isFx !== value)) {
-            for (var fxKey in AudioUtils._fx) {
-                var _fx = AudioUtils._fx[fxKey];
+    function setFx(vW) {
+        if ((vW === 0) && (options.isFx !== vW)) {
+            for (var Nnnmm in AudioUtils._fx) {
+                var _fx = AudioUtils._fx[Nnnmm];
                 stopSound(_fx);
             }
         }
-        options.isFx = value;
-        localStorage2.setItem("isFx", "" + value);
+        options.isFx = vW;
+        localStorage2.setItem("isFx", "" + vW);
     };
 
-    function playFx(_fx, volume, distance, timestamp) {
-        if (distance > DISTANCE_THRESHOLD)
+    function playFx(_fx, VwV, dist, NwnmN) {
+        if (dist > nnnMV)
             return;
-        volume = (1 - (distance / DISTANCE_THRESHOLD)) * volume;
-        _fx.volume = volume;
-        playSound(_fx, 0, timestamp);
+        VwV = (1 - (dist / nnnMV)) * VwV;
+        _fx.volume = VwV;
+        playSound(_fx, 0, NwnmN);
         _fx.run = 0;
     };
 
-    function Sound(url, volume, loop, _fx) {
-        this.url = url;
+    function Sound(mMm, VwV, nMnwM, _fx) {
+        this.url = mMm;
         this.buffer = null;
         this.source = null;
         this.isLoaded = 0;
         this.run = 0;
         this.gainNode = null;
-        this.loop = loop;
+        this.loop = nMnwM;
         this.volume = 1;
         this.volume0 = -1;
-        if (volume !== window.undefined)
-            this.volume = volume;
+        if (VwV !== window.undefined)
+            this.volume = VwV;
         this.fadingVolume = -1;
         this._fx = 0;
         if (_fx === 1)
@@ -8201,9 +8257,9 @@ var AudioUtils = (function() {
         this.durationMs = 0;
     };
 
-    function changeVolume(sound, value) {
-        sound.gainNode.gain.value = value;
-        sound.volume = value;
+    function changeVolume(sound, vW) {
+        sound.gainNode.gain.value = vW;
+        sound.volume = vW;
     };
 
     function stopSound(sound) {
@@ -8215,33 +8271,33 @@ var AudioUtils = (function() {
         }
     };
 
-    function fadeSound(sound, duration, effect) {
+    function fadeSound(sound, nnW, effect) {
         if (sound.fadingVolume !== -1)
             sound.volume = sound.fadingVolume;
         sound.fade = 0;
-        sound.fadeMax = duration;
+        sound.fadeMax = nnW;
         sound.fadeEffect = effect;
         window.console.log("FADE", sound.url);
     };
 
-    function playSound(sound, duration, timestamp) {
+    function playSound(sound, nnW, NwnmN) {
         if (sound._fx === 0) {
             if (options.isAudio === 0)
                 return;
         } else if (options.isFx === 0)
             return;
         if (sound.run === 1) {
-            if (((sound.volume0 !== -1) && (sound.fadeMax === 0)) && ((previousTimestamp - sound.volume0) > MAX_FADE_INTERVAL)) {
+            if (((sound.volume0 !== -1) && (sound.fadeMax === 0)) && ((previousTimestamp - sound.volume0) > WMNnN)) {
                 stopSound(sound);
                 return;
             }
             if (sound.fadeMax > 0) {
                 sound.fade = window.Math.min(sound.fade + delta, sound.fadeMax);
-                var volume = window.Math.max(0, window.Math.min(1, sound.volume + (window.Math.cos(((1 - (sound.fade / sound.fadeMax)) * 0.5) * window.Math.PI) * sound.fadeEffect)));
-                sound.gainNode.gain.value = volume;
-                sound.fadingVolume = volume;
+                var VwV = window.Math.max(0, window.Math.min(1, sound.volume + (window.Math.cos(((1 - (sound.fade / sound.fadeMax)) * 0.5) * window.Math.PI) * sound.fadeEffect)));
+                sound.gainNode.gain.value = VwV;
+                sound.fadingVolume = VwV;
                 if (sound.fade === sound.fadeMax) {
-                    sound.volume = volume;
+                    sound.volume = VwV;
                     sound.fadingVolume = -1;
                     sound.fadeMax = 0;
                     sound.fade = 0;
@@ -8259,44 +8315,44 @@ var AudioUtils = (function() {
             loadSound(sound);
             return;
         }
-        var source = audioContext.createBufferSource();
-        var gainNode = audioContext.createGain();
-        sound.source = source;
+        var WNm = NVNWw.createBufferSource();
+        var gainNode = NVNWw.createGain();
+        sound.source = WNm;
         sound.gainNode = gainNode;
         changeVolume(sound, sound.volume);
-        source.buffer = sound.buffer;
-        source.connect(gainNode);
+        WNm.buffer = sound.buffer;
+        WNm.connect(gainNode);
         if (stream !== null)
-            source.connect(stream);
-        gainNode.connect(audioContext.destination);
+            WNm.connect(stream);
+        gainNode.connect(NVNWw.destination);
         if (sound.loop === true)
-            source.loop = sound.loop;
-        if (!source.stop)
-            source.stop = source.noteOff;
-        if (!source.start)
-            source.start = source.noteOn;
-        sound.source.start(((timestamp === window.undefined) ? 0 : timestamp) + audioContext.currentTime, (duration === window.undefined) ? 0 : duration);
+            WNm.loop = sound.loop;
+        if (!WNm.stop)
+            WNm.stop = WNm.noteOff;
+        if (!WNm.start)
+            WNm.start = WNm.noteOn;
+        sound.source.start(((NwnmN === window.undefined) ? 0 : NwnmN) + NVNWw.currentTime, (nnW === window.undefined) ? 0 : nnW);
         sound.run = 1;
         sound.start = previousTimestamp;
-        window.console.log("Start", sound.url, sound.fade, sound.fadeMax, duration);
+        window.console.log("Start", sound.url, sound.fade, sound.fadeMax, nnW);
     };
 
     function loadSound(sound) {
         if (sound.isLoaded === 2)
             return;
         window.console.log("LOAD", sound);
-        var xhr = new window.XMLHttpRequest;
-        xhr.open('GET', sound.url, true);
-        xhr.responseType = 'arraybuffer';
-        xhr.onload = function() {
-            audioContext.decodeAudioData(xhr.response, function(WNNNm) {
+        var VNvNM = new window.XMLHttpRequest;
+        VNvNM.open('GET', sound.url, true);
+        VNvNM.responseType = 'arraybuffer';
+        VNvNM.onload = function() {
+            NVNWw.decodeAudioData(VNvNM.response, function(WNNNm) {
                 sound.buffer = WNNNm;
                 sound.isLoaded = 1;
                 sound.durationMs = WNNNm.duration * 1000;
             });
         };
         sound.isLoaded = 2;
-        xhr.send();
+        VNvNM.send();
         return;
     };
     return {
@@ -8318,86 +8374,85 @@ var AudioUtils = (function() {
         _fx:                {}
     };
 })();
-
 var Loader = (function() {
-    var loadingScreen;
+    var mwnMm;
 
     function init() {
-        loadingScreen = GUI.createBackground(423, 276, "img/loading1.png");
+        mwnMm = GUI.createBackground(423, 276, "img/loading1.png");
     };
-    var transitionSpeed;
-    var mouseX = new Mouse.LocalMouseEvent;
-    var keyboard = new Keyboard.LocalKeyboardEvent;
-    var transitionDuration = 800;
-    var transitionState = 0;
-    var transitionFunction = function(t) {
+    var MVv;
+    var NWV = new Mouse.LocalMouseEvent;
+    var nNw = new Keyboard.LocalKeyboardEvent;
+    var VWm = 800;
+    var WWN = 0;
+    var VNvnM = function(t) {
         return MathUtils.Ease.speedLimit(t, MathUtils.Ease.inQuart, 0.05);
     };
-    var reverseTransitionDuration = 800;
-    var reverseTransitionState = 0;
-    var reverseTransitionFunction = function(t) {
+    var Nmv = 800;
+    var mwm = 0;
+    var WVWWm = function(t) {
         return MathUtils.Ease.speedLimit(t, MathUtils.Ease.outQuart, 0.05);
     };
-    var reverseTransition = 0;
-    var transitionDuration = 0;
-    var isWaiting = window.undefined;
+    var WwM = 0;
+    var MNw = 0;
+    var mwn = window.undefined;
 
-    function run() {reverseTransitionState
+    function run() {
         CanvasUtils.setRenderer(Loader);
-        transitionDuration = reverseTransitionDuration;
-        reverseTransition = reverseTransitionDuration;
-        isWaiting = reverseTransitionFunction;
-        reverseTransitionState = 1;
+        MNw = Nmv;
+        WwM = Nmv;
+        mwn = WVWWm;
+        mwm = 1;
         update();
     };
 
-    function quit(callback) {
-        transitionSpeed = callback;
-        transitionDuration = transitionDuration;
-        reverseTransition = transitionDuration;
-        isWaiting = transitionFunction;
-        transitionState = 1;
+    function quit(wMN) {
+        MVv = wMN;
+        MNw = VWm;
+        WwM = VWm;
+        mwn = VNvnM;
+        WWN = 1;
     };
 
     function update() {
-        var transitionX = 0;
-        var transitionY = 0;
-        if (transitionDuration > 0) {
-            transitionY = canh;
-            var transition = isWaiting(1 - (transitionDuration / reverseTransition));
+        var vMm = 0;
+        var wwv = 0;
+        if (MNw > 0) {
+            wwv = canh;
+            var transition = mwn(1 - (MNw / WwM));
             if (transition === 1)
-                transitionDuration = 0;
-            if (transitionState === 1)
+                MNw = 0;
+            if (WWN === 1)
                 transition *= -1;
             else
                 transition = 1 - window.Math.abs(transition);
-            transitionX *= transition;
-            transitionY *= transition;
+            vMm *= transition;
+            wwv *= transition;
         }
-        loadingScreen.pos.x = (canw2 - window.Math.floor(211 * scaleby)) + transitionX;
-        loadingScreen.pos.y = window.Math.max(0, canh2 - window.Math.floor(138 * scaleby)) + transitionY;
+        mwnMm.pos.x = (canw2 - window.Math.floor(211 * scaleby)) + vMm;
+        mwnMm.pos.y = window.Math.max(0, canh2 - window.Math.floor(138 * scaleby)) + wwv;
     };
 
     function draw() {
-        if (transitionManager() === 0)
+        if (MMVwV() === 0)
             return;
         ctx.clearRect(0, 0, canw, canh);
-        loadingScreen.draw();
+        mwnMm.draw();
     };
 
-    function transitionManager() {
-        if (transitionState === 1) {
+    function MMVwV() {
+        if (WWN === 1) {
             update();
-            if (transitionDuration < 0) {
-                transitionState = 0;
-                transitionSpeed.run();
+            if (MNw < 0) {
+                WWN = 0;
+                MVv.run();
                 return 0;
             }
-            transitionDuration -= delta;
-        } else if (reverseTransitionState === 1) {
+            MNw -= delta;
+        } else if (mwm === 1) {
             update();
-            if (transitionDuration < 0) {
-                reverseTransitionState = 0;
+            if (MNw < 0) {
+                mwm = 0;
                 Loader.getURLData = function(_name) {
                     _url = window.location.href;
                     _name = _name.replace(/[\[]/, "\[").replace(/[\]]/, "\]");
@@ -8407,7 +8462,7 @@ var Loader = (function() {
                     return (results === null) ? null : results[1];
                 };
 
-                function setupServers() {
+                function vvWNV() {
 
                     var serverList = Client.serverList;
 
@@ -8416,15 +8471,15 @@ var Loader = (function() {
                     Home.ghoulServer = [];
 
                     var regions = [];
-                    var regionPlayers = [];
-                    var totalPlayers = 0;
-                    var serverDropdownHTML = '<select id="servers"><option value="auto">Auto Select Server</option>';
+                    var MNmMv = [];
+                    var NnMvV = 0;
+                    var NvNnM = '<select id="servers"><option value="auto">Auto Select Server</option>';
 
                     for (var i = 0; i < serverList.length; i++) {
-                        var regionName = serverList[i][4];
+                        var MNv = serverList[i][4];
                         var playerNumber = serverList[i][5];
                         var ghl = serverList[i][6];
-                        totalPlayers += playerNumber;
+                        NnMvV += playerNumber;
 
                         if (ghl === 'ghoul') {
                             Home.ghoulServer.push(i);
@@ -8432,51 +8487,51 @@ var Loader = (function() {
                         }
 
                         if (ghl === ["br"]) {
-                            regionName = regionName.replace("BR", "");
-                            if (Home.regions[regionName] === window.undefined)
-                                Home.regions[regionName] = [];
-                            Home.regions[regionName].push(i);
+                            MNv = MNv.replace("BR", "");
+                            if (Home.regions[MNv] === window.undefined)
+                                Home.regions[MNv] = [];
+                            Home.regions[MNv].push(i);
                             continue;
                         }
 
                         for (var j = 0; j < regions.length; j++) {
-                            if (regions[j] === regionName) {
-                                regionPlayers[j] += playerNumber;
+                            if (regions[j] === MNv) {
+                                MNmMv[j] += playerNumber;
                                 j = -1;
                                 break;
                             }
                         }
 
                         if (j !== -1) {
-                            regions.push(regionName);
-                            regionPlayers.push(playerNumber);
+                            regions.push(MNv);
+                            MNmMv.push(playerNumber);
                         }
 
                     }
-                    var serverIndex = 1;
-                    var selectedIndex = 0;
+                    var MnNwN = 1;
+                    var VVmNN = 0;
 
                     for (i = 0; i < regions.length; i++) {
-                        regionName = regions[i];
-                        serverDropdownHTML += ((("<option disabled>" + regions[i]) + "  - ") + regionPlayers[i]) + "  players</option>";
-                        serverIndex++;
+                        MNv = regions[i];
+                        NvNnM += ((("<option disabled>" + regions[i]) + "  - ") + MNmMv[i]) + "  players</option>";
+                        MnNwN++;
                         var id = 1;
                         for (j = 0; j < serverList.length; j++) {
-                            if (serverList[j][4] === regionName && serverList[j][6] === 'survival') {
-                                serverDropdownHTML += ((((((('<option value="' + serverList[j][0]) + '">') + regions[i]) + " ") + (id++)) + "  - ") + serverList[j][5]) + "  players</option>";
+                            if (serverList[j][4] === MNv && serverList[j][6] === 'survival') {
+                                NvNnM += ((((((('<option value="' + serverList[j][0]) + '">') + regions[i]) + " ") + (id++)) + "  - ") + serverList[j][5]) + "  players</option>";
                                 if (Client.selectedServer === j)
-                                    selectedIndex = serverIndex;
-                                serverIndex++;
+                                    VVmNN = MnNwN;
+                                MnNwN++;
                             }
                         }
                     }
                     
                     Home.htmlBattleRoyale = '<select id="servers"><option value="auto">Auto Select Server</option>';
                     for (var i in Home.regions) {
-                        var serverIndex = 0;
+                        var MnNwN = 0;
                         for (var k = 0; k < Home.regions[i].length; k++)
-                            serverIndex += serverList[Home.regions[i][k]][5];
-                        //Home.htmlBattleRoyale += ((((('<option value="' + i) + '">') + i) + "  - ") + serverIndex) + "  players</option>";
+                            MnNwN += serverList[Home.regions[i][k]][5];
+                        //Home.htmlBattleRoyale += ((((('<option value="' + i) + '">') + i) + "  - ") + MnNwN) + "  players</option>";
                     }
                     Home.privateServer = Home.privateServer.sort(function(a, M) {
                         return window.Number(serverList[M][5]) - window.Number(serverList[a][5]);
@@ -8489,13 +8544,13 @@ var Loader = (function() {
                     for (var i in Home.ghoulServer) {
                         Home.htmlGhoulServer += ('<option value="' + serverList[Home.ghoulServer[i]][0] + '">' + serverList[Home.ghoulServer[i]][4].replace("ghoul", "") + "  - " + serverList[Home.ghoulServer[i]][5]) + "  players</option>";
                     }
-                    serverDropdownHTML += ("<option disabled>All servers  - " + totalPlayers) + "  players</option></select>";
-                    Home.htmlBattleRoyale += ("<option disabled>All servers  - " + totalPlayers) + "  players</option></select>";
-                    Home.htmlPrivateServer += ("<option disabled>All servers  - " + totalPlayers) + "  players</option></select>";
-                    Home.htmlGhoulServer += ("<option disabled>All servers  - " + totalPlayers) + "  players</option></select>";
+                    NvNnM += ("<option disabled>All servers  - " + NnMvV) + "  players</option></select>";
+                    Home.htmlBattleRoyale += ("<option disabled>All servers  - " + NnMvV) + "  players</option></select>";
+                    Home.htmlPrivateServer += ("<option disabled>All servers  - " + NnMvV) + "  players</option></select>";
+                    Home.htmlGhoulServer += ("<option disabled>All servers  - " + NnMvV) + "  players</option></select>";
 
-                    window.document.getElementById("serverList").innerHTML = serverDropdownHTML;
-                    window.document.getElementById("servers").selectedIndex = selectedIndex;
+                    window.document.getElementById("serverList").innerHTML = NvNnM;
+                    window.document.getElementById("servers").selectedIndex = VVmNN;
                     
                     World.PLAYER.admin = 1; //added just taked from beloved if, whatever xD
 
@@ -8531,17 +8586,17 @@ var Loader = (function() {
                 };
                 Client.types = ["BR", "PRIV", "HIDDEN", "GHOUL"];
                 Client.getServerList(function() {
-                    setupServers();
+                    vvWNV();
                     Loader.quit(Home);
                 });
-                var entityExplosions = ENTITIES[__ENTITIE_EXPLOSION__].explosions;
-                var entityExplosions2 = ENTITIES2[__ENTITIE_EXPLOSION__].explosions;
-                for (var i = 0; i < entityExplosions.length; i++) {
-                    entityExplosions[i].img = CanvasUtils.loadImage(entityExplosions[i].src, entityExplosions[i].img);
-                    entityExplosions2[i].img = CanvasUtils.loadImage(entityExplosions2[i].src, entityExplosions2[i].img);
+                var vvwMM = ENTITIES[__ENTITIE_EXPLOSION__].explosions;
+                var NWvwV = ENTITIES2[__ENTITIE_EXPLOSION__].explosions;
+                for (var i = 0; i < vvwMM.length; i++) {
+                    vvwMM[i].img = CanvasUtils.loadImage(vvwMM[i].src, vvwMM[i].img);
+                    NWvwV[i].img = CanvasUtils.loadImage(NWvwV[i].src, NWvwV[i].img);
                 }
             }
-            transitionDuration -= delta;
+            MNw -= delta;
         }
         return 1;
     };
@@ -8553,113 +8608,74 @@ var Loader = (function() {
         draw:   draw
     };
 })();
-
 var Home = (function() {
 
-    async function joinServer() {
-        checkAdBlocker();
-    
-        if (shouldShowAds()) {
-            if (Home.waitAds === 1) return;
-            if (Home.ads === 1) {
-                await showAds();
-                return;
-            }
-        }
-    
-        const gameMode = getGameMode();
-        const serverId = document.getElementById('servers').value;
-        const [lobFind, lobID] = getLobbyDetails(gameMode, serverId);
-    
+    function joinServer() {
         try {
-            const lobby = await findOrJoinLobby(lobFind, lobID);
-            connectToLobby(lobby);
-        } catch (error) {
-            console.error(error);
-        }
-    }
-    
-    function checkAdBlocker() {
-        try {
-            document.getElementsByClassName("ympb_target")[0].id;
-            document.getElementById("trevda").id;
-            document.getElementById("preroll").id;
+            window.document.getElementsByClassName("ympb_target")[0].id;
+            window.document.getElementById("trevda").id;
+            window.document.getElementById("preroll").id;
         } catch (error) {
             Home.adblocker = 1;
         }
-    }
-    
-    function shouldShowAds() {
-        return (
-            World.PLAYER.admin !== 1 &&
-            typeof window["YMPB"] !== 'undefined' &&
-            typeof window["YMPB"]["preroll"] !== 'undefined'
-        );
-    }
-    
-    function showAds() {
-        return new Promise((resolve) => {
-            AudioManager.cutTitleMusic();
-            document.getElementById("preroll").style.display = "block";
-            window["YMPB"]["preroll"]('preroll', () => {
-                Home.waitAds = 0;
-                Home.ads = -1;
-                Home.joinServer();
-                resolve();
-            });
-            Home.waitAds = 1;
-        });
-    }
-    
-    function getGameMode() {
-        switch (Home.gameMode) {
-            case World['__SURVIVAL__']:
-                return 'survival';
-            case World['__GHOUL__']:
-                return 'ghoul';
-            case World['__BR__']:
-                return 'br';
-            default:
-                throw new Error('Unknown game mode', Home.gameMode);
+        try {
+            if (((World.PLAYER.admin !== 1) && (typeof window["YMPB"] !== 'undefined')) && (typeof window["YMPB"]["preroll"] !== 'undefined')) {
+                if (Home.waitAds === 1) return;
+                if (Home.ads === 1) {
+                    AudioManager.cutTitleMusic();
+                    window.document.getElementById("preroll").style.display = "block";
+                    window["YMPB"]["preroll"]('preroll', function() {
+                        Home.waitAds = 0;
+                        Home.ads = -1;
+                        Home.joinServer();
+                    });
+                    Home.waitAds = 1;
+                    return;
+                }
+            }
+        } catch (error) {}
+      
+        var srvMode;
+        if (Home.gameMode === World['__SURVIVAL__'])    srvMode = 'survival';
+        else {
+            if (Home.gameMode === World['__GHOUL__'])   srvMode = 'ghoul';
+            else {
+                if (Home.gameMode === World['__BR__'])  srvMode = 'br';
+                else
+                    throw new Error('Unknown game mode',Home.gameMode);
+            }
         }
-    }
-    
-    function getLobbyDetails(gameMode, serverId) {
-        if (serverId === 'auto') {
-            return ['https://api.eg.rivet.gg/matchmaker/lobbies/find', { 'game_modes': [gameMode] }];
-        } else {
-            return ['https://api.eg.rivet.gg/matchmaker/lobbies/join', { 'lobby_id': serverId }];
-        }
-    }
-    
-    async function findOrJoinLobby(url, body) {
-        const headers = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-        };
-        if (window.RIVET_TOKEN) {
-            headers['Authorization'] = 'Bearer ' + window.RIVET_TOKEN;
-        }
-    
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(body),
-        });
-    
-        if (!response.ok) {
-            throw new Error('Failed to find lobby: ' + response.status);
-        }
-    
-        return response.json();
-    }
-    
-    function connectToLobby(lobby) {
-        Client.selectedServer = Client.serverList.findIndex(server => server[0] === lobby.lobby_id);
-        Client.connectedLobby = lobby;
-        Client.startConnection(document.getElementById('nicknameInput').value, 0, lobby.player.token);
-    }
-    
+        
+        var _srv = document.getElementById('servers').value, lobFind, lobID;
+        console.log()
+        
+        _srv    == 'auto' ? (lobFind = 'https://api.eg.rivet.gg/matchmaker/lobbies/find',
+        lobID   = { 'game_modes': [srvMode] }) : (lobFind = 'https://api.eg.rivet.gg/matchmaker/lobbies/join',
+        lobID   = { 'lobby_id': _srv });
+        console.log(_srv)
+        let header = {};
+        header['Accept']        = 'application/json',
+        header['Content-Type']  = 'application/json',
+        
+        window.RIVET_TOKEN && (header['Authorization'] = 'Bearer' + window.RIVET_TOKEN)
+        
+        fetch(lobFind, {
+          method: 'POST',
+          headers: header,
+          body: JSON.stringify(lobID)
+        })
+        .then(response => { 
+          if (response['ok']) return response.json(); 
+          else throw 'Failed to find lobby: ' + response.status
+        })
+        .then(response2 => {
+          let _lob = response2['lobby'];
+          Client.selectedServer = Client.serverList.findIndex(fzX=>fzX[0] == _lob['lobby_id']),
+          Client.connectedLobby = _lob,
+          Client.startConnection(document.getElementById('nicknameInput').value, 0, _lob['player']['token']);
+        })
+
+    };
 
     function onError(state) {};
 
@@ -8672,15 +8688,15 @@ var Home = (function() {
     };
     var vmV = 0;
 
-    function nnn(type, offsetX, offsetY, angle, MMWWm, Mmwvn) {
-        var entity = Entitie.get(0, vmV, vmV, type);
-        setEntitie(entity, 0, vmV, vmV, type, offsetX, offsetY, offsetX, offsetY, (MMWWm << 5) + (Mmwvn << 10), angle, 1);
+    function nnn(type, wX, wY, angle, MMWWm, Mmwvn) {
+        var UNIT = Entitie.get(0, vmV, vmV, type);
+        setEntitie(UNIT, 0, vmV, vmV, type, wX, wY, wX, wY, (MMWWm << 5) + (Mmwvn << 10), angle, 1);
         vmV++;
     };
 
-    function Vnvmv(type, offsetX, offsetY, rotation, state, subtype) {
-        var entity = Entitie.get(0, vmV, vmV, type);
-        setEntitie(entity, 0, vmV, vmV, type, offsetX, offsetY, offsetX, offsetY, (subtype << 7) + (rotation << 5), 0, state);
+    function Vnvmv(type, wX, wY, Rot, state, subtype) {
+        var UNIT = Entitie.get(0, vmV, vmV, type);
+        setEntitie(UNIT, 0, vmV, vmV, type, wX, wY, wX, wY, (subtype << 7) + (Rot << 5), 0, state);
         vmV++;
     };
     var NNN = 0;
@@ -8705,8 +8721,8 @@ var Home = (function() {
         }]
     };
     var WVwwn = mNMWw._en;
-    var userLanguage = window.navigator.language || window.navigator.userLanguage;
-    if (userLanguage.toLowerCase().indexOf("fr") !== -1) WVwwn = mNMWw._fr;
+    var vnmnw = window.navigator.language || window.navigator.userLanguage;
+    if (vnmnw.toLowerCase().indexOf("fr") !== -1) WVwwn = mNMWw._fr;
     var WWNWM = WVwwn[window.Math.floor(WVwwn.length * window.Math.random())];
     var mnMMV = [GUI.renderText(WWNWM._name, "'Viga', sans-serif", "#FFFFFF", 30, 150), GUI.renderText(WWNWM._name, "'Viga', sans-serif", "#C5B03C", 30, 150), GUI.renderText(WWNWM._name, "'Viga', sans-serif", "#9B800D", 30, 150)];
     mnMMV[0].isLoaded = 1;
@@ -8838,7 +8854,7 @@ var Home = (function() {
             y: 0
         };
         nickname.addEventListener("keyup", function(event) {
-            if ((transitionState | reverseTransitionState) === 1) return;
+            if ((WWN | mwm) === 1) return;
             if (event.keyCode === 13) joinServer();
         }, false);
 
@@ -8857,13 +8873,13 @@ var Home = (function() {
             y: 0
         };
         serverList.addEventListener("mouseover", function(event) {
-            if ((transitionState | reverseTransitionState) === 1) return;
+            if ((WWN | mwm) === 1) return;
         }, false);
         serverList.addEventListener("mousedown", function(event) {
-            if ((transitionState | reverseTransitionState) === 1) return;
+            if ((WWN | mwm) === 1) return;
         }, false);
         serverList.addEventListener("mouseup", function(event) {
-            if ((transitionState | reverseTransitionState) === 1) return;
+            if ((WWN | mwm) === 1) return;
         }, false);
         if (isTouchScreen === 1) mwvwV = GUI.createBackground(0, 0);
         else mwvwV = GUI.createBackground(230, 235, "img/changelogBox.png");
@@ -8931,22 +8947,22 @@ var Home = (function() {
             y: 0
         };
     };
-    var transitionSpeed;
-    var mouseX = new Mouse.LocalMouseEvent;
-    var keyboard = new Keyboard.LocalKeyboardEvent;
-    var transitionDuration = 800;
-    var transitionState = 0;
-    var transitionFunction = function(t) {
+    var MVv;
+    var NWV = new Mouse.LocalMouseEvent;
+    var nNw = new Keyboard.LocalKeyboardEvent;
+    var VWm = 800;
+    var WWN = 0;
+    var VNvnM = function(t) {
         return MathUtils.Ease.speedLimit(t, MathUtils.Ease.inQuart, 0.05);
     };
-    var reverseTransitionDuration = 2000;
-    var reverseTransitionState = 0;
-    var reverseTransitionFunction = function(t) {
+    var Nmv = 2000;
+    var mwm = 0;
+    var WVWWm = function(t) {
         return MathUtils.Ease.speedLimit(t, MathUtils.Ease.outQuart, 0.05);
     };
-    var reverseTransition = 0;
-    var transitionDuration = 0;
-    var isWaiting = window.undefined;
+    var WwM = 0;
+    var MNw = 0;
+    var mwn = window.undefined;
 
     function run() {
         Client.onError = onError;
@@ -8966,10 +8982,10 @@ var Home = (function() {
             vvmMm.hide();
         }
         CanvasUtils.setRenderer(Home);
-        transitionDuration = reverseTransitionDuration;
-        reverseTransition = reverseTransitionDuration;
-        isWaiting = reverseTransitionFunction;
-        reverseTransitionState = 1;
+        MNw = Nmv;
+        WwM = Nmv;
+        mwn = WVWWm;
+        mwm = 1;
         update();
         vWmNN.display = "inline-block";
         if (isTouchScreen === 0) Wvwwv.display = "inline-block";
@@ -8979,58 +8995,58 @@ var Home = (function() {
         if (isTouchScreen === 0) vnvmm.display = "inline-block";
     };
 
-    function quit(callback) {
-        transitionSpeed = callback;
+    function quit(wMN) {
+        MVv = wMN;
         VVwMW();
-        transitionDuration = transitionDuration;
-        reverseTransition = transitionDuration;
-        isWaiting = transitionFunction;
-        transitionState = 1;
+        MNw = VWm;
+        WwM = VWm;
+        mwn = VNvnM;
+        WWN = 1;
     };
 
     function update() {
-        var transitionX = 0;
-        var transitionY = 0;
-        if (transitionDuration > 0) {
-            transitionY = canh;
-            var transition = isWaiting(1 - (transitionDuration / reverseTransition));
-            if (transition === 1) transitionDuration = 0;
-            if (reverseTransitionState === 1) transition = 1 - window.Math.abs(transition);
-            transitionX *= transition;
-            transitionY *= transition;
+        var vMm = 0;
+        var wwv = 0;
+        if (MNw > 0) {
+            wwv = canh;
+            var transition = mwn(1 - (MNw / WwM));
+            if (transition === 1) MNw = 0;
+            if (mwm === 1) transition = 1 - window.Math.abs(transition);
+            vMm *= transition;
+            wwv *= transition;
         }
-        VmV.pos.x = ((canw2 - window.Math.floor(325 * scaleby)) + window.Math.floor(((isTouchScreen === 0) ? -30 : -70) * scaleby)) - transitionX;
-        VmV.pos.y = window.Math.max(0, (canh2 - window.Math.floor(156 * scaleby)) + window.Math.floor(((isTouchScreen === 0) ? -150 : -150) * scaleby)) - transitionY;
-        mVwVw.pos.x = window.Math.floor(5 * scaleby) + transitionX;
-        mVwVw.pos.y = ((canh - window.Math.floor(40 * scaleby)) + window.Math.floor(-5 * scaleby)) + transitionY;
-        VWvmM.x = ((canw2 - window.Math.floor(91 * scaleby)) + window.Math.floor(((isTouchScreen === 0) ? -6.8 : -47.5) * scaleby)) - transitionX;
+        VmV.pos.x = ((canw2 - window.Math.floor(325 * scaleby)) + window.Math.floor(((isTouchScreen === 0) ? -30 : -70) * scaleby)) - vMm;
+        VmV.pos.y = window.Math.max(0, (canh2 - window.Math.floor(156 * scaleby)) + window.Math.floor(((isTouchScreen === 0) ? -150 : -150) * scaleby)) - wwv;
+        mVwVw.pos.x = window.Math.floor(5 * scaleby) + vMm;
+        mVwVw.pos.y = ((canh - window.Math.floor(40 * scaleby)) + window.Math.floor(-5 * scaleby)) + wwv;
+        VWvmM.x = ((canw2 - window.Math.floor(91 * scaleby)) + window.Math.floor(((isTouchScreen === 0) ? -6.8 : -47.5) * scaleby)) - vMm;
         vWmNN.left = VWvmM.x + "px";
         VWvmM.y = VmV.pos.y + window.Math.floor(143 * scaleby);
         vWmNN.top = VWvmM.y + "px";
         playbutt.pos.x = VmV.pos.x + window.Math.floor(290 * scaleby);
         playbutt.pos.y = VmV.pos.y + window.Math.floor(235 * scaleby);
-        VMmWW.x = (canw - 85) + transitionX;
+        VMmWW.x = (canw - 85) + vMm;
         Wvwwv.left = VMmWW.x + "px";
-        VMmWW.y = ((canh - 17) + window.Math.floor(-10 * scaleby)) + transitionY;
+        VMmWW.y = ((canh - 17) + window.Math.floor(-10 * scaleby)) + wwv;
         Wvwwv.top = VMmWW.y + "px";
-        wwMMw.x = ((canw2 - window.Math.floor(100 * scaleby)) + window.Math.floor(((isTouchScreen === 0) ? 12.8 : -26.5) * scaleby)) - transitionX;
+        wwMMw.x = ((canw2 - window.Math.floor(100 * scaleby)) + window.Math.floor(((isTouchScreen === 0) ? 12.8 : -26.5) * scaleby)) - vMm;
         vnmmN.left = wwMMw.x + "px";
         wwMMw.y = VWvmM.y + window.Math.floor(45 * scaleby);
         vnmmN.top = wwMMw.y + "px";
-        mwvwV.pos.x = ((canw - window.Math.floor(230 * scaleby)) + window.Math.floor(7 * scaleby)) - transitionX;
-        mwvwV.pos.y = -transitionY;
-        nmnWW.x = ((canw - 200) + window.Math.floor(-10 * scaleby)) - transitionX;
+        mwvwV.pos.x = ((canw - window.Math.floor(230 * scaleby)) + window.Math.floor(7 * scaleby)) - vMm;
+        mwvwV.pos.y = -wwv;
+        nmnWW.x = ((canw - 200) + window.Math.floor(-10 * scaleby)) - vMm;
         VNVnM.left = nmnWW.x + "px";
-        nmnWW.y = window.Math.floor(20 * scaleby) - transitionY;
+        nmnWW.y = window.Math.floor(20 * scaleby) - wwv;
         VNVnM.top = nmnWW.y + "px";
         mmvWv.pos.x = mwvwV.pos.x;
         mmvWv.pos.y = mwvwV.pos.y + window.Math.floor(230 * scaleby);
-        MMNMM.x = ((canw - 200) + window.Math.floor(-10 * scaleby)) - transitionX;
+        MMNMM.x = ((canw - 200) + window.Math.floor(-10 * scaleby)) - vMm;
         wnwvW.left = MMNMM.x + "px";
         MMNMM.y = nmnWW.y + window.Math.floor(215 * scaleby);
         wnwvW.top = MMNMM.y + "px";
-        WWNNV.pos.x = window.Math.floor(15 * scaleby) - transitionX;
-        WWNNV.pos.y = window.Math.floor(5 * scaleby) - transitionY;
+        WWNNV.pos.x = window.Math.floor(15 * scaleby) - vMm;
+        WWNNV.pos.y = window.Math.floor(5 * scaleby) - wwv;
         twitter.pos.x = WWNNV.pos.x + window.Math.floor(-5 * scaleby);
         twitter.pos.y = WWNNV.pos.y + window.Math.floor(55 * scaleby);
         facebook.pos.x = twitter.pos.x + window.Math.floor(45 * scaleby);
@@ -9074,7 +9090,7 @@ var Home = (function() {
         vWNNw.y = VWvmM.y + window.Math.floor(130 * scaleby);
         trevdaStyle.top = vWNNw.y + "px";
         var mVvwv = window.Math.min(scaleby, 1);
-        var pos = (VWvmM.y + transitionY) + (170 * scaleby);
+        var pos = (VWvmM.y + wwv) + (170 * scaleby);
         window.document.getElementById("trevda").style.left = window.Math.floor(canw2 - (325 * mVvwv)) + "px";
         window.document.getElementById("trevda").style.top = window.Math.floor(pos + (((mVvwv * 250) - 250) / 2)) + "px";
         window.document.getElementById("trevda").style.transform = ("scale(" + mVvwv) + ")";
@@ -9132,7 +9148,7 @@ var Home = (function() {
         MMM = window.Math.floor(canw - width) + "px";
         height = height + "px";
         width = width + "px";
-        _top = (window.Math.floor(canh - (18 * scaleby)) + transitionY) + "px";
+        _top = (window.Math.floor(canh - (18 * scaleby)) + wwv) + "px";
         Wvwwv.width = width;
         Wvwwv.height = height;
         Wvwwv.left = MMM;
@@ -9226,12 +9242,12 @@ var Home = (function() {
     };
 
     function draw() {
-        if (transitionManager() === 0) return;
+        if (MMVwV() === 0) return;
         ctx.clearRect(0, 0, canw, canh);
         Render.world();
-        if (transitionDuration > 0) {
-            NNN = isWaiting(1 - (transitionDuration / reverseTransition));
-            if (reverseTransitionState === 1) NNN = 1 - window.Math.abs(NNN);
+        if (MNw > 0) {
+            NNN = mwn(1 - (MNw / WwM));
+            if (mwm === 1) NNN = 1 - window.Math.abs(NNN);
             NNN = 1 - NNN;
         }
         ctx.globalAlpha = 0.3 * NNN;
@@ -9280,11 +9296,11 @@ var Home = (function() {
         AudioManager.scheduler();
     };
 
-    function transitionManager() {
-        if (transitionState === 1) {
+    function MMVwV() {
+        if (WWN === 1) {
             update();
-            if (transitionDuration < 0) {
-                transitionState = 0;
+            if (MNw < 0) {
+                WWN = 0;
                 mVwVw.setState(GUI.__BUTTON_OUT__);
                 vWmNN.display = "none";
                 playbutt.setState(GUI.__BUTTON_OUT__);
@@ -9311,19 +9327,19 @@ var Home = (function() {
                 vvmMm.setState(GUI.__BUTTON_OUT__);
                 trevdaStyle.display = "none";
                 VwWMv.display = "none";
-                transitionSpeed.run();
+                MVv.run();
                 return 0;
             }
-            transitionDuration -= delta;
-        } else if (reverseTransitionState === 1) {
+            MNw -= delta;
+        } else if (mwm === 1) {
             update();
-            if (transitionDuration < 0) {
-                reverseTransitionState = 0;
+            if (MNw < 0) {
+                mwm = 0;
                 if (World.PLAYER.admin !== 1) trevdaStyle.display = "inline-block";
                 window.document.getElementById("bod").style.backgroundColor = "#46664d";
                 MmNNN();
             }
-            transitionDuration -= delta;
+            MNw -= delta;
         }
         return 1;
     };
@@ -9608,26 +9624,26 @@ var Home = (function() {
 
     function touchStart(event) {
         if (event.touches.length > 0) {
-            Mouse.touchToMouseEvent(mouseX, event, event.touches[0]);
-            mouseDown(mouseX);
+            Mouse.touchToMouseEvent(NWV, event, event.touches[0]);
+            mouseDown(NWV);
         }
     };
 
     function touchEnd(event) {
-        mouseUp(mouseX);
+        mouseUp(NWV);
     };
 
     function touchCancel(event) {
         if (event.touches.length > 0) {
-            Mouse.touchToMouseEvent(mouseX, event, event.touches[0]);
-            mouseUp(mouseX);
+            Mouse.touchToMouseEvent(NWV, event, event.touches[0]);
+            mouseUp(NWV);
         }
     };
 
     function touchMove(event) {
         if (event.touches.length > 0) {
-            Mouse.touchToMouseEvent(mouseX, event, event.touches[0]);
-            mouseMove(mouseX);
+            Mouse.touchToMouseEvent(NWV, event, event.touches[0]);
+            mouseMove(NWV);
         }
     };
 
@@ -9962,18 +9978,18 @@ var Game = (function() {
             y: 0
         };
     };
-    var transitionSpeed;
-    var mouseX = new Mouse.LocalMouseEvent;
-    var keyboard = new Keyboard.LocalKeyboardEvent;
-    var transitionDuration = 2000;
-    var transitionState = 0;
-    var transitionFunction = MathUtils.Ease.inQuad;
-    var reverseTransitionDuration = 1000;
-    var reverseTransitionState = 0;
-    var reverseTransitionFunction = MathUtils.Ease.outQuad;
-    var reverseTransition = 0;
-    var transitionDuration = 0;
-    var isWaiting = window.undefined;
+    var MVv;
+    var NWV = new Mouse.LocalMouseEvent;
+    var nNw = new Keyboard.LocalKeyboardEvent;
+    var VWm = 2000;
+    var WWN = 0;
+    var VNvnM = MathUtils.Ease.inQuad;
+    var Nmv = 1000;
+    var mwm = 0;
+    var WVWWm = MathUtils.Ease.outQuad;
+    var WwM = 0;
+    var MNw = 0;
+    var mwn = window.undefined;
 
     function run() {
         Client.onError = onError;
@@ -10003,54 +10019,54 @@ var Game = (function() {
             craftbutton.show();
         }
         CanvasUtils.setRenderer(Game);
-        transitionDuration = reverseTransitionDuration;
-        reverseTransition = reverseTransitionDuration;
-        isWaiting = reverseTransitionFunction;
-        reverseTransitionState = 1;
+        MNw = Nmv;
+        WwM = Nmv;
+        mwn = WVWWm;
+        mwm = 1;
         update();
     };
 
-    function quit(callback) {
+    function quit(wMN) {
         chatvisible = 0;
         _CloseBox();
         AudioManager.quitGame();
-        transitionSpeed = callback;
+        MVv = wMN;
         VVwMW();
-        transitionDuration = transitionDuration;
-        reverseTransition = transitionDuration;
-        isWaiting = transitionFunction;
-        transitionState = 1;
+        MNw = VWm;
+        WwM = VWm;
+        mwn = VNvnM;
+        WWN = 1;
     };
 
     function update() {
-        var transitionX = 0;
-        var transitionY = 0;
-        if (transitionDuration > 0) {
-            transitionY = canh;
-            var transition = isWaiting(1 - (transitionDuration / reverseTransition));
-            if (transition === 1) transitionDuration = 0;
-            if (reverseTransitionState === 1) transition = 1 - window.Math.abs(transition);
-            transitionX *= transition;
-            transitionY *= transition;
+        var vMm = 0;
+        var wwv = 0;
+        if (MNw > 0) {
+            wwv = canh;
+            var transition = mwn(1 - (MNw / WwM));
+            if (transition === 1) MNw = 0;
+            if (mwm === 1) transition = 1 - window.Math.abs(transition);
+            vMm *= transition;
+            wwv *= transition;
         }
-        gauges.pos.x = window.Math.floor(5 * scaleby) + transitionX;
-        gauges.pos.y = ((canh - window.Math.floor(174 * scaleby)) + window.Math.floor(-7 * scaleby)) + transitionY;
-        BACKGROUND_SETTBOX.pos.x = (canw2 - window.Math.floor(134 * scaleby)) + transitionX;
-        BACKGROUND_SETTBOX.pos.y = window.Math.max(0, canh2 - window.Math.floor(133 * scaleby)) + transitionY;
-        BACKGROUND_CHESTBOX.pos.x = (canw2 - window.Math.floor(81 * scaleby)) + transitionX;
-        BACKGROUND_CHESTBOX.pos.y = window.Math.max(0, canh2 - window.Math.floor(82 * scaleby)) + transitionY;
-        BACKGROUND_CRAFTBOX.pos.x = (canw2 - window.Math.floor(297 * scaleby)) + transitionX;
-        BACKGROUND_CRAFTBOX.pos.y = window.Math.max(0, canh2 - window.Math.floor(202 * scaleby)) + transitionY;
-        BACKGROUND_BIGMAP.pos.x = (canw2 - window.Math.floor(206 * scaleby)) + transitionX;
-        BACKGROUND_BIGMAP.pos.y = window.Math.max(0, canh2 - window.Math.floor(206 * scaleby)) + transitionY;
-        minimap.pos.x = window.Math.floor(5 * scaleby) - transitionX;
-        minimap.pos.y = window.Math.floor(5 * scaleby) - transitionY;
-        leaderboard.pos.x = ((canw - window.Math.floor(233 * scaleby)) + window.Math.floor(-6 * scaleby)) - transitionX;
-        leaderboard.pos.y = window.Math.floor(5 * scaleby) - transitionY;
-        teambox.pos.x = (canw2 - window.Math.floor(258 * scaleby)) - transitionX;
-        teambox.pos.y = window.Math.max(0, canh2 - window.Math.floor(137 * scaleby)) - transitionY;
-        teammemberbox.pos.x = (canw2 - window.Math.floor(256 * scaleby)) - transitionX;
-        teammemberbox.pos.y = window.Math.max(0, canh2 - window.Math.floor(75 * scaleby)) - transitionY;
+        gauges.pos.x = window.Math.floor(5 * scaleby) + vMm;
+        gauges.pos.y = ((canh - window.Math.floor(174 * scaleby)) + window.Math.floor(-7 * scaleby)) + wwv;
+        BACKGROUND_SETTBOX.pos.x = (canw2 - window.Math.floor(134 * scaleby)) + vMm;
+        BACKGROUND_SETTBOX.pos.y = window.Math.max(0, canh2 - window.Math.floor(133 * scaleby)) + wwv;
+        BACKGROUND_CHESTBOX.pos.x = (canw2 - window.Math.floor(81 * scaleby)) + vMm;
+        BACKGROUND_CHESTBOX.pos.y = window.Math.max(0, canh2 - window.Math.floor(82 * scaleby)) + wwv;
+        BACKGROUND_CRAFTBOX.pos.x = (canw2 - window.Math.floor(297 * scaleby)) + vMm;
+        BACKGROUND_CRAFTBOX.pos.y = window.Math.max(0, canh2 - window.Math.floor(202 * scaleby)) + wwv;
+        BACKGROUND_BIGMAP.pos.x = (canw2 - window.Math.floor(206 * scaleby)) + vMm;
+        BACKGROUND_BIGMAP.pos.y = window.Math.max(0, canh2 - window.Math.floor(206 * scaleby)) + wwv;
+        minimap.pos.x = window.Math.floor(5 * scaleby) - vMm;
+        minimap.pos.y = window.Math.floor(5 * scaleby) - wwv;
+        leaderboard.pos.x = ((canw - window.Math.floor(233 * scaleby)) + window.Math.floor(-6 * scaleby)) - vMm;
+        leaderboard.pos.y = window.Math.floor(5 * scaleby) - wwv;
+        teambox.pos.x = (canw2 - window.Math.floor(258 * scaleby)) - vMm;
+        teambox.pos.y = window.Math.max(0, canh2 - window.Math.floor(137 * scaleby)) - wwv;
+        teammemberbox.pos.x = (canw2 - window.Math.floor(256 * scaleby)) - vMm;
+        teammemberbox.pos.y = window.Math.max(0, canh2 - window.Math.floor(75 * scaleby)) - wwv;
         fullscreenimg.pos.x = minimap.pos.x + window.Math.floor(126 * scaleby);
         fullscreenimg.pos.y = minimap.pos.y;
         craftbutton.pos.x = fullscreenimg.pos.x + window.Math.floor(50 * scaleby);
@@ -10061,19 +10077,19 @@ var Game = (function() {
         minimapbutt.pos.y = settingsimg.pos.y + window.Math.floor(44.5 * scaleby);
         teambutt.pos.x = minimap.pos.x;
         teambutt.pos.y = minimap.pos.y + window.Math.floor(127 * scaleby);
-        leaderboardbutt.pos.x = ((canw - window.Math.floor(34 * scaleby)) + window.Math.floor(-7 * scaleby)) - transitionX;
-        leaderboardbutt.pos.y = window.Math.floor(5 * scaleby) - transitionY;
+        leaderboardbutt.pos.x = ((canw - window.Math.floor(34 * scaleby)) + window.Math.floor(-7 * scaleby)) - vMm;
+        leaderboardbutt.pos.y = window.Math.floor(5 * scaleby) - wwv;
         leaderboardbutt2.pos.x = leaderboardbutt.pos.x;
         leaderboardbutt2.pos.y = leaderboardbutt.pos.y;
-        NWmmW.x = (canw2 - window.Math.floor(150 * scaleby)) + transitionX;
+        NWmmW.x = (canw2 - window.Math.floor(150 * scaleby)) + vMm;
         mnnNv.left = NWmmW.x + "px";
-        NWmmW.y = (window.Math.max(0, canh2 - 12) + window.Math.floor(150 * scaleby)) + transitionY;
+        NWmmW.y = (window.Math.max(0, canh2 - 12) + window.Math.floor(150 * scaleby)) + wwv;
         mnnNv.top = NWmmW.y + "px";
         var wvnVv = window.document.getElementById("chatInput").style;
         var width = window.Math.floor(250 * scaleby);
         var height = window.Math.floor(20 * scaleby);
         var MMM = window.Math.floor(canw2 - (width / 2)) + "px";
-        var _top = window.Math.floor(((canh2 - (height / 2)) + (scaleby * 85)) + transitionY) + "px";
+        var _top = window.Math.floor(((canh2 - (height / 2)) + (scaleby * 85)) + wwv) + "px";
         height = height + "px";
         width = width + "px";
         mnnNv.width = width;
@@ -10086,7 +10102,7 @@ var Game = (function() {
     };
 
     function draw() {
-        if (transitionManager() === 0) return;
+        if (MMVwV() === 0) return;
         vWMVN();
         ctx.clearRect(0, 0, canw, canh);
         World.updatePosition();
@@ -10124,21 +10140,21 @@ var Game = (function() {
         } else if (isTouchScreen    === 1) {
             if ((((Keyboard.isLeft() + Keyboard.isRight()) + Keyboard.isTop()) + Keyboard.isBottom()) >= 1) {
                 ctx.globalAlpha = 0.3;
-                var offsetX = canw2ns - (canw4ns * 1.5);
-                var offsetY = canh2ns + (canw4ns / 4);
-                CanvasUtils.circle(ctx, offsetX, offsetY, 60);
+                var wX = canw2ns - (canw4ns * 1.5);
+                var wY = canh2ns + (canw4ns / 4);
+                CanvasUtils.circle(ctx, wX, wY, 60);
                 CanvasUtils.drawPath(ctx, "#000000");
-                CanvasUtils.circle(ctx, offsetX + ((window.Math.cos(MWVNw) * NVNwm) * scaleby), offsetY + ((window.Math.sin(MWVNw) * NVNwm) * scaleby), 30);
+                CanvasUtils.circle(ctx, wX + ((window.Math.cos(MWVNw) * NVNwm) * scaleby), wY + ((window.Math.sin(MWVNw) * NVNwm) * scaleby), 30);
                 CanvasUtils.drawPath(ctx, "#FFFFFF");
                 ctx.globalAlpha = 1;
             }
             if (vmWNW === 1) {
                 ctx.globalAlpha = 0.3;
-                var offsetX = canw2ns + (canw4ns * 1.5);
-                var offsetY = canh2ns + (canw4ns / 4);
-                CanvasUtils.circle(ctx, offsetX, offsetY, 60);
+                var wX = canw2ns + (canw4ns * 1.5);
+                var wY = canh2ns + (canw4ns / 4);
+                CanvasUtils.circle(ctx, wX, wY, 60);
                 CanvasUtils.drawPath(ctx, "#000000");
-                CanvasUtils.circle(ctx, offsetX + ((window.Math.cos(Mouse.angle) * 25) * scaleby), offsetY + ((window.Math.sin(Mouse.angle) * 25) * scaleby), 30);
+                CanvasUtils.circle(ctx, wX + ((window.Math.cos(Mouse.angle) * 25) * scaleby), wY + ((window.Math.sin(Mouse.angle) * 25) * scaleby), 30);
                 CanvasUtils.drawPath(ctx, "#FFFFFF");
                 ctx.globalAlpha = 1;
             }
@@ -10148,11 +10164,11 @@ var Game = (function() {
     };
 
 
-    function transitionManager() {
-        if (transitionState === 1) {
+    function MMVwV() {
+        if (WWN === 1) {
             update();
-            if (transitionDuration < 0) {
-                transitionState = 0;
+            if (MNw < 0) {
+                WWN = 0;
                 fullscreenimg.setState(GUI.__BUTTON_OUT__);
                 craftbutton.setState(GUI.__BUTTON_OUT__);
                 settingsimg.setState(GUI.__BUTTON_OUT__);
@@ -10161,18 +10177,18 @@ var Game = (function() {
                 leaderboardbutt.setState(GUI.__BUTTON_OUT__);
                 leaderboardbutt2.setState(GUI.__BUTTON_OUT__);
                 mnnNv.display = "none";
-                transitionSpeed.run();
+                MVv.run();
                 return 0;
             }
-            transitionDuration -= delta;
-        } else if (reverseTransitionState === 1) {
+            MNw -= delta;
+        } else if (mwm === 1) {
             update();
-            if (transitionDuration < 0) {
-                reverseTransitionState = 0;
+            if (MNw < 0) {
+                mwm = 0;
                 World.PLAYER.timePlayed = window.Date.now();
                 MmNNN();
             }
-            transitionDuration -= delta;
+            MNw -= delta;
         }
         return 1;
     };
@@ -11005,10 +11021,10 @@ var Game = (function() {
     function touchStart(event) {
         var NVN = 0;
         for (var wVV = 0; wVV < event.touches.length; wVV++) {
-            Mouse.touchToMouseEvent(mouseX, event, event.touches[wVV]);
+            Mouse.touchToMouseEvent(NWV, event, event.touches[wVV]);
             if (BUTTON_BAG.open !== 0) {
                 var MVvmv = Mouse.state;
-                Mouse.updateAll(mouseX, Mouse.__MOUSE_DOWN__);
+                Mouse.updateAll(NWV, Mouse.__MOUSE_DOWN__);
                 Mouse.state = MVvmv;
                 var invtr = World.PLAYER.inventory;
                 var NwvVw = 0;
@@ -11021,28 +11037,28 @@ var Game = (function() {
                     }
                 }
                 if (NwvVw === 1) {
-                    mouseDown(mouseX);
+                    mouseDown(NWV);
                     continue;
                 }
             }
             if ((World.PLAYER.drag.begin === 0) && (NmW === 0)) {
-                var sx = window.Math.floor(mouseX.clientX * CanvasUtils.options.ratioX);
-                var sy = window.Math.floor(mouseX.clientY * CanvasUtils.options.ratioY);
+                var sx = window.Math.floor(NWV.clientX * CanvasUtils.options.ratioX);
+                var sy = window.Math.floor(NWV.clientY * CanvasUtils.options.ratioY);
                 switch (World.PLAYER.interaction) {
                     case 2:
                         if (((((World.PLAYER.extraLoot === 1) && (sx > Game.xInteract2)) && (sy > Game.yInteract2)) && (sx < (Game.xInteract2 + Game.widthInteract))) && (sy < (Game.yInteract2 + Game.heightInteract))) {
                             nvnNv = 1;
-                            keyboard.keyCode = 70;
-                            keyboard.charCode = 70;
-                            NmN(keyboard);
+                            nNw.keyCode = 70;
+                            nNw.charCode = 70;
+                            NmN(nNw);
                             continue;
                         }
                         case 0:
                             if ((((sx > Game.xInteract) && (sy > Game.yInteract)) && (sx < (Game.xInteract + Game.widthInteract))) && (sy < (Game.yInteract + Game.heightInteract))) {
                                 nvnNv = 1;
-                                keyboard.keyCode = 69;
-                                keyboard.charCode = 69;
-                                NmN(keyboard);
+                                nNw.keyCode = 69;
+                                nNw.charCode = 69;
+                                NmN(nNw);
                                 continue;
                             }
                             break;
@@ -11053,54 +11069,54 @@ var Game = (function() {
                     if (sx < canw2) {
                         var MVM = 30 * scaleby;
                         MWVNw = Math2d.angle(canw2 - WMm, canh2 + nmV, sx, sy);
-                        NVNwm = window.Math.min(Math2d.distance(sx, sy, canw2 - WMm, canh2 + nmV), 25);
+                        NVNwm = window.Math.min(Math2d.dist(sx, sy, canw2 - WMm, canh2 + nmV), 25);
                         if (sx < ((canw2 - WMm) - MVM)) {
                             mWM |= 1;
-                            keyboard.charCode = 37;
-                            keyboard.keyCode = 37;
-                            vnW(keyboard);
+                            nNw.charCode = 37;
+                            nNw.keyCode = 37;
+                            vnW(nNw);
                         } else if (sx > ((canw2 - WMm) + MVM)) {
                             mWM |= 2;
-                            keyboard.charCode = 39;
-                            keyboard.keyCode = 39;
-                            vnW(keyboard);
+                            nNw.charCode = 39;
+                            nNw.keyCode = 39;
+                            vnW(nNw);
                         }
                         if (sy < ((canh2 + nmV) - MVM)) {
                             mWM |= 4;
-                            keyboard.charCode = 38;
-                            keyboard.keyCode = 38;
-                            vnW(keyboard);
+                            nNw.charCode = 38;
+                            nNw.keyCode = 38;
+                            vnW(nNw);
                         } else if (sy > ((canh2 + nmV) + MVM)) {
                             mWM |= 8;
-                            keyboard.charCode = 40;
-                            keyboard.keyCode = 40;
-                            vnW(keyboard);
+                            nNw.charCode = 40;
+                            nNw.keyCode = 40;
+                            vnW(nNw);
                         }
                     } else if ((sx < (canw - (40 * scaleby))) || (sy > (40 * scaleby))) {
                         NVN = 1;
-                        mouseX.clientX -= WMm / CanvasUtils.options.ratioX;
-                        mouseX.clientY -= nmV / CanvasUtils.options.ratioX;
+                        NWV.clientX -= WMm / CanvasUtils.options.ratioX;
+                        NWV.clientY -= nmV / CanvasUtils.options.ratioX;
                         if (World.PLAYER.isBuilding === 1) {
                             var vVMmn = window.Date.now();
                             if ((vVMmn - MMMvM) < 1000) {
                                 vmWNW = 1;
-                                NnVMv = mouseX.clientX;
-                                WNmmw = mouseX.clientY;
-                                mouseDown(mouseX);
+                                NnVMv = NWV.clientX;
+                                WNmmw = NWV.clientY;
+                                mouseDown(NWV);
                             }
                             MMMvM = vVMmn;
                         } else {
                             vmWNW = 1;
-                            NnVMv = mouseX.clientX;
-                            WNmmw = mouseX.clientY;
-                            mouseDown(mouseX);
+                            NnVMv = NWV.clientX;
+                            WNmmw = NWV.clientY;
+                            mouseDown(NWV);
                         }
                     }
                     continue;
                 }
             }
             if ((NVN === 0) && (mWM === 0)) {
-                mouseDown(mouseX);
+                mouseDown(NWV);
                 NVN = 1;
             }
         }
@@ -11110,32 +11126,32 @@ var Game = (function() {
         var sx = window.Math.floor(event.changedTouches[0].clientX * CanvasUtils.options.ratioX);
         var sy = window.Math.floor(event.changedTouches[0].clientY * CanvasUtils.options.ratioY);
         if (nvnNv === 1) nvnNv = 0;
-        else if (NmW === 1) mouseUp(mouseX);
+        else if (NmW === 1) mouseUp(NWV);
         else if ((vmWNW === 1) && (sx >= canw2)) {
             vmWNW = 0;
-            mouseX.clientX = NnVMv;
-            mouseX.clientY = WNmmw;
-            mouseUp(mouseX);
+            NWV.clientX = NnVMv;
+            NWV.clientY = WNmmw;
+            mouseUp(NWV);
             return;
         } else if (((World.PLAYER.drag.begin === 0) && (sx < canw2)) && (sy < (canh - (70 * scaleby)))) {
-            if ((sx < (240 * scaleby)) && (sy < (160 * scaleby))) mouseUp(mouseX);
-        } else mouseUp(mouseX);
+            if ((sx < (240 * scaleby)) && (sy < (160 * scaleby))) mouseUp(NWV);
+        } else mouseUp(NWV);
         if (mWM !== 0) {
             if (mWM & 1) {
-                keyboard.charCode = 37;
-                NmN(keyboard);
+                nNw.charCode = 37;
+                NmN(nNw);
             }
             if (mWM & 2) {
-                keyboard.charCode = 39;
-                NmN(keyboard);
+                nNw.charCode = 39;
+                NmN(nNw);
             }
             if (mWM & 4) {
-                keyboard.charCode = 38;
-                NmN(keyboard);
+                nNw.charCode = 38;
+                NmN(nNw);
             }
             if (mWM & 8) {
-                keyboard.charCode = 40;
-                NmN(keyboard);
+                nNw.charCode = 40;
+                NmN(nNw);
             }
             mWM = 0;
         }
@@ -11147,7 +11163,7 @@ var Game = (function() {
         var NVN = 0;
         var mWVWv = 0;
         for (var wVV = 0; wVV < event.touches.length; wVV++) {
-            Mouse.touchToMouseEvent(mouseX, event, event.touches[wVV]);
+            Mouse.touchToMouseEvent(NWV, event, event.touches[wVV]);
             if (BUTTON_BAG.open !== 0) {
                 var invtr = World.PLAYER.inventory;
                 var NwvVw = 0;
@@ -11160,13 +11176,13 @@ var Game = (function() {
                     }
                 }
                 if (NwvVw === 1) {
-                    mouseMove(mouseX);
+                    mouseMove(NWV);
                     continue;
                 }
             }
             if ((World.PLAYER.drag.begin === 0) && (NmW === 0)) {
-                var sx = window.Math.floor(mouseX.clientX * CanvasUtils.options.ratioX);
-                var sy = window.Math.floor(mouseX.clientY * CanvasUtils.options.ratioY);
+                var sx = window.Math.floor(NWV.clientX * CanvasUtils.options.ratioX);
+                var sy = window.Math.floor(NWV.clientY * CanvasUtils.options.ratioY);
                 if (sy < (canh - (70 * scaleby))) {
                     var WMm = canw4 * 1.5;
                     var nmV = canw4 / 4;
@@ -11175,72 +11191,72 @@ var Game = (function() {
                         var VNM = 0;
                         var MVM = 30 * scaleby;
                         MWVNw = Math2d.angle(canw2 - WMm, canh2 + nmV, sx, sy);
-                        NVNwm = window.Math.min(Math2d.distance(sx, sy, canw2 - WMm, canh2 + nmV), 25);
+                        NVNwm = window.Math.min(Math2d.dist(sx, sy, canw2 - WMm, canh2 + nmV), 25);
                         if (sx < ((canw2 - WMm) - MVM)) VNM |= 1;
                         else if (sx > ((canw2 - WMm) + MVM)) VNM |= 2;
                         if (sy < ((canh2 + nmV) + -MVM)) VNM |= 4;
                         else if (sy > ((canh2 + nmV) + MVM)) VNM |= 8;
                         if (((VNM & 1) === 1) && ((mWM & 1) !== 1)) {
-                            keyboard.charCode = 37;
-                            vnW(keyboard);
+                            nNw.charCode = 37;
+                            vnW(nNw);
                         } else if (((VNM & 1) !== 1) && ((mWM & 1) === 1)) {
-                            keyboard.charCode = 37;
-                            NmN(keyboard);
+                            nNw.charCode = 37;
+                            NmN(nNw);
                         }
                         if (((VNM & 2) === 2) && ((mWM & 2) !== 2)) {
-                            keyboard.charCode = 39;
-                            vnW(keyboard);
+                            nNw.charCode = 39;
+                            vnW(nNw);
                         } else if (((VNM & 2) !== 2) && ((mWM & 2) === 2)) {
-                            keyboard.charCode = 39;
-                            NmN(keyboard);
+                            nNw.charCode = 39;
+                            NmN(nNw);
                         }
                         if (((VNM & 4) === 4) && ((mWM & 4) !== 4)) {
-                            keyboard.charCode = 38;
-                            vnW(keyboard);
+                            nNw.charCode = 38;
+                            vnW(nNw);
                         } else if (((VNM & 4) !== 4) && ((mWM & 4) === 4)) {
-                            keyboard.charCode = 38;
-                            NmN(keyboard);
+                            nNw.charCode = 38;
+                            NmN(nNw);
                         }
                         if (((VNM & 8) === 8) && ((mWM & 8) !== 8)) {
-                            keyboard.charCode = 40;
-                            vnW(keyboard);
+                            nNw.charCode = 40;
+                            vnW(nNw);
                         } else if (((VNM & 8) !== 8) && ((mWM & 8) === 8)) {
-                            keyboard.charCode = 40;
-                            NmN(keyboard);
+                            nNw.charCode = 40;
+                            NmN(nNw);
                         }
                         mWM = VNM;
                         continue;
                     } else if ((sx < (canw - (40 * scaleby))) || (sy > (40 * scaleby))) {
                         NVN = 1;
-                        mouseX.clientX -= WMm / CanvasUtils.options.ratioX;
-                        mouseX.clientY -= nmV / CanvasUtils.options.ratioX;
-                        NnVMv = mouseX.clientX;
-                        WNmmw = mouseX.clientY;
-                        mouseMove(mouseX);
+                        NWV.clientX -= WMm / CanvasUtils.options.ratioX;
+                        NWV.clientY -= nmV / CanvasUtils.options.ratioX;
+                        NnVMv = NWV.clientX;
+                        WNmmw = NWV.clientY;
+                        mouseMove(NWV);
                     }
                 }
             }
             if ((NVN === 0) && (mWM === 0)) {
-                mouseMove(mouseX);
+                mouseMove(NWV);
                 NVN = 1;
             }
         }
         if ((mWVWv === 0) && (mWM !== 0)) {
             if (mWM & 1) {
-                keyboard.charCode = 37;
-                NmN(keyboard);
+                nNw.charCode = 37;
+                NmN(nNw);
             }
             if (mWM & 2) {
-                keyboard.charCode = 39;
-                NmN(keyboard);
+                nNw.charCode = 39;
+                NmN(nNw);
             }
             if (mWM & 4) {
-                keyboard.charCode = 38;
-                NmN(keyboard);
+                nNw.charCode = 38;
+                NmN(nNw);
             }
             if (mWM & 8) {
-                keyboard.charCode = 40;
-                NmN(keyboard);
+                nNw.charCode = 40;
+                NmN(nNw);
             }
             mWM = 0;
         }
@@ -11328,10 +11344,10 @@ var Score = (function() {
     };
 
     function nmNnw() {
-        var offsetX = mNw.pos.x;
-        var offsetY = mNw.pos.y;
-        var wX_Scale = offsetX / scaleby;
-        var wY_Scale = offsetY / scaleby;
+        var wX = mNw.pos.x;
+        var wY = mNw.pos.y;
+        var wX_Scale = wX / scaleby;
+        var wY_Scale = wY / scaleby;
         if ((scoreLabel === null) || (lastScore !== World.PLAYER.exp)) {
             lastScore = World.PLAYER.exp;
             scoreLabel = GUI.renderText(lastScore + "", "'Viga', sans-serif", "#FFFFFF", 38, 400, window.undefined, 16, 25, window.undefined, window.undefined, window.undefined, window.undefined, "#000000", 12);
@@ -11361,8 +11377,8 @@ var Score = (function() {
         var invtr = World.PLAYER.inventory;
         var len = invtr.length;
         var MVM = 50 * scaleby;
-        var _y = offsetY + (182 * scaleby);
-        var _x = offsetX + (80 * scaleby);
+        var _y = wY + (182 * scaleby);
+        var _x = wX + (80 * scaleby);
         var WnVvn = scaleby;
         scaleby = scaleby - (0.3 * scaleby);
         for (var i = 0; i < len; i++) {
@@ -11389,22 +11405,22 @@ var Score = (function() {
         playagainbutt = GUI.createButton(123, 35, ["img/play-again-button-out.png", "img/play-again-button-in.png", "img/play-again-button-click.png"]);
         vWv = GUI.createButton(198, 35, ["img/back-main-page-button-out.png", "img/back-main-page-button-in.png", "img/back-main-page-button-click.png"]);
     };
-    var transitionSpeed;
-    var mouseX = new Mouse.LocalMouseEvent;
-    var keyboard = new Keyboard.LocalKeyboardEvent;
-    var transitionDuration = 500;
-    var transitionState = 0;
-    var transitionFunction = function(t) {
+    var MVv;
+    var NWV = new Mouse.LocalMouseEvent;
+    var nNw = new Keyboard.LocalKeyboardEvent;
+    var VWm = 500;
+    var WWN = 0;
+    var VNvnM = function(t) {
         return MathUtils.Ease.speedLimit(t, MathUtils.Ease.inQuad, 0.05);
     };
-    var reverseTransitionDuration = 500;
-    var reverseTransitionState = 0;
-    var reverseTransitionFunction = function(t) {
+    var Nmv = 500;
+    var mwm = 0;
+    var WVWWm = function(t) {
         return MathUtils.Ease.speedLimit(t, MathUtils.Ease.outQuad, 0.05);
     };
-    var reverseTransition = 0;
-    var transitionDuration = 0;
-    var isWaiting = window.undefined;
+    var WwM = 0;
+    var MNw = 0;
+    var mwn = window.undefined;
 
     function run() {
         Client.onError = onError;
@@ -11427,39 +11443,39 @@ var Score = (function() {
             invtr[0] = item.id;
         }
         CanvasUtils.setRenderer(Score);
-        transitionDuration = reverseTransitionDuration;
-        reverseTransition = reverseTransitionDuration;
-        isWaiting = reverseTransitionFunction;
-        reverseTransitionState = 1;
+        MNw = Nmv;
+        WwM = Nmv;
+        mwn = WVWWm;
+        mwm = 1;
         update();
     };
 
-    function quit(callback) {
+    function quit(wMN) {
         Home.trevdaStyle.display = "none";
-        transitionSpeed = callback;
+        MVv = wMN;
         VVwMW();
-        transitionDuration = transitionDuration;
-        reverseTransition = transitionDuration;
-        isWaiting = transitionFunction;
-        transitionState = 1;
+        MNw = VWm;
+        WwM = VWm;
+        mwn = VNvnM;
+        WWN = 1;
     };
 
     function update() {
-        var transitionX = 0;
-        var transitionY = 0;
-        if (transitionDuration > 0) {
-            transitionY = canh;
-            var transition = isWaiting(1 - (transitionDuration / reverseTransition));
-            if (transition === 1) transitionDuration = 0;
-            if (reverseTransitionState === 1) transition = 1 - window.Math.abs(transition);
-            transitionX *= transition;
-            transitionY *= transition;
+        var vMm = 0;
+        var wwv = 0;
+        if (MNw > 0) {
+            wwv = canh;
+            var transition = mwn(1 - (MNw / WwM));
+            if (transition === 1) MNw = 0;
+            if (mwm === 1) transition = 1 - window.Math.abs(transition);
+            vMm *= transition;
+            wwv *= transition;
         }
-        mNw.pos.x = (canw2 - window.Math.floor(270 * scaleby)) - transitionX;
-        mNw.pos.y = window.Math.max(0, (canh2 - window.Math.floor(162 * scaleby)) + window.Math.floor(-135 * scaleby)) - transitionY;
-        playagainbutt.pos.x = ((canw2 - window.Math.floor(61 * scaleby)) + window.Math.floor(-100 * scaleby)) - transitionX;
-        playagainbutt.pos.y = window.Math.max(0, (canh2 - window.Math.floor(17 * scaleby)) + window.Math.floor(-35 * scaleby)) - transitionY;
-        vWv.pos.x = ((canw2 - window.Math.floor(99 * scaleby)) + window.Math.floor(100 * scaleby)) - transitionX;
+        mNw.pos.x = (canw2 - window.Math.floor(270 * scaleby)) - vMm;
+        mNw.pos.y = window.Math.max(0, (canh2 - window.Math.floor(162 * scaleby)) + window.Math.floor(-135 * scaleby)) - wwv;
+        playagainbutt.pos.x = ((canw2 - window.Math.floor(61 * scaleby)) + window.Math.floor(-100 * scaleby)) - vMm;
+        playagainbutt.pos.y = window.Math.max(0, (canh2 - window.Math.floor(17 * scaleby)) + window.Math.floor(-35 * scaleby)) - wwv;
+        vWv.pos.x = ((canw2 - window.Math.floor(99 * scaleby)) + window.Math.floor(100 * scaleby)) - vMm;
         vWv.pos.y = playagainbutt.pos.y;
         var mVvwv = window.Math.min(scaleby, 1);
         window.document.getElementById("trevda").style.top = window.Math.floor((canh2 - 125) + (140 * mVvwv)) + "px";
@@ -11468,12 +11484,12 @@ var Score = (function() {
     };
 
     function draw() {
-        if (transitionManager() === 0) return;
+        if (MMVwV() === 0) return;
         ctx.clearRect(0, 0, canw, canh);
         Render.world();
-        if (transitionDuration > 0) {
-            NNN = isWaiting(1 - (transitionDuration / reverseTransition));
-            if (reverseTransitionState === 1) NNN = 1 - window.Math.abs(NNN);
+        if (MNw > 0) {
+            NNN = mwn(1 - (MNw / WwM));
+            if (mwm === 1) NNN = 1 - window.Math.abs(NNN);
             NNN = 1 - NNN;
         }
         ctx.globalAlpha = 0.3 * NNN;
@@ -11491,26 +11507,26 @@ var Score = (function() {
         } else playagainbutt.draw();
     };
 
-    function transitionManager() {
-        if (transitionState === 1) {
+    function MMVwV() {
+        if (WWN === 1) {
             update();
-            if (transitionDuration < 0) {
-                transitionState = 0;
+            if (MNw < 0) {
+                WWN = 0;
                 playagainbutt.setState(GUI.__BUTTON_OUT__);
                 vWv.setState(GUI.__BUTTON_OUT__);
-                transitionSpeed.run();
+                MVv.run();
                 return 0;
             }
-            transitionDuration -= delta;
-        } else if (reverseTransitionState === 1) {
+            MNw -= delta;
+        } else if (mwm === 1) {
             update();
-            if (transitionDuration < 0) {
-                reverseTransitionState = 0;
+            if (MNw < 0) {
+                mwm = 0;
                 if (World.PLAYER.admin !== 1) Home.trevdaStyle.display = "inline-block";
                 window.document.getElementById("bod").style.backgroundColor = "#46664d";
                 MmNNN();
             }
-            transitionDuration -= delta;
+            MNw -= delta;
         }
         return 1;
     };
@@ -11560,26 +11576,26 @@ var Score = (function() {
 
     function touchStart(event) {
         if (event.touches.length > 0) {
-            Mouse.touchToMouseEvent(mouseX, event, event.touches[0]);
-            mouseDown(mouseX);
+            Mouse.touchToMouseEvent(NWV, event, event.touches[0]);
+            mouseDown(NWV);
         }
     };
 
     function touchEnd(event) {
-        mouseUp(mouseX);
+        mouseUp(NWV);
     };
 
     function touchCancel(event) {
         if (event.touches.length > 0) {
-            Mouse.touchToMouseEvent(mouseX, event, event.touches[0]);
-            mouseUp(mouseX);
+            Mouse.touchToMouseEvent(NWV, event, event.touches[0]);
+            mouseUp(NWV);
         }
     };
 
     function touchMove(event) {
         if (event.touches.length > 0) {
-            Mouse.touchToMouseEvent(mouseX, event, event.touches[0]);
-            mouseMove(mouseX);
+            Mouse.touchToMouseEvent(NWV, event, event.touches[0]);
+            mouseMove(NWV);
         }
     };
 
@@ -11638,10 +11654,10 @@ var Rank = (function() {
     };
 
     function nmNnw() {
-        var offsetX = mNw.pos.x;
-        var offsetY = mNw.pos.y;
-        var wX_Scale = offsetX / scaleby;
-        var wY_Scale = offsetY / scaleby;
+        var wX = mNw.pos.x;
+        var wY = mNw.pos.y;
+        var wX_Scale = wX / scaleby;
+        var wY_Scale = wY / scaleby;
         if ((NmwnM === null) || (mvNVM !== World.playerAlive)) {
             mvNVM = World.playerAlive;
             NmwnM = GUI.renderText("#" + window.Math.max(mvNVM, 1), "'Viga', sans-serif", "#FFFFFF", 60, 140, window.undefined, 16, 25, window.undefined, window.undefined, window.undefined, window.undefined, "#000000", 12);
@@ -11677,22 +11693,22 @@ var Rank = (function() {
         playagainbutt = GUI.createButton(123, 35, ["img/play-again-button-out.png", "img/play-again-button-in.png", "img/play-again-button-click.png"]);
         vWv = GUI.createButton(198, 35, ["img/back-main-page-button-out.png", "img/back-main-page-button-in.png", "img/back-main-page-button-click.png"]);
     };
-    var transitionSpeed;
-    var mouseX = new Mouse.LocalMouseEvent;
-    var keyboard = new Keyboard.LocalKeyboardEvent;
-    var transitionDuration = 500;
-    var transitionState = 0;
-    var transitionFunction = function(t) {
+    var MVv;
+    var NWV = new Mouse.LocalMouseEvent;
+    var nNw = new Keyboard.LocalKeyboardEvent;
+    var VWm = 500;
+    var WWN = 0;
+    var VNvnM = function(t) {
         return MathUtils.Ease.speedLimit(t, MathUtils.Ease.inQuad, 0.05);
     };
-    var reverseTransitionDuration = 500;
-    var reverseTransitionState = 0;
-    var reverseTransitionFunction = function(t) {
+    var Nmv = 500;
+    var mwm = 0;
+    var WVWWm = function(t) {
         return MathUtils.Ease.speedLimit(t, MathUtils.Ease.outQuad, 0.05);
     };
-    var reverseTransition = 0;
-    var transitionDuration = 0;
-    var isWaiting = window.undefined;
+    var WwM = 0;
+    var MNw = 0;
+    var mwn = window.undefined;
 
     function run() {
         Client.onError = onError;
@@ -11702,39 +11718,39 @@ var Rank = (function() {
         Render.setDetection(0);
         Render.stopPoisonEffect();
         CanvasUtils.setRenderer(Rank);
-        transitionDuration = reverseTransitionDuration;
-        reverseTransition = reverseTransitionDuration;
-        isWaiting = reverseTransitionFunction;
-        reverseTransitionState = 1;
+        MNw = Nmv;
+        WwM = Nmv;
+        mwn = WVWWm;
+        mwm = 1;
         update();
     };
 
-    function quit(callback) {
+    function quit(wMN) {
         Home.trevdaStyle.display = "none";
-        transitionSpeed = callback;
+        MVv = wMN;
         VVwMW();
-        transitionDuration = transitionDuration;
-        reverseTransition = transitionDuration;
-        isWaiting = transitionFunction;
-        transitionState = 1;
+        MNw = VWm;
+        WwM = VWm;
+        mwn = VNvnM;
+        WWN = 1;
     };
 
     function update() {
-        var transitionX = 0;
-        var transitionY = 0;
-        if (transitionDuration > 0) {
-            transitionY = canh;
-            var transition = isWaiting(1 - (transitionDuration / reverseTransition));
-            if (transition === 1) transitionDuration = 0;
-            if (reverseTransitionState === 1) transition = 1 - window.Math.abs(transition);
-            transitionX *= transition;
-            transitionY *= transition;
+        var vMm = 0;
+        var wwv = 0;
+        if (MNw > 0) {
+            wwv = canh;
+            var transition = mwn(1 - (MNw / WwM));
+            if (transition === 1) MNw = 0;
+            if (mwm === 1) transition = 1 - window.Math.abs(transition);
+            vMm *= transition;
+            wwv *= transition;
         }
-        mNw.pos.x = (canw2 - window.Math.floor(207 * scaleby)) - transitionX;
-        mNw.pos.y = window.Math.max(0, (canh2 - window.Math.floor(103 * scaleby)) + window.Math.floor(-135 * scaleby)) - transitionY;
-        playagainbutt.pos.x = ((canw2 - window.Math.floor(61 * scaleby)) + window.Math.floor(-100 * scaleby)) - transitionX;
-        playagainbutt.pos.y = window.Math.max(0, (canh2 - window.Math.floor(17 * scaleby)) + window.Math.floor(-70 * scaleby)) - transitionY;
-        vWv.pos.x = ((canw2 - window.Math.floor(99 * scaleby)) + window.Math.floor(70 * scaleby)) - transitionX;
+        mNw.pos.x = (canw2 - window.Math.floor(207 * scaleby)) - vMm;
+        mNw.pos.y = window.Math.max(0, (canh2 - window.Math.floor(103 * scaleby)) + window.Math.floor(-135 * scaleby)) - wwv;
+        playagainbutt.pos.x = ((canw2 - window.Math.floor(61 * scaleby)) + window.Math.floor(-100 * scaleby)) - vMm;
+        playagainbutt.pos.y = window.Math.max(0, (canh2 - window.Math.floor(17 * scaleby)) + window.Math.floor(-70 * scaleby)) - wwv;
+        vWv.pos.x = ((canw2 - window.Math.floor(99 * scaleby)) + window.Math.floor(70 * scaleby)) - vMm;
         vWv.pos.y = playagainbutt.pos.y;
         var mVvwv = scaleby;
         window.document.getElementById("trevda").style.top = window.Math.floor((canh2 - 125) + (130 * mVvwv)) + "px";
@@ -11742,12 +11758,12 @@ var Rank = (function() {
     };
 
     function draw() {
-        if (transitionManager() === 0) return;
+        if (MMVwV() === 0) return;
         ctx.clearRect(0, 0, canw, canh);
         Render.world();
-        if (transitionDuration > 0) {
-            NNN = isWaiting(1 - (transitionDuration / reverseTransition));
-            if (reverseTransitionState === 1) NNN = 1 - window.Math.abs(NNN);
+        if (MNw > 0) {
+            NNN = mwn(1 - (MNw / WwM));
+            if (mwm === 1) NNN = 1 - window.Math.abs(NNN);
             NNN = 1 - NNN;
         }
         ctx.globalAlpha = 0.3 * NNN;
@@ -11765,26 +11781,26 @@ var Rank = (function() {
         } else playagainbutt.draw();
     };
 
-    function transitionManager() {
-        if (transitionState === 1) {
+    function MMVwV() {
+        if (WWN === 1) {
             update();
-            if (transitionDuration < 0) {
-                transitionState = 0;
+            if (MNw < 0) {
+                WWN = 0;
                 playagainbutt.setState(GUI.__BUTTON_OUT__);
                 vWv.setState(GUI.__BUTTON_OUT__);
-                transitionSpeed.run();
+                MVv.run();
                 return 0;
             }
-            transitionDuration -= delta;
-        } else if (reverseTransitionState === 1) {
+            MNw -= delta;
+        } else if (mwm === 1) {
             update();
-            if (transitionDuration < 0) {
-                reverseTransitionState = 0;
+            if (MNw < 0) {
+                mwm = 0;
                 Home.trevdaStyle.display = "inline-block";
                 window.document.getElementById("bod").style.backgroundColor = "#46664d";
                 MmNNN();
             }
-            transitionDuration -= delta;
+            MNw -= delta;
         }
         return 1;
     };
@@ -11834,26 +11850,26 @@ var Rank = (function() {
 
     function touchStart(event) {
         if (event.touches.length > 0) {
-            Mouse.touchToMouseEvent(mouseX, event, event.touches[0]);
-            mouseDown(mouseX);
+            Mouse.touchToMouseEvent(NWV, event, event.touches[0]);
+            mouseDown(NWV);
         }
     };
 
     function touchEnd(event) {
-        mouseUp(mouseX);
+        mouseUp(NWV);
     };
 
     function touchCancel(event) {
         if (event.touches.length > 0) {
-            Mouse.touchToMouseEvent(mouseX, event, event.touches[0]);
-            mouseUp(mouseX);
+            Mouse.touchToMouseEvent(NWV, event, event.touches[0]);
+            mouseUp(NWV);
         }
     };
 
     function touchMove(event) {
         if (event.touches.length > 0) {
-            Mouse.touchToMouseEvent(mouseX, event, event.touches[0]);
-            mouseMove(mouseX);
+            Mouse.touchToMouseEvent(NWV, event, event.touches[0]);
+            mouseMove(NWV);
         }
     };
 
@@ -11982,9 +11998,9 @@ var Editor = (function() {
     var nvnNv = 0;
     var vmV = 0;
 
-    function mnnMn(pid, type, offsetX, offsetY, extra, state) {
-        var entity = Entitie.get(pid, vmV, vmV, type);
-        setEntitie(entity, pid, vmV, vmV, type, offsetX, offsetY, offsetX, offsetY, extra, 0, state);
+    function mnnMn(pid, type, wX, wY, extra, state) {
+        var UNIT = Entitie.get(pid, vmV, vmV, type);
+        setEntitie(UNIT, pid, vmV, vmV, type, wX, wY, wX, wY, extra, 0, state);
         vmV++;
     };
 
@@ -11999,19 +12015,19 @@ var Editor = (function() {
         }
     };
 
-    function Vnvmv(item, subtype, i, j, rotation) {
+    function Vnvmv(item, subtype, i, j, Rot) {
         item        = window.Number(item)    >>> 0;
         subtype     = window.Number(subtype) >>> 0;
         i           = window.Number(i)       >>> 0;
         j           = window.Number(j)       >>> 0;
-        rotation         = window.Number(rotation)     >>> 0;
+        Rot         = window.Number(Rot)     >>> 0;
 
-        if (((rotation > 3) || (i >= MapManager.height)) || (j >= MapManager.height)) return;
+        if (((Rot > 3) || (i >= MapManager.height)) || (j >= MapManager.height)) return;
         var building = INVENTORY[item];
         if (((building === window.undefined) || (building.subtype === window.undefined)) || ((building.subtype > 0) && (building.building.length <= subtype))) return;
-        var rotation = (building.wall === 1) ? 0 : rotation;
-        var offsetX = (building.xCenter[rotation] + 50) + (100 * j);
-        var offsetY = (building.yCenter[rotation] + 50) + (100 * i);
+        var Rot = (building.wall === 1) ? 0 : Rot;
+        var wX = (building.xCenter[Rot] + 50) + (100 * j);
+        var wY = (building.yCenter[Rot] + 50) + (100 * i);
         var type = 0;
         switch ((building.subtype === 0) ? building.zid : building.subtype[subtype].zid) {
             case 0:
@@ -12027,14 +12043,14 @@ var Editor = (function() {
                 type = __ENTITIE_BUILD_GROUND__;
                 break;
         }
-        nWMWn(1, type, offsetX, offsetY, rotation, 1 + ((building.subtype === 0) ? 0 : (subtype << 5)), building.id);
+        nWMWn(1, type, wX, wY, Rot, 1 + ((building.subtype === 0) ? 0 : (subtype << 5)), building.id);
     };
 
-    function nWMWn(pid, type, offsetX, offsetY, rotation, state, subtype) {
-        var entity = Entitie.get(pid, vmV, vmV, type);
-        setEntitie(entity, pid, vmV, vmV, type, offsetX, offsetY, offsetX, offsetY, (subtype << 7) + (rotation << 5), 0, state);
+    function nWMWn(pid, type, wX, wY, Rot, state, subtype) {
+        var UNIT = Entitie.get(pid, vmV, vmV, type);
+        setEntitie(UNIT, pid, vmV, vmV, type, wX, wY, wX, wY, (subtype << 7) + (Rot << 5), 0, state);
         var update = ENTITIES[type].update;
-        if (update !== window.undefined) update(entity, offsetX, offsetY);
+        if (update !== window.undefined) update(UNIT, wX, wY);
         vmV++;
     };
 
@@ -12055,14 +12071,14 @@ var Editor = (function() {
         return code;
     };
 
-    function editorBuildRemove(type, offsetX, offsetY) {
+    function editorBuildRemove(type, wX, wY) {
         var buildings       = Entitie.units[type];
         var buildingsBorder = Entitie.border[type];
         var buildingsLen    = buildingsBorder.border;
         
         for (i = 0; i < buildingsLen; i++) {
             var building = buildings[buildingsBorder.cycle[i]];
-            if ((((building.x >= offsetX) && (building.x <= (offsetX + 100))) && (building.y >= offsetY)) && (building.y <= (offsetY + 100))) {
+            if ((((building.x >= wX) && (building.x <= (wX + 100))) && (building.y >= wY)) && (building.y <= (wY + 100))) {
                 Entitie.remove(building.pid, building.id, building.uid, type, building.extra);
                 return;
             }
@@ -12077,12 +12093,12 @@ var Editor = (function() {
                 if (World.PLAYER.canBuild === 1) {
                     if ((((World.PLAYER.jBuild !== -1) && (World.PLAYER.iBuild !== -1)) && (World.PLAYER.jBuild !== MapManager.width)) && (World.PLAYER.iBuild !== MapManager.height)) Vnvmv(World.PLAYER.blueprint, World.PLAYER.furniture, World.PLAYER.iBuild, World.PLAYER.jBuild, World.PLAYER.buildRotate);
                 } else {
-                    var offsetX = 100 * World.PLAYER.jBuild;
-                    var offsetY = 100 * World.PLAYER.iBuild;
-                    editorBuildRemove(__ENTITIE_BUILD_DOWN__, offsetX, offsetY);
-                    editorBuildRemove(__ENTITIE_BUILD_TOP__, offsetX, offsetY);
-                    editorBuildRemove(__ENTITIE_BUILD_GROUND2__, offsetX, offsetY);
-                    editorBuildRemove(__ENTITIE_BUILD_GROUND__, offsetX, offsetY);
+                    var wX = 100 * World.PLAYER.jBuild;
+                    var wY = 100 * World.PLAYER.iBuild;
+                    editorBuildRemove(__ENTITIE_BUILD_DOWN__, wX, wY);
+                    editorBuildRemove(__ENTITIE_BUILD_TOP__, wX, wY);
+                    editorBuildRemove(__ENTITIE_BUILD_GROUND2__, wX, wY);
+                    editorBuildRemove(__ENTITIE_BUILD_GROUND__, wX, wY);
                 }
             }
         } else if (Mouse.state === Mouse.__MOUSE_UP__) {
@@ -12117,13 +12133,13 @@ var Editor = (function() {
     };
 
     function wWNmN() {
-        var offsetX = editorBuildings.pos.x - (5 * scaleby);
-        var offsetY = editorBuildings.pos.y + (74 * scaleby);
+        var wX = editorBuildings.pos.x - (5 * scaleby);
+        var wY = editorBuildings.pos.y + (74 * scaleby);
         var MVM = 45 * scaleby;
         for (var i = 0; i < NWw; i++) {
             var wm = Wnw[i];
-            wm.pos.x = offsetX + ((i % 8) * MVM);
-            wm.pos.y = offsetY + (window.Math.floor(i / 8) * MVM);
+            wm.pos.x = wX + ((i % 8) * MVM);
+            wm.pos.y = wY + (window.Math.floor(i / 8) * MVM);
             wm.draw();
         }
     };
@@ -12209,18 +12225,18 @@ var Editor = (function() {
         editorHome          = GUI.createButton(60, 60,      ["img/home-button-out.png", "img/home-button-in.png", "img/home-button-click.png"]);
 
     };
-    var transitionSpeed;
-    var mouseX = new Mouse.LocalMouseEvent;
-    var keyboard = new Keyboard.LocalKeyboardEvent;
-    var transitionDuration = 1000;
-    var transitionState = 0;
-    var transitionFunction = MathUtils.Ease.inQuad;
-    var reverseTransitionDuration = 1000;
-    var reverseTransitionState = 0;
-    var reverseTransitionFunction = MathUtils.Ease.outQuad;
-    var reverseTransition = 0;
-    var transitionDuration = 0;
-    var isWaiting = window.undefined;
+    var MVv;
+    var NWV = new Mouse.LocalMouseEvent;
+    var nNw = new Keyboard.LocalKeyboardEvent;
+    var VWm = 1000;
+    var WWN = 0;
+    var VNvnM = MathUtils.Ease.inQuad;
+    var Nmv = 1000;
+    var mwm = 0;
+    var WVWWm = MathUtils.Ease.outQuad;
+    var WwM = 0;
+    var MNw = 0;
+    var mwn = window.undefined;
 
     function run() {
         window.document.getElementById("bod").style.backgroundColor = "#46664D";
@@ -12259,57 +12275,57 @@ var Editor = (function() {
         }
         editorSetValues();
         CanvasUtils.setRenderer(Editor);
-        transitionDuration = reverseTransitionDuration;
-        reverseTransition = reverseTransitionDuration;
-        isWaiting = reverseTransitionFunction;
-        reverseTransitionState = 1;
+        MNw = Nmv;
+        WwM = Nmv;
+        mwn = WVWWm;
+        mwm = 1;
         update();
     };
 
-    function quit(callback) {
+    function quit(wMN) {
         _CloseBox();
         AudioManager.quitGame();
-        transitionSpeed = callback;
+        MVv = wMN;
         VVwMW();
-        transitionDuration = transitionDuration;
-        reverseTransition = transitionDuration;
-        isWaiting = transitionFunction;
-        transitionState = 1;
+        MNw = VWm;
+        WwM = VWm;
+        mwn = VNvnM;
+        WWN = 1;
     };
 
     function update() {
-        var transitionX = 0;
-        var transitionY = 0;
-        if (transitionDuration > 0) {
-            transitionY = canh;
-            var transition = isWaiting(1 - (transitionDuration / reverseTransition));
-            if (transition === 1) transitionDuration = 0;
-            if (reverseTransitionState === 1) transition = 1 - window.Math.abs(transition);
-            transitionX *= transition;
-            transitionY *= transition;
+        var vMm = 0;
+        var wwv = 0;
+        if (MNw > 0) {
+            wwv = canh;
+            var transition = mwn(1 - (MNw / WwM));
+            if (transition === 1) MNw = 0;
+            if (mwm === 1) transition = 1 - window.Math.abs(transition);
+            vMm *= transition;
+            wwv *= transition;
         }
-        BACKGROUND_SETTBOX.pos.x = (canw2 - window.Math.floor(134 * scaleby)) + transitionX;
-        BACKGROUND_SETTBOX.pos.y = window.Math.max(0, canh2 - window.Math.floor(133 * scaleby)) + transitionY;
-        BACKGROUND_BIGMAP.pos.x = (canw2 - window.Math.floor(206 * scaleby)) + transitionX;
-        BACKGROUND_BIGMAP.pos.y = window.Math.max(0, canh2 - window.Math.floor(206 * scaleby)) + transitionY;
-        minimap.pos.x = window.Math.floor(5 * scaleby) - transitionX;
-        minimap.pos.y = window.Math.floor(5 * scaleby) - transitionY;
+        BACKGROUND_SETTBOX.pos.x = (canw2 - window.Math.floor(134 * scaleby)) + vMm;
+        BACKGROUND_SETTBOX.pos.y = window.Math.max(0, canh2 - window.Math.floor(133 * scaleby)) + wwv;
+        BACKGROUND_BIGMAP.pos.x = (canw2 - window.Math.floor(206 * scaleby)) + vMm;
+        BACKGROUND_BIGMAP.pos.y = window.Math.max(0, canh2 - window.Math.floor(206 * scaleby)) + wwv;
+        minimap.pos.x = window.Math.floor(5 * scaleby) - vMm;
+        minimap.pos.y = window.Math.floor(5 * scaleby) - wwv;
         editorScreen.pos.x      = minimap.pos.x + window.Math.floor(126 * scaleby);
         editorScreen.pos.y      = minimap.pos.y;
         editorOptions.pos.x     = editorScreen.pos.x;
         editorOptions.pos.y     = editorScreen.pos.y + window.Math.floor(44.5 * scaleby);
         editorMap.pos.x         = editorOptions.pos.x;
         editorMap.pos.y         = editorOptions.pos.y + window.Math.floor(44.5 * scaleby);
-        editorLogic.pos.x       = ((canw - window.Math.floor(67 * scaleby)) + window.Math.floor(-5 * scaleby)) - transitionX;
-        editorLogic.pos.y       = window.Math.floor(5 * scaleby) - transitionY;
+        editorLogic.pos.x       = ((canw - window.Math.floor(67 * scaleby)) + window.Math.floor(-5 * scaleby)) - vMm;
+        editorLogic.pos.y       = window.Math.floor(5 * scaleby) - wwv;
         editorExplosions.pos.x  = editorLogic.pos.x + window.Math.floor(-70 * scaleby);
-        editorExplosions.pos.y  = window.Math.floor(5 * scaleby) - transitionY;
+        editorExplosions.pos.y  = window.Math.floor(5 * scaleby) - wwv;
         editorRoad.pos.x        = editorExplosions.pos.x + window.Math.floor(-70 * scaleby);
-        editorRoad.pos.y        = window.Math.floor(5 * scaleby) - transitionY;
+        editorRoad.pos.y        = window.Math.floor(5 * scaleby) - wwv;
         editorFurniture.pos.x   = editorRoad.pos.x + window.Math.floor(-70 * scaleby);
-        editorFurniture.pos.y   = window.Math.floor(5 * scaleby) - transitionY;
+        editorFurniture.pos.y   = window.Math.floor(5 * scaleby) - wwv;
         editorBuildings.pos.x   = editorFurniture.pos.x + window.Math.floor(-70 * scaleby);
-        editorBuildings.pos.y   = window.Math.floor(5 * scaleby) - transitionY;
+        editorBuildings.pos.y   = window.Math.floor(5 * scaleby) - wwv;
         editorZoomIn.pos.x      = window.Math.floor(5 * scaleby);
         editorZoomIn.pos.y      = (canh - window.Math.floor(46.5 * scaleby)) + window.Math.floor(-5 * scaleby);
         editorZoomOut.pos.x     = editorZoomIn.pos.x + window.Math.floor(50 * scaleby);
@@ -12325,7 +12341,7 @@ var Editor = (function() {
     };
 
     function draw() {
-        if (transitionManager() === 0) return;
+        if (MMVwV() === 0) return;
         vnMVv();
         nNvvV();
         ctx.clearRect(0, 0, canw, canh);
@@ -12355,21 +12371,21 @@ var Editor = (function() {
         } else if (isTouchScreen === 1) {
             if ((((Keyboard.isLeft() + Keyboard.isRight()) + Keyboard.isTop()) + Keyboard.isBottom()) >= 1) {
                 ctx.globalAlpha = 0.3;
-                var offsetX = canw2ns - (canw4ns * 1.5);
-                var offsetY = canh2ns + (canw4ns / 4);
-                CanvasUtils.circle(ctx, offsetX, offsetY, 60);
+                var wX = canw2ns - (canw4ns * 1.5);
+                var wY = canh2ns + (canw4ns / 4);
+                CanvasUtils.circle(ctx, wX, wY, 60);
                 CanvasUtils.drawPath(ctx, "#000000");
-                CanvasUtils.circle(ctx, offsetX + ((window.Math.cos(MWVNw) * NVNwm) * scaleby), offsetY + ((window.Math.sin(MWVNw) * NVNwm) * scaleby), 30);
+                CanvasUtils.circle(ctx, wX + ((window.Math.cos(MWVNw) * NVNwm) * scaleby), wY + ((window.Math.sin(MWVNw) * NVNwm) * scaleby), 30);
                 CanvasUtils.drawPath(ctx, "#FFFFFF");
                 ctx.globalAlpha = 1;
             }
             if (vmWNW === 1) {
                 ctx.globalAlpha = 0.3;
-                var offsetX = canw2ns + (canw4ns * 1.5);
-                var offsetY = canh2ns + (canw4ns / 4);
-                CanvasUtils.circle(ctx, offsetX, offsetY, 60);
+                var wX = canw2ns + (canw4ns * 1.5);
+                var wY = canh2ns + (canw4ns / 4);
+                CanvasUtils.circle(ctx, wX, wY, 60);
                 CanvasUtils.drawPath(ctx, "#000000");
-                CanvasUtils.circle(ctx, offsetX + ((window.Math.cos(Mouse.angle) * 25) * scaleby), offsetY + ((window.Math.sin(Mouse.angle) * 25) * scaleby), 30);
+                CanvasUtils.circle(ctx, wX + ((window.Math.cos(Mouse.angle) * 25) * scaleby), wY + ((window.Math.sin(Mouse.angle) * 25) * scaleby), 30);
                 CanvasUtils.drawPath(ctx, "#FFFFFF");
                 ctx.globalAlpha = 1;
             }
@@ -12377,11 +12393,11 @@ var Editor = (function() {
         AudioManager.scheduler();
     };
 
-    function transitionManager() {
-        if (transitionState === 1) {
+    function MMVwV() {
+        if (WWN === 1) {
             update();
-            if (transitionDuration < 0) {
-                transitionState = 0;
+            if (MNw < 0) {
+                WWN = 0;
                 editorScreen.setState(GUI.__BUTTON_OUT__);
                 editorOptions.setState(GUI.__BUTTON_OUT__);
                 editorMap.setState(GUI.__BUTTON_OUT__);
@@ -12396,17 +12412,17 @@ var Editor = (function() {
                 editorImport.setState(GUI.__BUTTON_OUT__);
                 editorCopy.setState(GUI.__BUTTON_OUT__);
                 editorHome.setState(GUI.__BUTTON_OUT__);
-                transitionSpeed.run();
+                MVv.run();
                 return 0;
             }
-            transitionDuration -= delta;
-        } else if (reverseTransitionState === 1) {
+            MNw -= delta;
+        } else if (mwm === 1) {
             update();
-            if (transitionDuration < 0) {
-                reverseTransitionState = 0;
+            if (MNw < 0) {
+                mwm = 0;
                 MmNNN();
             }
-            transitionDuration -= delta;
+            MNw -= delta;
         }
         return 1;
     };
@@ -12806,64 +12822,64 @@ var Editor = (function() {
     function touchStart(event) {
         var NVN = 0;
         for (var wVV = 0; wVV < event.touches.length; wVV++) {
-            Mouse.touchToMouseEvent(mouseX, event, event.touches[wVV]);
+            Mouse.touchToMouseEvent(NWV, event, event.touches[wVV]);
             if (NmW === 0) {
-                var sx = window.Math.floor(mouseX.clientX * CanvasUtils.options.ratioX);
-                var sy = window.Math.floor(mouseX.clientY * CanvasUtils.options.ratioY);
+                var sx = window.Math.floor(NWV.clientX * CanvasUtils.options.ratioX);
+                var sy = window.Math.floor(NWV.clientY * CanvasUtils.options.ratioY);
                 if (sy < (canh - (70 * scaleby))) {
                     var WMm = canw4 * 1.5;
                     var nmV = canw4 / 4;
                     if (sx < canw2) {
                         var MVM = 30 * scaleby;
                         MWVNw = Math2d.angle(canw2 - WMm, canh2 + nmV, sx, sy);
-                        NVNwm = window.Math.min(Math2d.distance(sx, sy, canw2 - WMm, canh2 + nmV), 25);
+                        NVNwm = window.Math.min(Math2d.dist(sx, sy, canw2 - WMm, canh2 + nmV), 25);
                         if (sx < ((canw2 - WMm) - MVM)) {
                             mWM |= 1;
-                            keyboard.charCode = 37;
-                            keyboard.keyCode = 37;
-                            vnW(keyboard);
+                            nNw.charCode = 37;
+                            nNw.keyCode = 37;
+                            vnW(nNw);
                         } else if (sx > ((canw2 - WMm) + MVM)) {
                             mWM |= 2;
-                            keyboard.charCode = 39;
-                            keyboard.keyCode = 39;
-                            vnW(keyboard);
+                            nNw.charCode = 39;
+                            nNw.keyCode = 39;
+                            vnW(nNw);
                         }
                         if (sy < ((canh2 + nmV) - MVM)) {
                             mWM |= 4;
-                            keyboard.charCode = 38;
-                            keyboard.keyCode = 38;
-                            vnW(keyboard);
+                            nNw.charCode = 38;
+                            nNw.keyCode = 38;
+                            vnW(nNw);
                         } else if (sy > ((canh2 + nmV) + MVM)) {
                             mWM |= 8;
-                            keyboard.charCode = 40;
-                            keyboard.keyCode = 40;
-                            vnW(keyboard);
+                            nNw.charCode = 40;
+                            nNw.keyCode = 40;
+                            vnW(nNw);
                         }
                     } else if ((sx < (canw - (40 * scaleby))) || (sy > (40 * scaleby))) {
                         NVN = 1;
-                        mouseX.clientX -= WMm / CanvasUtils.options.ratioX;
-                        mouseX.clientY -= nmV / CanvasUtils.options.ratioX;
+                        NWV.clientX -= WMm / CanvasUtils.options.ratioX;
+                        NWV.clientY -= nmV / CanvasUtils.options.ratioX;
                         if (World.PLAYER.isBuilding === 1) {
                             var vVMmn = window.Date.now();
                             if ((vVMmn - MMMvM) < 1000) {
                                 vmWNW = 1;
-                                NnVMv = mouseX.clientX;
-                                WNmmw = mouseX.clientY;
-                                mouseDown(mouseX);
+                                NnVMv = NWV.clientX;
+                                WNmmw = NWV.clientY;
+                                mouseDown(NWV);
                             }
                             MMMvM = vVMmn;
                         } else {
                             vmWNW = 1;
-                            NnVMv = mouseX.clientX;
-                            WNmmw = mouseX.clientY;
-                            mouseDown(mouseX);
+                            NnVMv = NWV.clientX;
+                            WNmmw = NWV.clientY;
+                            mouseDown(NWV);
                         }
                     }
                     continue;
                 }
             }
             if ((NVN === 0) && (mWM === 0)) {
-                mouseDown(mouseX);
+                mouseDown(NWV);
                 NVN = 1;
             }
         }
@@ -12875,32 +12891,32 @@ var Editor = (function() {
         var sx = window.Math.floor(event.changedTouches[0].clientX * CanvasUtils.options.ratioX);
         var sy = window.Math.floor(event.changedTouches[0].clientY * CanvasUtils.options.ratioY);
         if (nvnNv === 1) nvnNv = 0;
-        else if (NmW === 1) mouseUp(mouseX);
+        else if (NmW === 1) mouseUp(NWV);
         else if ((vmWNW === 1) && (sx >= canw2)) {
             vmWNW = 0;
-            mouseX.clientX = NnVMv;
-            mouseX.clientY = WNmmw;
-            mouseUp(mouseX);
+            NWV.clientX = NnVMv;
+            NWV.clientY = WNmmw;
+            mouseUp(NWV);
             return;
         } else if (((World.PLAYER.drag.begin === 0) && (sx < canw2)) && (sy < (canh - (70 * scaleby)))) {
-            if ((sx < (240 * scaleby)) && (sy < (160 * scaleby))) mouseUp(mouseX);
-        } else mouseUp(mouseX);
+            if ((sx < (240 * scaleby)) && (sy < (160 * scaleby))) mouseUp(NWV);
+        } else mouseUp(NWV);
         if (mWM !== 0) {
             if (mWM & 1) {
-                keyboard.charCode = 37;
-                NmN(keyboard);
+                nNw.charCode = 37;
+                NmN(nNw);
             }
             if (mWM & 2) {
-                keyboard.charCode = 39;
-                NmN(keyboard);
+                nNw.charCode = 39;
+                NmN(nNw);
             }
             if (mWM & 4) {
-                keyboard.charCode = 38;
-                NmN(keyboard);
+                nNw.charCode = 38;
+                NmN(nNw);
             }
             if (mWM & 8) {
-                keyboard.charCode = 40;
-                NmN(keyboard);
+                nNw.charCode = 40;
+                NmN(nNw);
             }
             mWM = 0;
         }
@@ -12910,10 +12926,10 @@ var Editor = (function() {
         var NVN = 0;
         var mWVWv = 0;
         for (var wVV = 0; wVV < event.touches.length; wVV++) {
-            Mouse.touchToMouseEvent(mouseX, event, event.touches[wVV]);
+            Mouse.touchToMouseEvent(NWV, event, event.touches[wVV]);
             if ((World.PLAYER.drag.begin === 0) && (NmW === 0)) {
-                var sx = window.Math.floor(mouseX.clientX * CanvasUtils.options.ratioX);
-                var sy = window.Math.floor(mouseX.clientY * CanvasUtils.options.ratioY);
+                var sx = window.Math.floor(NWV.clientX * CanvasUtils.options.ratioX);
+                var sy = window.Math.floor(NWV.clientY * CanvasUtils.options.ratioY);
                 if (sy < (canh - (70 * scaleby))) {
                     var WMm = canw4 * 1.5;
                     var nmV = canw4 / 4;
@@ -12922,72 +12938,72 @@ var Editor = (function() {
                         var VNM = 0;
                         var MVM = 30 * scaleby;
                         MWVNw = Math2d.angle(canw2 - WMm, canh2 + nmV, sx, sy);
-                        NVNwm = window.Math.min(Math2d.distance(sx, sy, canw2 - WMm, canh2 + nmV), 25);
+                        NVNwm = window.Math.min(Math2d.dist(sx, sy, canw2 - WMm, canh2 + nmV), 25);
                         if (sx < ((canw2 - WMm) - MVM)) VNM |= 1;
                         else if (sx > ((canw2 - WMm) + MVM)) VNM |= 2;
                         if (sy < ((canh2 + nmV) + -MVM)) VNM |= 4;
                         else if (sy > ((canh2 + nmV) + MVM)) VNM |= 8;
                         if (((VNM & 1) === 1) && ((mWM & 1) !== 1)) {
-                            keyboard.charCode = 37;
-                            vnW(keyboard);
+                            nNw.charCode = 37;
+                            vnW(nNw);
                         } else if (((VNM & 1) !== 1) && ((mWM & 1) === 1)) {
-                            keyboard.charCode = 37;
-                            NmN(keyboard);
+                            nNw.charCode = 37;
+                            NmN(nNw);
                         }
                         if (((VNM & 2) === 2) && ((mWM & 2) !== 2)) {
-                            keyboard.charCode = 39;
-                            vnW(keyboard);
+                            nNw.charCode = 39;
+                            vnW(nNw);
                         } else if (((VNM & 2) !== 2) && ((mWM & 2) === 2)) {
-                            keyboard.charCode = 39;
-                            NmN(keyboard);
+                            nNw.charCode = 39;
+                            NmN(nNw);
                         }
                         if (((VNM & 4) === 4) && ((mWM & 4) !== 4)) {
-                            keyboard.charCode = 38;
-                            vnW(keyboard);
+                            nNw.charCode = 38;
+                            vnW(nNw);
                         } else if (((VNM & 4) !== 4) && ((mWM & 4) === 4)) {
-                            keyboard.charCode = 38;
-                            NmN(keyboard);
+                            nNw.charCode = 38;
+                            NmN(nNw);
                         }
                         if (((VNM & 8) === 8) && ((mWM & 8) !== 8)) {
-                            keyboard.charCode = 40;
-                            vnW(keyboard);
+                            nNw.charCode = 40;
+                            vnW(nNw);
                         } else if (((VNM & 8) !== 8) && ((mWM & 8) === 8)) {
-                            keyboard.charCode = 40;
-                            NmN(keyboard);
+                            nNw.charCode = 40;
+                            NmN(nNw);
                         }
                         mWM = VNM;
                         continue;
                     } else if ((sx < (canw - (40 * scaleby))) || (sy > (40 * scaleby))) {
                         NVN = 1;
-                        mouseX.clientX -= WMm / CanvasUtils.options.ratioX;
-                        mouseX.clientY -= nmV / CanvasUtils.options.ratioX;
-                        NnVMv = mouseX.clientX;
-                        WNmmw = mouseX.clientY;
-                        mouseMove(mouseX);
+                        NWV.clientX -= WMm / CanvasUtils.options.ratioX;
+                        NWV.clientY -= nmV / CanvasUtils.options.ratioX;
+                        NnVMv = NWV.clientX;
+                        WNmmw = NWV.clientY;
+                        mouseMove(NWV);
                     }
                 }
             }
             if ((NVN === 0) && (mWM === 0)) {
-                mouseMove(mouseX);
+                mouseMove(NWV);
                 NVN = 1;
             }
         }
         if ((mWVWv === 0) && (mWM !== 0)) {
             if (mWM & 1) {
-                keyboard.charCode = 37;
-                NmN(keyboard);
+                nNw.charCode = 37;
+                NmN(nNw);
             }
             if (mWM & 2) {
-                keyboard.charCode = 39;
-                NmN(keyboard);
+                nNw.charCode = 39;
+                NmN(nNw);
             }
             if (mWM & 4) {
-                keyboard.charCode = 38;
-                NmN(keyboard);
+                nNw.charCode = 38;
+                NmN(nNw);
             }
             if (mWM & 8) {
-                keyboard.charCode = 40;
-                NmN(keyboard);
+                nNw.charCode = 40;
+                NmN(nNw);
             }
             mWM = 0;
         }
@@ -13587,7 +13603,7 @@ try {
                 isLoaded: 0
             }
         };
-        var shakeMagnitude = 0;
+        var MvvNN = 0;
         var VmWNN = {
             src: IMG_RAD_ALERT,
             img: {
@@ -13656,8 +13672,8 @@ try {
                 isLoaded: 0
             }
         };
-        var nearestDistance = 12000;
-        var distance12k = 12000;
+        var vnVmM = 36000;
+        var distance12k = 36000;
         var wVMNN = [];
         for (i = 0; i < 10; i++) {
             wVMNN[i] = [];
@@ -13821,8 +13837,8 @@ try {
         canvasG.width = 280;
         canvasG.height = 148;
         var mwwNm = -1;
-        var canvasElements = [];
-        var canvasContexts = [];
+        var wmvMm = [];
+        var nmMMW = [];
         var skillPoint = window.document.createElement("canvas");
         var context2H = skillPoint.getContext("2d");
         skillPoint.width = 280;
@@ -13854,13 +13870,13 @@ try {
             });
         };
 
-        function wmNMv(player, rotation) {
+        function wmNMv(player, Rot) {
             if ((player.hurt > 0) || (player.removed !== 0)) return 0;
             var i = player.i;
             var j = player.j;
             var type = player.extra >> 7;
             var id = 0;
-            switch (rotation) {
+            switch (Rot) {
                 case 0:
                     if ((i + 1) < worldHeight) {
                         var VMV = matrix[i + 1][j];
@@ -13930,7 +13946,7 @@ try {
                     }
                     break;
             }
-            return vNw[rotation][id];
+            return vNw[Rot][id];
         };
 
         function Wwmwm(player) {
@@ -14066,13 +14082,13 @@ try {
             VMV.wallFrame = frameId;
             VMV.wall = INVENTORY[type].idWall;
             if (World.PLAYER._j === player.j) {
-                var distance = window.Math.max(1, window.Math.abs(World.PLAYER._i - player.i));
-                if (World.PLAYER._i < player.i) NNmMN[0] = WwmVM / distance;
-                else NNmMN[1] = WwmVM / distance;
+                var dist = window.Math.max(1, window.Math.abs(World.PLAYER._i - player.i));
+                if (World.PLAYER._i < player.i) NNmMN[0] = WwmVM / dist;
+                else NNmMN[1] = WwmVM / dist;
             } else if (World.PLAYER._i === player.i) {
-                var distance = window.Math.max(1, window.Math.abs(World.PLAYER._j - player.j));
-                if (World.PLAYER._j < player.j) NNmMN[2] = WwmVM / distance;
-                else NNmMN[3] = WwmVM / distance;
+                var dist = window.Math.max(1, window.Math.abs(World.PLAYER._j - player.j));
+                if (World.PLAYER._j < player.j) NNmMN[2] = WwmVM / dist;
+                else NNmMN[3] = WwmVM / dist;
             }
         };
 
@@ -14104,11 +14120,11 @@ try {
         };
 
         function _Reset(wVNwM, MMnVM, VmNwV) {
-            handleResize = window.document.getElementById("bod").onresize;
+            bodOnResize = window.document.getElementById("bod").onresize;
             if (World.gameMode === World.__BR__) {
                 context2dZ.clearRect(0, 0, Width_410, Width_410);
                 context2dD.clearRect(0, 0, Width_410, Width_410);
-                shakeMagnitude = 0;
+                MvvNN = 0;
             }
             WNmVW = 0;
             Render.explosionShake = 0;
@@ -14131,8 +14147,8 @@ try {
             wvV.move = 0;
             PARTICLE.id = -1;
             PARTICLE.uid = -1;
-            var value = localStorage2.getItem("particles");
-            if (value !== null) setParticles = window.Number(value);
+            var vW = localStorage2.getItem("particles");
+            if (vW !== null) setParticles = window.Number(vW);
             teamName = "";
             nNmVw = null;
             MapManager.width = 150;
@@ -14156,9 +14172,9 @@ try {
         };
 
 
-        function _buttonInv(wm, invtr, offsetX, offsetY, inventoryItemNumber, inventoryAmmoNumber) {
-            wm.pos.x = offsetX;
-            wm.pos.y = offsetY;
+        function _buttonInv(wm, invtr, wX, wY, inventoryItemNumber, inventoryAmmoNumber) {
+            wm.pos.x = wX;
+            wm.pos.y = wY;
             wm.draw();
             var item = INVENTORY[invtr[0]];
             var amount = invtr[1];
@@ -14169,7 +14185,7 @@ try {
                     };
                     inventoryItemNumber[amount].img.isLoaded = 1;
                 }
-                CanvasUtils.drawImageHd(inventoryItemNumber[amount], (offsetX / scaleby) + 53, (offsetY / scaleby) + 55, -0.5, 0, 0, 1);
+                CanvasUtils.drawImageHd(inventoryItemNumber[amount], (wX / scaleby) + 53, (wY / scaleby) + 55, -0.5, 0, 0, 1);
             }
             if ((item.bullet !== window.undefined) && (item.mMVwm === window.undefined)) {
                 var amount = invtr[3];
@@ -14179,57 +14195,35 @@ try {
                     };
                     inventoryAmmoNumber[amount].img.isLoaded = 1;
                 }
-                CanvasUtils.drawImageHd(inventoryAmmoNumber[amount], (offsetX / scaleby) + 53, (offsetY / scaleby) + 55, -0.5, 0, 0, 1);
+                CanvasUtils.drawImageHd(inventoryAmmoNumber[amount], (wX / scaleby) + 53, (wY / scaleby) + 55, -0.5, 0, 0, 1);
             }
             if (item.perish !== window.undefined) {
                 var VWNwv = window.Math.floor(invtr[3] / 12.8);
                 var img = wwvmV[VWNwv];
                 if (img.isLoaded !== 1) {
                     wwvmV[VWNwv] = CanvasUtils.loadImage(("img/rotten" + VWNwv) + ".png", img);
-                } else ctx.drawImage(img, offsetX + (0.5 * scaleby), offsetY, (scaleby * img.width) / 2, (scaleby * img.height) / 2);
+                } else ctx.drawImage(img, wX + (0.5 * scaleby), wY, (scaleby * img.width) / 2, (scaleby * img.height) / 2);
             }
         };
 
-        function drawDarkBox(id, offsetX, offsetY) {
-            if (canvasElements[id] === window.undefined) {
-                canvasElements[id] = window.document.createElement("canvas");
-                canvasContexts[id] = canvasElements[id].getContext("2d");
-                var canvas = canvasElements[id];
-                var context = canvasContexts[id];
-                canvas.width = 400;
-                canvas.height = 148;
-                context.clearRect(0, 0, 400, 148);
-                CanvasUtils.roundRect(context, 0, 0, 400, 148, 10);
-                context.fillStyle = "#000000";
-                context.globalAlpha = 0.5;
-                context.fill();
-                context.globalAlpha = 1;
-                itemstatsfunc(context, id);
-            }
-    
-            var height = scaleby * 74;
-            ctx.drawImage(canvasElements[id], offsetX, offsetY, scaleby * 190, height);
-        };
-
-        function drawDarkBox2(building, offsetX, offsetY) {
-            var id = building.id;
-            if (canvasElements[id] === window.undefined) {
-                canvasElements[id] = window.document.createElement("canvas");
-                canvasContexts[id] = canvasElements[id].getContext("2d");
-                var canvas = canvasElements[id];
-                var context = canvasContexts[id];
-                canvas.width = 400;
-                canvas.height = 148;
-                context.clearRect(0, 0, 400, 148);
-                CanvasUtils.roundRect(context, 0, 0, 400, 148, 10);
-                context.fillStyle = "#000000";
-                context.globalAlpha = 0.5;
-                context.fill();
-                context.globalAlpha = 1;
-                BuildingStats(context, building);
+        function NMMwN(id, wX, wY) {
+            if (wmvMm[id] === window.undefined) {
+                wmvMm[id] = window.document.createElement("canvas");
+                nmMMW[id] = wmvMm[id].getContext("2d");
+                var mWwVV = wmvMm[id];
+                var Nvmwn = nmMMW[id];
+                mWwVV.width = 400;
+                mWwVV.height = 148;
+                Nvmwn.clearRect(0, 0, 400, 148);
+                CanvasUtils.roundRect(Nvmwn, 0, 0, 400, 148, 10);
+                Nvmwn.fillStyle = "#000000";
+                Nvmwn.globalAlpha = 0.5;
+                Nvmwn.fill();
+                Nvmwn.globalAlpha = 1;
+                itemstatsfunc(nmMMW[id], id);
             }
             var height = scaleby * 74;
-            ctx.drawImage(canvasElements[id], offsetX, offsetY, scaleby * 190, height);
+            ctx.drawImage(wmvMm[id], wX, wY, scaleby * 190, height);
         };
 
         function _Inventory(inventoryItemNumber, inventoryAmmoNumber, MmV, BUTTON_BAG) {
@@ -14245,8 +14239,8 @@ try {
             var height = (inventorySlot.height * scaleby) / 2;
             var _x = window.Math.max(300 * scaleby, (canw - (width * len)) / 2);
             var _y = (canh - height) - (5 * scaleby);
-            var offsetX = _x;
-            var offsetY = _y;
+            var wX = _x;
+            var wY = _y;
             var MVM = (5 * scaleby) + width;
             if (len > 10) {
                 BUTTON_BAG.pos.x = canw - (69 * scaleby);
@@ -14257,21 +14251,21 @@ try {
             for (var i = 0; i < len; i++) {
                 var wm = inventory[i];
                 if (invtr[i][0] === 0) {
-                    wm.pos.x = offsetX;
-                    wm.pos.y = offsetY;
-                    ctx.drawImage(inventorySlot, offsetX, offsetY, width, height);
-                } else _buttonInv(wm, invtr[i], offsetX, offsetY, inventoryItemNumber, inventoryAmmoNumber);
+                    wm.pos.x = wX;
+                    wm.pos.y = wY;
+                    ctx.drawImage(inventorySlot, wX, wY, width, height);
+                } else _buttonInv(wm, invtr[i], wX, wY, inventoryItemNumber, inventoryAmmoNumber);
                 if (i === 9) {
-                    offsetX = BUTTON_BAG.pos.x - (5 * scaleby);
-                    offsetY = BUTTON_BAG.pos.y - MVM;
+                    wX = BUTTON_BAG.pos.x - (5 * scaleby);
+                    wY = BUTTON_BAG.pos.y - MVM;
                 } else if (i === 12) {
-                    offsetX -= MVM;
-                    offsetY = BUTTON_BAG.pos.y - MVM;
-                } else if (i > 9) offsetY -= MVM;
-                else offsetX += MVM;
+                    wX -= MVM;
+                    wY = BUTTON_BAG.pos.y - MVM;
+                } else if (i > 9) wY -= MVM;
+                else wX += MVM;
             }
             var drag = World.PLAYER.drag;
-            if (((drag.begin === 1) && (Mouse.state === Mouse.__MOUSE_DOWN__)) && (Math2d.distance(drag.x, drag.y, Mouse.x, Mouse.y) > (4 * scaleby))) {
+            if (((drag.begin === 1) && (Mouse.state === Mouse.__MOUSE_DOWN__)) && (Math2d.dist(drag.x, drag.y, Mouse.x, Mouse.y) > (4 * scaleby))) {
                 var IID = invtr[drag.id][0];
                 if (IID > 0) {
                     var img = INVENTORY[IID].itemButton.img[0];
@@ -14282,13 +14276,13 @@ try {
                     ctx.globalAlpha = 1;
                 }
             } else if ((MmV !== -1) && (invtr[MmV][0] !== 0)) {
-                if (MmV < 10) drawDarkBox(invtr[MmV][0], _x + (MVM * MmV), _y - (79 * scaleby));
-                else if (MmV < 13) drawDarkBox(invtr[MmV][0], BUTTON_BAG.pos.x - (200 * scaleby), BUTTON_BAG.pos.y + (MVM * (-1 + ((10 - MmV) % 3))));
-                else drawDarkBox(invtr[MmV][0], (BUTTON_BAG.pos.x - (200 * scaleby)) - MVM, BUTTON_BAG.pos.y + (MVM * (-1 + ((10 - MmV) % 3))));
+                if (MmV < 10) NMMwN(invtr[MmV][0], _x + (MVM * MmV), _y - (79 * scaleby));
+                else if (MmV < 13) NMMwN(invtr[MmV][0], BUTTON_BAG.pos.x - (200 * scaleby), BUTTON_BAG.pos.y + (MVM * (-1 + ((10 - MmV) % 3))));
+                else NMMwN(invtr[MmV][0], (BUTTON_BAG.pos.x - (200 * scaleby)) - MVM, BUTTON_BAG.pos.y + (MVM * (-1 + ((10 - MmV) % 3))));
             }
         };
 
-        function _GaugesAfter(offsetX, offsetY) {
+        function _GaugesAfter(wX, wY) {
             var level = World.PLAYER.level;
             if (NmWnM[level] === window.undefined) {
                 NmWnM[level] = {
@@ -14296,38 +14290,38 @@ try {
                 };
                 NmWnM[level].img.isLoaded = 1;
             }
-            CanvasUtils.drawImageHd(NmWnM[level], (offsetX / scaleby) + 234, (offsetY / scaleby) + 79, 0, 0, 0, 1);
+            CanvasUtils.drawImageHd(NmWnM[level], (wX / scaleby) + 234, (wY / scaleby) + 79, 0, 0, 0, 1);
             var rad = World.gauges.rad;
-            var value = 1 - (rad.current / rad._max);
-            CanvasUtils.drawImageHd(wmmvv, 38 + (offsetX / scaleby), 37 + (offsetY / scaleby), window.Math.PI * value, 0, 0, 1);
+            var vW = 1 - (rad.current / rad._max);
+            CanvasUtils.drawImageHd(wmmvv, 38 + (wX / scaleby), 37 + (wY / scaleby), window.Math.PI * vW, 0, 0, 1);
         };
 
-        function _Gauges(offsetX, offsetY) {
+        function _Gauges(wX, wY) {
             var life = World.gauges.life;
-            var value = life.current / life._max;
-            CanvasUtils.fillRect(ctx, (offsetX / scaleby) + 14, (offsetY / scaleby) + 71, value * 189, 16, COLOR_LIGHTGREEN);
-            //if (MOD.showHP) CanvasUtils.fillText(ctx, Math.floor(life.current), offsetX / scaleby + 100, offsetY / scaleby + 84, '#FFFFFF', '24px Black Han Sans');
+            var vW = life.current / life._max;
+            CanvasUtils.fillRect(ctx, (wX / scaleby) + 14, (wY / scaleby) + 71, vW * 189, 16, COLOR_LIGHTGREEN);
+            //if (MOD.showHP) CanvasUtils.fillText(ctx, Math.floor(life.current), wX / scaleby + 100, wY / scaleby + 84, '#FFFFFF', '24px Black Han Sans');
             var food = World.gauges.food;
-            var value = food.current / food._max;
-            CanvasUtils.fillRect(ctx, (offsetX / scaleby) + 13, (offsetY / scaleby) + 162, 54, -value * 63, COLOR_ORANGE);
+            var vW = food.current / food._max;
+            CanvasUtils.fillRect(ctx, (wX / scaleby) + 13, (wY / scaleby) + 162, 54, -vW * 63, COLOR_ORANGE);
             var cold = World.gauges.cold;
-            var value = cold.current / cold._max;
-            CanvasUtils.fillRect(ctx, (offsetX / scaleby) + 81, (offsetY / scaleby) + 162, 54, -value * 63, COLOR_LIGHTBLUE);
+            var vW = cold.current / cold._max;
+            CanvasUtils.fillRect(ctx, (wX / scaleby) + 81, (wY / scaleby) + 162, 54, -vW * 63, COLOR_LIGHTBLUE);
             var stamina = World.gauges.stamina;
-            var value = stamina.current / stamina._max;
-            CanvasUtils.fillRect(ctx, (offsetX / scaleby) + 150, (offsetY / scaleby) + 162, 54, -value * 63, COLOR_YELLOW);
+            var vW = stamina.current / stamina._max;
+            CanvasUtils.fillRect(ctx, (wX / scaleby) + 150, (wY / scaleby) + 162, 54, -vW * 63, COLOR_YELLOW);
             var xp = World.gauges.xp;
-            var value = xp.current / xp._max;
-            CanvasUtils.fillRect(ctx, (offsetX / scaleby) + 226, (offsetY / scaleby) + 172, 16, -value * 77, COLOR_WHITE);
-            var elapsedTime = World.updateHour();
+            var vW = xp.current / xp._max;
+            CanvasUtils.fillRect(ctx, (wX / scaleby) + 226, (wY / scaleby) + 172, 16, -vW * 77, COLOR_WHITE);
+            var wVnVV = World.updateHour();
             var img;
             var wnvmV;
-            if (elapsedTime >= 10000000) {
+            if (wVnVV >= 10000000) {
                 if (WmVNn.isLoaded !== 1) {
                     WmVNn = CanvasUtils.loadImage(IMG_NIGHT_CLOCK, WmVNn);
                     return;
                 }
-                elapsedTime -= 10000000;
+                wVnVV -= 10000000;
                 img = WmVNn;
                 wnvmV = nMmvV;
             } else {
@@ -14340,8 +14334,8 @@ try {
             }
             var width = (scaleby * img.width) / 2;
             var height = (scaleby * img.height) / 2;
-            ctx.drawImage(img, offsetX + (100 * scaleby), offsetY + (14 * scaleby), width, height);
-            CanvasUtils.drawImageHd(wnvmV, 144.5 + (offsetX / scaleby), (offsetY / scaleby) + 56, elapsedTime * mWvNn, 0, 0, 1);
+            ctx.drawImage(img, wX + (100 * scaleby), wY + (14 * scaleby), width, height);
+            CanvasUtils.drawImageHd(wnvmV, 144.5 + (wX / scaleby), (wY / scaleby) + 56, wVnVV * mWvNn, 0, 0, 1);
 
             var LifeNumberLabel = null;
             // Life Value Label
@@ -14350,14 +14344,14 @@ try {
                 var img2 = LifeNumberLabel;
                 var width = (scaleby * img2.width) / 2.1;
                 var height = (scaleby * img2.height) / 2.1;
-                var posx = offsetX + (100 * scaleby);
-                var posy = offsetY + (14 * scaleby);
+                var posx = wX + (100 * scaleby);
+                var posy = wY + (14 * scaleby);
                 ctx.drawImage(img2, posx, posy, width, height);
             }
         };
 
 
-        function _Leaderboard(offsetX, offsetY) {
+        function _Leaderboard(wX, wY) {
             var leaderboard = World.leaderboard;
             var players = World.players;
             var nWnWm = -1;
@@ -14399,7 +14393,7 @@ try {
                 }
                 context2dF.drawImage(PLAYER.scoreLabel, 484, 662, PLAYER.scoreLabel.width, PLAYER.scoreLabel.height);
             }
-            ctx.drawImage(canvasF, offsetX, offsetY, (Vwwmw / 3) * scaleby, (nvnwM / 3) * scaleby);
+            ctx.drawImage(canvasF, wX, wY, (Vwwmw / 3) * scaleby, (nvnwM / 3) * scaleby);
         };
 
 
@@ -14407,25 +14401,25 @@ try {
 
             var width       = Width_410 * scaleby;
             var height      = Height_410 * scaleby;
-            var offsetX          = canw2 - (width / 2);
-            var offsetY          = window.Math.max(canh2 - (height / 2), 0);
-            var wX_Scale    = offsetX / scaleby;
-            var wY_Scale    = offsetY / scaleby;
+            var wX          = canw2 - (width / 2);
+            var wY          = window.Math.max(canh2 - (height / 2), 0);
+            var wX_Scale    = wX / scaleby;
+            var wY_Scale    = wY / scaleby;
             var mvMnV       = Width_410 / worldWidthFull;
             var _buttonInv  = Height_410 / worldHeightFull;
-            BUTTON_CLOSE_BOX.pos.x  = window.Math.floor((offsetX + width) + (0 * scaleby));
-            BUTTON_CLOSE_BOX.pos.y  = window.Math.floor(offsetY + (0 * scaleby));
+            BUTTON_CLOSE_BOX.pos.x  = window.Math.floor((wX + width) + (0 * scaleby));
+            BUTTON_CLOSE_BOX.pos.y  = window.Math.floor(wY + (0 * scaleby));
             map.draw();
 
             var cities = World.PLAYER.cities;
             var len = cities.length / 2;
             if (len > 0) {
-                _y = window.Math.floor((offsetY / scaleby) + window.Math.min(window.Math.max(10, cities[0] * _buttonInv), 400));
-                _x = window.Math.floor((offsetX / scaleby) + window.Math.min(window.Math.max(10, cities[1] * mvMnV), 400));
+                _y = window.Math.floor((wY / scaleby) + window.Math.min(window.Math.max(10, cities[0] * _buttonInv), 400));
+                _x = window.Math.floor((wX / scaleby) + window.Math.min(window.Math.max(10, cities[1] * mvMnV), 400));
                 CanvasUtils.drawImageHd(cityiconmap, _x, _y, 0, 0, 0, 1);
                 for (var i = 1; i < len; i++) {
-                    _y = window.Math.floor((offsetY / scaleby) + window.Math.min(window.Math.max(10, cities[i * 2] * _buttonInv), 400));
-                    _x = window.Math.floor((offsetX / scaleby) + window.Math.min(window.Math.max(10, cities[1 + (i * 2)] * mvMnV), 400));
+                    _y = window.Math.floor((wY / scaleby) + window.Math.min(window.Math.max(10, cities[i * 2] * _buttonInv), 400));
+                    _x = window.Math.floor((wX / scaleby) + window.Math.min(window.Math.max(10, cities[1 + (i * 2)] * mvMnV), 400));
                     CanvasUtils.drawImageHd(houseiconmap, _x, _y, 0, 0, 0, 1);
                 }
             }
@@ -14459,8 +14453,8 @@ try {
                 }
             }
 
-            var _x = window.Math.floor((offsetX / scaleby) + window.Math.min(window.Math.max(10, NmM * mvMnV), 400));
-            var _y = window.Math.floor((offsetY / scaleby) + window.Math.min(window.Math.max(10, WWV * _buttonInv), 400));
+            var _x = window.Math.floor((wX / scaleby) + window.Math.min(window.Math.max(10, NmM * mvMnV), 400));
+            var _y = window.Math.floor((wY / scaleby) + window.Math.min(window.Math.max(10, WWV * _buttonInv), 400));
             CanvasUtils.drawImageHd(arrowiconmap2, _x, _y, Mouse.angle, 0, 0, 1);
 
             if (MOD.drawNamesOnMap) ctx.drawImage(World.players[World.PLAYER.id].nicknameLabel, _x * scaleby - 3.5 * World.players[World.PLAYER.id].nickname.length, _y * scaleby - 35, 7 * World.players[World.PLAYER.id].nickname.length, 20);
@@ -14489,15 +14483,15 @@ try {
             }
         };
 
-        function nmwmn(offsetX, offsetY) {
+        function nmwmn(wX, wY) {
             if (teambox.isLoaded !== 1) {
                 teambox = CanvasUtils.loadImage(IMG_INVITATION_BOX, teambox);
                 return;
             }
-            Game.acceptMember.pos.x = offsetX + (241 * scaleby);
-            Game.acceptMember.pos.y = offsetY + (6 * scaleby);
-            Game.refuseMember.pos.x = offsetX + (290 * scaleby);
-            Game.refuseMember.pos.y = offsetY + (6 * scaleby);
+            Game.acceptMember.pos.x = wX + (241 * scaleby);
+            Game.acceptMember.pos.y = wY + (6 * scaleby);
+            Game.refuseMember.pos.x = wX + (290 * scaleby);
+            Game.refuseMember.pos.y = wY + (6 * scaleby);
             if ((World.PLAYER.teamJoin !== 0) || (World.PLAYER.teamEffect > 0)) {
                 if (World.PLAYER.teamJoin !== 0) {
                     if (World.PLAYER.teamEffect < 333) {
@@ -14510,45 +14504,45 @@ try {
                 }
                 var PLAYER = World.players[World.PLAYER.teamJoin];
                 if (PLAYER.nicknameLabel === null) PLAYER.nicknameLabel = GUI.renderText(PLAYER.nickname, "'Viga', sans-serif", "#FFFFFF", 38, 400, window.undefined, 16, 25, window.undefined, window.undefined, window.undefined, window.undefined, "#000000", 12);
-                ctx.drawImage(teambox, offsetX, offsetY, scaleby * teambox.wh, scaleby * teambox.h2);
-                if ((PLAYER.nicknameLabel.width !== 0) && (PLAYER.nicknameLabel.height !== 0)) ctx.drawImage(PLAYER.nicknameLabel, offsetX + (20 * scaleby), offsetY + (6 * scaleby), PLAYER.nicknameLabel.wh * scaleby, PLAYER.nicknameLabel.h2 * scaleby);
+                ctx.drawImage(teambox, wX, wY, scaleby * teambox.wh, scaleby * teambox.h2);
+                if ((PLAYER.nicknameLabel.width !== 0) && (PLAYER.nicknameLabel.height !== 0)) ctx.drawImage(PLAYER.nicknameLabel, wX + (20 * scaleby), wY + (6 * scaleby), PLAYER.nicknameLabel.wh * scaleby, PLAYER.nicknameLabel.h2 * scaleby);
                 Game.acceptMember.draw();
                 Game.refuseMember.draw();
                 if (World.PLAYER.teamEffect < 333) ctx.globalAlpha = 1;
             }
         };
 
-        function _TimerGhoul(offsetX, offsetY, wNWnn) {
+        function _TimerGhoul(wX, wY, wNWnn) {
             World.PLAYER.nextAreas -= delta;
-            var duration = window.Math.max(0, window.Math.floor(World.PLAYER.nextAreas / 1000));
-            if (duration < 3000) {
-                CanvasUtils.drawImageHd(timeleft, (offsetX / scaleby) + 51, (offsetY / scaleby) + 145, 0, 0, 0, 1);
-                if (wVVVn[duration] === window.undefined) {
-                    if ((wNWnn === 1) && (wVVVn[duration + 1] !== window.undefined)) wVVVn[duration + 1] = window.undefined;
-                    var wWvWM = window.Math.floor(duration / 60);
-                    var NNvMn = duration % 60;
-                    wVVVn[duration] = {
+            var nnW = window.Math.max(0, window.Math.floor(World.PLAYER.nextAreas / 1000));
+            if (nnW < 3000) {
+                CanvasUtils.drawImageHd(timeleft, (wX / scaleby) + 51, (wY / scaleby) + 145, 0, 0, 0, 1);
+                if (wVVVn[nnW] === window.undefined) {
+                    if ((wNWnn === 1) && (wVVVn[nnW + 1] !== window.undefined)) wVVVn[nnW + 1] = window.undefined;
+                    var wWvWM = window.Math.floor(nnW / 60);
+                    var NNvMn = nnW % 60;
+                    wVVVn[nnW] = {
                         img: GUI.renderText((((((wWvWM < 10) ? "0" : "") + wWvWM) + ":") + ((NNvMn < 10) ? "0" : "")) + NNvMn, "'Viga', sans-serif", "#FF0000", 38, 100, window.undefined, 16, 25, window.undefined, window.undefined, window.undefined, window.undefined, "#000000", 12)
                     };
-                    wVVVn[duration].img.isLoaded = 1;
+                    wVVVn[nnW].img.isLoaded = 1;
                 }
-                CanvasUtils.drawImageHd(wVVVn[duration], (offsetX / scaleby) + 60, (offsetY / scaleby) + 145, 0, 0, 0, 1);
+                CanvasUtils.drawImageHd(wVVVn[nnW], (wX / scaleby) + 60, (wY / scaleby) + 145, 0, 0, 0, 1);
             }
         };
 
-        function _AliveGhoul(offsetX, offsetY) {
-            CanvasUtils.drawImageHd(WvWnV, ((offsetX / scaleby) + canwns) - 63, 25 + (offsetY / scaleby), 0, 0, 0, 1);
+        function _AliveGhoul(wX, wY) {
+            CanvasUtils.drawImageHd(WvWnV, ((wX / scaleby) + canwns) - 63, 25 + (wY / scaleby), 0, 0, 0, 1);
             if (playerAlive[World.playerAlive] === window.undefined) {
                 playerAlive[World.playerAlive] = {
                     img: GUI.renderText("#" + World.playerAlive, "'Viga', sans-serif", "#FFFFFF", 60, 140)
                 };
                 playerAlive[World.playerAlive].img.isLoaded = 1;
             }
-            CanvasUtils.drawImageHd(playerAlive[World.playerAlive], ((offsetX / scaleby) + canwns) - 50, 25 + (offsetY / scaleby), 0, 0, 0, 1);
+            CanvasUtils.drawImageHd(playerAlive[World.playerAlive], ((wX / scaleby) + canwns) - 50, 25 + (wY / scaleby), 0, 0, 0, 1);
         };
 
-        function _Minimap(offsetX, offsetY) {
-            nmwmn(offsetX + (250 * scaleby), offsetY);
+        function _Minimap(wX, wY) {
+            nmwmn(wX + (250 * scaleby), wY);
             if (minimap.isLoaded !== 1) {
                 minimap = CanvasUtils.loadImage(IMG_MAP_BORDER, minimap);
                 return;
@@ -14559,34 +14553,34 @@ try {
             var sx = window.Math.min(window.Math.max(0, mnmvW - WWn), vvVMV);
             var sy = window.Math.min(window.Math.max(0, vNwWN - WWn), vvVMV);
             var width = WWn * scaleby;
-            ctx.drawImage(minimap, sx, sy, mVmWm, mVmWm, offsetX, offsetY, width, width);
+            ctx.drawImage(minimap, sx, sy, mVmWm, mVmWm, wX, wY, width, width);
             
             if (World.gameMode === World.__GHOUL__) {
-                if (World.PLAYER.ghoul !== 0) _AliveGhoul(-255, offsetY);
-                else _TimerGhoul(offsetX + 50, offsetY, 1);
+                if (World.PLAYER.ghoul !== 0) _AliveGhoul(-255, wY);
+                else _TimerGhoul(wX + 50, wY, 1);
             }
 
 
             if (World.gameMode === World.__BR__) {
                 var wVvnN = World.PLAYER.toxicMap[window.Math.floor(WWV / NnWnv)][window.Math.floor(NmM / NnWnv)];
                 if (((wVvnN !== 0) && (wVvnN < World.PLAYER.toxicStep)) && (World.PLAYER.toxicStep !== 8)) {
-                    shakeMagnitude = window.Math.min(1000, shakeMagnitude + delta);
-                    ctx.globalAlpha = MathUtils.Ease.inQuad(shakeMagnitude / 500);
+                    MvvNN = window.Math.min(1000, MvvNN + delta);
+                    ctx.globalAlpha = MathUtils.Ease.inQuad(MvvNN / 500);
                     CanvasUtils.drawImageHd(WWmMW, canw2ns, 58, 0, 0, 0, 1);
                     ctx.globalAlpha = 1;
-                } else if (shakeMagnitude > 0) {
-                    shakeMagnitude = window.Math.max(0, shakeMagnitude - delta);
-                    ctx.globalAlpha = MathUtils.Ease.inQuad(shakeMagnitude / 500);
+                } else if (MvvNN > 0) {
+                    MvvNN = window.Math.max(0, MvvNN - delta);
+                    ctx.globalAlpha = MathUtils.Ease.inQuad(MvvNN / 500);
                     CanvasUtils.drawImageHd(WWmMW, canw2ns, 58, 0, 0, 0, 1);
                     ctx.globalAlpha = 1;
                 }
-                ctx.drawImage(MWNMV.img, sx / 2, sy / 2, WWn, WWn, offsetX, offsetY, width, width);
+                ctx.drawImage(MWNMV.img, sx / 2, sy / 2, WWn, WWn, wX, wY, width, width);
                 ctx.globalAlpha = (mWWwn > 600) ? MathUtils.Ease.inOutQuad((1200 - mWWwn) / 600) : MathUtils.Ease.inOutQuad(mWWwn / 600);
                 mWWwn = (mWWwn + delta) % 1200;
-                ctx.drawImage(MMvWn.img, sx / 2, sy / 2, WWn, WWn, offsetX, offsetY, width, width);
+                ctx.drawImage(MMvWn.img, sx / 2, sy / 2, WWn, WWn, wX, wY, width, width);
                 ctx.globalAlpha = 1;
-                _AliveGhoul(0, offsetY);
-                _TimerGhoul(offsetX, offsetY, 0);
+                _AliveGhoul(0, wY);
+                _TimerGhoul(wX, wY, 0);
             } else if (World.PLAYER.ghoul === 0) {
                 if (World.gauges.rad.decrease === 1) {
                     WNmVW = window.Math.min(1000, WNmVW + delta);
@@ -14609,8 +14603,8 @@ try {
             if (sy >= vvVMV) vNwWN = window.Math.min(((vNwWN - VnvWV) / 2) + nWWwM, WWn - 8);
             else if (vNwWN < WWn) vNwWN = window.Math.max(15, vNwWN / 2);
             else vNwWN = nWWwM;
-            var wX_Scale = offsetX / scaleby;
-            var wY_Scale = offsetY / scaleby;
+            var wX_Scale = wX / scaleby;
+            var wY_Scale = wY / scaleby;
 
 
 
@@ -14659,10 +14653,10 @@ try {
             if ((World.PLAYER.ghoul === 0) && ((World.PLAYER.skillPoint > 0) || (wnW.effect > 0))) {
                 var move = (wnW.move + delta) % 1000;
                 wnW.move = move;
-                if (wnW.move < 500) offsetX += 260 + (15 * MathUtils.Ease.inOutQuad(move / 500));
-                else offsetX += 260 + (15 * MathUtils.Ease.inOutQuad((1000 - move) / 500));
+                if (wnW.move < 500) wX += 260 + (15 * MathUtils.Ease.inOutQuad(move / 500));
+                else wX += 260 + (15 * MathUtils.Ease.inOutQuad((1000 - move) / 500));
                 ctx.globalAlpha = MathUtils.Ease.inQuad(wnW.effect);
-                CanvasUtils.drawImageHd(wnW, offsetX, offsetY + 31, 0, 0, 0, 1);
+                CanvasUtils.drawImageHd(wnW, wX, wY + 31, 0, 0, 0, 1);
                 ctx.globalAlpha = 1;
                 if ((World.PLAYER.skillPoint <= 0) || (Game.getSkillBoxState() === 1)) wnW.effect = window.Math.max(0, wnW.effect - (delta / 500));
                 else if (wnW.effect < 1) wnW.effect = window.Math.min(1, wnW.effect + (delta / 500));
@@ -14674,8 +14668,8 @@ try {
         var nNmVw = null;
 
         function _Team(BUTTON_CLOSE_BOX, VWwmm, mMnVm, wwVMn, NnvmN, mvNMv, WvvvV, deleteTeam) {
-            var offsetX = 0;
-            var offsetY = 0;
+            var wX = 0;
+            var wY = 0;
             if (World.PLAYER.team === -1) {
                 var teamNameValid = 1;
                 if (Game.teamName.length === 0) teamNameValid = 0;
@@ -14688,21 +14682,21 @@ try {
                     }
                 }
                 World.PLAYER.teamNameValid = teamNameValid;
-                offsetX = VWwmm.pos.x;
-                offsetY = VWwmm.pos.y;
+                wX = VWwmm.pos.x;
+                wY = VWwmm.pos.y;
                 VWwmm.draw();
-                BUTTON_CLOSE_BOX.pos.x = offsetX + (513 * scaleby);
-                BUTTON_CLOSE_BOX.pos.y = offsetY + (2 * scaleby);
+                BUTTON_CLOSE_BOX.pos.x = wX + (513 * scaleby);
+                BUTTON_CLOSE_BOX.pos.y = wY + (2 * scaleby);
                 if (teamName !== Game.teamName) {
                     teamName = Game.teamName;
                     nNmVw = GUI.renderText(teamName, "'Viga', sans-serif", "#FFFFFF", 30, 400);
                 }
                 if ((nNmVw !== null) && (teamName.length !== 0)) {
-                    CanvasUtils.fillRect(ctx, (offsetX / scaleby) + 39, (offsetY / scaleby) + 14, 122, 16.5, "#000000");
-                    ctx.drawImage(nNmVw, offsetX + (35 * scaleby), offsetY + (14.5 * scaleby), nNmVw.wh * scaleby, nNmVw.h2 * scaleby);
+                    CanvasUtils.fillRect(ctx, (wX / scaleby) + 39, (wY / scaleby) + 14, 122, 16.5, "#000000");
+                    ctx.drawImage(nNmVw, wX + (35 * scaleby), wY + (14.5 * scaleby), nNmVw.wh * scaleby, nNmVw.h2 * scaleby);
                 }
-                NnvmN.pos.x = offsetX + (172 * scaleby);
-                NnvmN.pos.y = offsetY + (6 * scaleby);
+                NnvmN.pos.x = wX + (172 * scaleby);
+                NnvmN.pos.y = wY + (6 * scaleby);
                 if ((teamNameValid === 0) || ((window.Date.now() - World.PLAYER.teamCreateDelay) < 30500)) {
                     NnvmN.setState(GUI.__BUTTON_OUT__);
                     ctx.globalAlpha = 0.5;
@@ -14714,10 +14708,10 @@ try {
                     var team = World.teams[i];
                     if (team.leader === 0) continue;
                     if (team.label === null) team.label = GUI.renderText(team.name, "'Viga', sans-serif", "#FFFFFF", 30, 400);
-                    ctx.drawImage(team.label, offsetX + ((20 + ((j % 3) * 163)) * scaleby), offsetY + ((58.5 + (window.Math.floor(j / 3) * 36)) * scaleby), team.label.wh * scaleby, team.label.h2 * scaleby);
+                    ctx.drawImage(team.label, wX + ((20 + ((j % 3) * 163)) * scaleby), wY + ((58.5 + (window.Math.floor(j / 3) * 36)) * scaleby), team.label.wh * scaleby, team.label.h2 * scaleby);
                     var wm = Game.join[j];
-                    wm.pos.x = offsetX + ((84 + ((j % 3) * 163)) * scaleby);
-                    wm.pos.y = offsetY + ((48 + (window.Math.floor(j / 3) * 36)) * scaleby);
+                    wm.pos.x = wX + ((84 + ((j % 3) * 163)) * scaleby);
+                    wm.pos.y = wY + ((48 + (window.Math.floor(j / 3) * 36)) * scaleby);
                     if ((window.Date.now() - World.PLAYER.teamDelay) < 10500) {
                         wm.setState(GUI.__BUTTON_OUT__);
                         ctx.globalAlpha = 0.5;
@@ -14727,36 +14721,36 @@ try {
                     j++;
                 }
             } else {
-                offsetX = mMnVm.pos.x;
-                offsetY = mMnVm.pos.y;
+                wX = mMnVm.pos.x;
+                wY = mMnVm.pos.y;
                 var team = World.teams[World.PLAYER.team];
                 if (team.label === null) team.label = GUI.renderText(team.name, "'Viga', sans-serif", "#FFFFFF", 30, 400);
-                ctx.drawImage(team.label, offsetX + (144 * scaleby), offsetY + (13 * scaleby), team.label.wh * scaleby, team.label.h2 * scaleby);
+                ctx.drawImage(team.label, wX + (144 * scaleby), wY + (13 * scaleby), team.label.wh * scaleby, team.label.h2 * scaleby);
                 mMnVm.draw();
-                BUTTON_CLOSE_BOX.pos.x = offsetX + (512 * scaleby);
-                BUTTON_CLOSE_BOX.pos.y = offsetY + (34.5 * scaleby);
+                BUTTON_CLOSE_BOX.pos.x = wX + (512 * scaleby);
+                BUTTON_CLOSE_BOX.pos.y = wY + (34.5 * scaleby);
                 if (World.PLAYER.teamLeader === 1) {
                     if (World.PLAYER.teamLocked === 0) {
-                        mvNMv.pos.x = offsetX + (259 * scaleby);
-                        mvNMv.pos.y = offsetY + (5 * scaleby);
+                        mvNMv.pos.x = wX + (259 * scaleby);
+                        mvNMv.pos.y = wY + (5 * scaleby);
                         mvNMv.draw();
                     } else {
-                        WvvvV.pos.x = offsetX + (259 * scaleby);
-                        WvvvV.pos.y = offsetY + (5 * scaleby);
+                        WvvvV.pos.x = wX + (259 * scaleby);
+                        WvvvV.pos.y = wY + (5 * scaleby);
                         WvvvV.draw();
                     }
-                    deleteTeam.pos.x = offsetX + (311.5 * scaleby);
-                    deleteTeam.pos.y = offsetY + (5 * scaleby);
+                    deleteTeam.pos.x = wX + (311.5 * scaleby);
+                    deleteTeam.pos.y = wY + (5 * scaleby);
                     deleteTeam.draw();
                     var j = 0;
                     for (var i = 0; i < World.players.length; i++) {
                         var PLAYER = World.players[i];
                         if ((team.uid !== PLAYER.teamUid) || (PLAYER.team !== team.id)) continue;
                         if (PLAYER.nicknameLabel === null) PLAYER.nicknameLabel = GUI.renderText(PLAYER.nickname, "'Viga', sans-serif", "#FFFFFF", 38, 400, window.undefined, 16, 25, window.undefined, window.undefined, window.undefined, window.undefined, "#000000", 12);
-                        if ((PLAYER.nicknameLabel.width !== 0) && (PLAYER.nicknameLabel.height !== 0)) ctx.drawImage(PLAYER.nicknameLabel, offsetX + ((26 + ((j % 3) * 166.5)) * scaleby), offsetY + ((53 + (window.Math.floor(j / 3) * 29.5)) * scaleby), (PLAYER.nicknameLabel.wh * scaleby) / 2.2, (PLAYER.nicknameLabel.h2 * scaleby) / 2.2);
+                        if ((PLAYER.nicknameLabel.width !== 0) && (PLAYER.nicknameLabel.height !== 0)) ctx.drawImage(PLAYER.nicknameLabel, wX + ((26 + ((j % 3) * 166.5)) * scaleby), wY + ((53 + (window.Math.floor(j / 3) * 29.5)) * scaleby), (PLAYER.nicknameLabel.wh * scaleby) / 2.2, (PLAYER.nicknameLabel.h2 * scaleby) / 2.2);
                         var wm = Game.kick[j];
-                        wm.pos.x = offsetX + ((132 + ((j % 3) * 166.5)) * scaleby);
-                        wm.pos.y = offsetY + ((48.5 + (window.Math.floor(j / 3) * 29.5)) * scaleby);
+                        wm.pos.x = wX + ((132 + ((j % 3) * 166.5)) * scaleby);
+                        wm.pos.y = wY + ((48.5 + (window.Math.floor(j / 3) * 29.5)) * scaleby);
                         if (((window.Date.now() - World.PLAYER.teamDelay) < 10500) || (PLAYER.id === World.PLAYER.id)) {
                             wm.setState(GUI.__BUTTON_OUT__);
                             ctx.globalAlpha = 0.5;
@@ -14766,15 +14760,15 @@ try {
                         j++;
                     }
                 } else {
-                    wwVMn.pos.x = offsetX + (311.5 * scaleby);
-                    wwVMn.pos.y = offsetY + (5 * scaleby);
+                    wwVMn.pos.x = wX + (311.5 * scaleby);
+                    wwVMn.pos.y = wY + (5 * scaleby);
                     wwVMn.draw();
                     var j = 0;
                     for (var i = 0; i < World.players.length; i++) {
                         var PLAYER = World.players[i];
                         if ((team.uid !== PLAYER.teamUid) || (PLAYER.team !== team.id)) continue;
                         if (PLAYER.nicknameLabel === null) PLAYER.nicknameLabel = GUI.renderText(PLAYER.nickname, "'Viga', sans-serif", "#FFFFFF", 38, 400, window.undefined, 16, 25, window.undefined, window.undefined, window.undefined, window.undefined, "#000000", 12);
-                        if ((PLAYER.nicknameLabel.width !== 0) && (PLAYER.nicknameLabel.height !== 0)) ctx.drawImage(PLAYER.nicknameLabel, offsetX + ((26 + ((j % 3) * 166.5)) * scaleby), offsetY + ((53 + (window.Math.floor(j / 3) * 29.5)) * scaleby), (PLAYER.nicknameLabel.wh * scaleby) / 2.2, (PLAYER.nicknameLabel.h2 * scaleby) / 2.2);
+                        if ((PLAYER.nicknameLabel.width !== 0) && (PLAYER.nicknameLabel.height !== 0)) ctx.drawImage(PLAYER.nicknameLabel, wX + ((26 + ((j % 3) * 166.5)) * scaleby), wY + ((53 + (window.Math.floor(j / 3) * 29.5)) * scaleby), (PLAYER.nicknameLabel.wh * scaleby) / 2.2, (PLAYER.nicknameLabel.h2 * scaleby) / 2.2);
                         j++;
                     }
                 }
@@ -14784,21 +14778,21 @@ try {
 
         function _Chest(BACKGROUND_CHESTBOX, BUTTON_CLOSE_BOX, inventoryItemNumber, inventoryAmmoNumber) {
             BACKGROUND_CHESTBOX.draw();
-            var offsetX = BACKGROUND_CHESTBOX.pos.x;
-            var offsetY = BACKGROUND_CHESTBOX.pos.y;
+            var wX = BACKGROUND_CHESTBOX.pos.x;
+            var wY = BACKGROUND_CHESTBOX.pos.y;
 
-            BUTTON_CLOSE_BOX.pos.x = offsetX + (161 * scaleby);
-            BUTTON_CLOSE_BOX.pos.y = offsetY + (0 * scaleby);
+            BUTTON_CLOSE_BOX.pos.x = wX + (161 * scaleby);
+            BUTTON_CLOSE_BOX.pos.y = wY + (0 * scaleby);
             BUTTON_CLOSE_BOX.draw();
 
             var chest = World.PLAYER.chest;
             var _x;
-            var _y = offsetY + (14 * scaleby);
+            var _y = wY + (14 * scaleby);
             var wm = Game.chest;
 
             for (var i = 0; i < 4; i++) {
                 if ((i % 2) === 0) {
-                    _x = offsetX + (12.5 * scaleby);
+                    _x = wX + (12.5 * scaleby);
                     if (i === 2) _y += 71 * scaleby;
                 } else _x += 72 * scaleby;
                 if (chest[i][0] === 0) continue;
@@ -14820,24 +14814,24 @@ try {
             if (nNnMV > 0) CanvasUtils.fillRect(ctx, mmMnV, canhns - nNnMV, (canwns - mmMnV) - Mwwnn, nNnMV, GROUND);
         };
 
-        function itemstatsfunc(canvasElements, id) {
-            var playerGauges = INVENTORY[id];
-            var detail = playerGauges.detail;
-            var _name = GUI.renderText(detail.name, "'Viga', sans-serif", "#D3BB43", 30, 400);
-            canvasElements.drawImage(_name, 20, 20);
-            _name = GUI.renderText(detail.description, "'Viga', sans-serif", "#FFFFFF", 16, 400);
-            canvasElements.drawImage(_name, 20, 68);
-            if (playerGauges.idWeapon === 21) {
-                if (playerGauges.damageBuilding > 0) {
-                    _name = GUI.renderText((("Damage: " + playerGauges.damage) + "/") + playerGauges.damageBuilding, "'Viga', sans-serif", "#D3BB43", 24, 400);
-                    canvasElements.drawImage(_name, 20, 101);
+        function itemstatsfunc(wmvMm, id) {
+            var WvW = INVENTORY[id];
+            var NW = WvW.detail;
+            var _name = GUI.renderText(NW.name, "'Viga', sans-serif", "#D3BB43", 30, 400);
+            wmvMm.drawImage(_name, 20, 20);
+            _name = GUI.renderText(NW.description, "'Viga', sans-serif", "#FFFFFF", 16, 400);
+            wmvMm.drawImage(_name, 20, 68);
+            if (WvW.idWeapon === 21) {
+                if (WvW.damageBuilding > 0) {
+                    _name = GUI.renderText((("Damage: " + WvW.damage) + "/") + WvW.damageBuilding, "'Viga', sans-serif", "#D3BB43", 24, 400);
+                    wmvMm.drawImage(_name, 20, 101);
                 } else {
-                    _name = GUI.renderText("Life: " + playerGauges.life, "'Viga', sans-serif", "#D3BB43", 24, 400);
-                    canvasElements.drawImage(_name, 20, 101);
+                    _name = GUI.renderText("Life: " + WvW.life, "'Viga', sans-serif", "#D3BB43", 24, 400);
+                    wmvMm.drawImage(_name, 20, 101);
                 }
-            } else if ((playerGauges.idWeapon !== window.undefined) && (playerGauges.idWeapon !== 0)) {
+            } else if ((WvW.idWeapon !== window.undefined) && (WvW.idWeapon !== 0)) {
                 var code = "";
-                var weapon = ENTITIES[__ENTITIE_PLAYER__].weapons[playerGauges.idWeapon];
+                var weapon = ENTITIES[__ENTITIE_PLAYER__].weapons[WvW.idWeapon];
                 if (weapon.damage !== window.undefined) {
                     code = "Damage: " + ((weapon.damageCac === window.undefined) ? weapon.damage : weapon.damageCac);
                 } else {
@@ -14847,36 +14841,21 @@ try {
                     if (weapon.energy !== 0) code += "Energy: " + weapon.energy;
                 }
                 _name = GUI.renderText(code, "'Viga', sans-serif", "#D3BB43", 24, 400);
-                canvasElements.drawImage(_name, 20, 101);
-            } else if (playerGauges.idClothe !== window.undefined) {} else {
+                wmvMm.drawImage(_name, 20, 101);
+            } else if (WvW.idClothe !== window.undefined) {} else {
                 _name = GUI.renderText("Cannot be equipped", "'Viga', sans-serif", "#FFFFFF", 17, 400);
-                canvasElements.drawImage(_name, 20, 108);
+                wmvMm.drawImage(_name, 20, 108);
             }
         };
 
-        function BuildingStats(canvasElements, building) {
-            var id = building.pid;
-            var PLAYER = World.players[id];
-            var team = World.teams[PLAYER.team];
-            var ownerName = PLAYER && PLAYER.nickname !== undefined ? PLAYER.nickname : id;
-            var _name = GUI.renderText(ownerName, "'Viga', sans-serif", "#D3BB43", 30, 400);
-            
-            canvasElements.drawImage(_name, 20, 20);
-
-            if (team && team.uid !== undefined && team.uid === PLAYER.teamUid) {
-                var _name2 = GUI.renderText("Team: " + team.name, "'Viga', sans-serif", "#FFFFFF", 25, 400);
-                canvasElements.drawImage(_name2, 20, 68);
-            }
-        }
-
         function _Craft(BACKGROUND_CRAFTBOX, BUTTON_CLOSE_BOX, skillList, NwnNV, VvvwN, nvmnM, craftList, preview, inventoryItemNumber, inventoryAmmoNumber, BUTTON_FUEL, BUTTON_FUEL1, BUTTON_CELLS, NWmNn) {
             BACKGROUND_CRAFTBOX.draw();
-            var offsetX = BACKGROUND_CRAFTBOX.pos.x;
-            var offsetY = BACKGROUND_CRAFTBOX.pos.y;
-            var wX_Scale = offsetX / scaleby;
-            var wY_Scale = offsetY / scaleby;
-            BUTTON_CLOSE_BOX.pos.x = offsetX + (594 * scaleby);
-            BUTTON_CLOSE_BOX.pos.y = offsetY + (0 * scaleby);
+            var wX = BACKGROUND_CRAFTBOX.pos.x;
+            var wY = BACKGROUND_CRAFTBOX.pos.y;
+            var wX_Scale = wX / scaleby;
+            var wY_Scale = wY / scaleby;
+            BUTTON_CLOSE_BOX.pos.x = wX + (594 * scaleby);
+            BUTTON_CLOSE_BOX.pos.y = wY + (0 * scaleby);
             BUTTON_CLOSE_BOX.draw();
             var craftAvailable = World.PLAYER.craftAvailable;
             var recipeAvailable = World.PLAYER.recipeAvailable;
@@ -14885,8 +14864,8 @@ try {
             for (var i = 0; i < skillList.length; i++) {
                 var wm = skillList[i];
                 if (i === category) wm.setState(GUI.__BUTTON_CLICK__);
-                wm.pos.x = ((10 * scaleby) + offsetX) + ((i * 47) * scaleby);
-                wm.pos.y = offsetY - (40 * scaleby);
+                wm.pos.x = ((10 * scaleby) + wX) + ((i * 47) * scaleby);
+                wm.pos.y = wY - (40 * scaleby);
                 wm.draw();
             }
             var j = 0;
@@ -14894,13 +14873,13 @@ try {
                 if ((i === area) && (World.PLAYER.isInBuilding === 1)) {} else if ((i !== World.PLAYER.buildingArea) && (i !== 0)) continue;
                 var wm = craftList[i];
                 if (i === area) wm.setState(GUI.__BUTTON_CLICK__);
-                wm.pos.x = offsetX - (40 * scaleby);
-                wm.pos.y = ((10 * scaleby) + offsetY) + ((j * 43) * scaleby);
+                wm.pos.x = wX - (40 * scaleby);
+                wm.pos.y = ((10 * scaleby) + wY) + ((j * 43) * scaleby);
                 wm.draw();
                 j++;
             }
-            preview.pos.x = offsetX + (364 * scaleby);
-            preview.pos.y = offsetY + (27 * scaleby);
+            preview.pos.x = wX + (364 * scaleby);
+            preview.pos.y = wY + (27 * scaleby);
             preview.draw();
             var craft = Game.craft;
             var len = World.PLAYER.craftLen;
@@ -14921,14 +14900,14 @@ try {
             breath = window.Math.max(1, window.Math.min(1.08, breath));
             for (i = 0; i < len; i++) {
                 var wm = craft[i];
-                wm.pos.x = (mnMmm + offsetX) + ((i % 5) * MVM);
-                wm.pos.y = (NWNmV + offsetY) + (window.Math.floor(i / 5) * MVM);
-                var availableRecip = craftAvailable[i];
-                if (availableRecip === 0) {
+                wm.pos.x = (mnMmm + wX) + ((i % 5) * MVM);
+                wm.pos.y = (NWNmV + wY) + (window.Math.floor(i / 5) * MVM);
+                var MvmWv = craftAvailable[i];
+                if (MvmWv === 0) {
                     ctx.globalAlpha = 0.45;
                     wm.draw();
                     ctx.globalAlpha = 1;
-                } else if (availableRecip === 2) {
+                } else if (MvmWv === 2) {
                     wm.setState(GUI.__BUTTON_IN__);
                     wm.draw();
                 } else {
@@ -14941,8 +14920,8 @@ try {
             var Nnv = 0;
             if (World.PLAYER.craftCategory === -1) {
                 if (World.PLAYER.isInBuilding === 1) {
-                    NwnNV.pos.x = offsetX + (454 * scaleby);
-                    NwnNV.pos.y = offsetY + (153 * scaleby);
+                    NwnNV.pos.x = wX + (454 * scaleby);
+                    NwnNV.pos.y = wY + (153 * scaleby);
                     if (((World.PLAYER.craftAvailable[World.PLAYER.craftIdSelected] === 1) && (World.PLAYER.building.len < 4)) && (World.PLAYER.building.fuel !== 0)) NwnNV.draw();
                     else {
                         ctx.globalAlpha = 0.5;
@@ -14951,8 +14930,8 @@ try {
                         ctx.globalAlpha = 1;
                     }
                 } else if (World.PLAYER.crafting === 0) {
-                    NwnNV.pos.x = offsetX + (454 * scaleby);
-                    NwnNV.pos.y = offsetY + (153 * scaleby);
+                    NwnNV.pos.x = wX + (454 * scaleby);
+                    NwnNV.pos.y = wY + (153 * scaleby);
                     if (World.PLAYER.craftAvailable[World.PLAYER.craftIdSelected] === 1) NwnNV.draw();
                     else {
                         ctx.globalAlpha = 0.5;
@@ -14961,8 +14940,8 @@ try {
                         ctx.globalAlpha = 1;
                     }
                 } else {
-                    VvvwN.pos.x = offsetX + (454 * scaleby);
-                    VvvwN.pos.y = offsetY + (153 * scaleby);
+                    VvvwN.pos.x = wX + (454 * scaleby);
+                    VvvwN.pos.y = wY + (153 * scaleby);
                     VvvwN.draw();
                 }
                 if (craftGauge.isLoaded !== 1) {
@@ -14985,8 +14964,8 @@ try {
                 Nnv = window.Math.min(1, window.Math.max(0, Nnv));
                 width = (scaleby * craftGauge.width) / 2;
                 height = (scaleby * craftGauge.height) / 2;
-                var posx = offsetX + (356 * scaleby);
-                var posy = offsetY + (206 * scaleby);
+                var posx = wX + (356 * scaleby);
+                var posy = wY + (206 * scaleby);
                 ctx.fillStyle = "#A29742";
                 MVM = 3 * scaleby;
                 mnMmm = 2 * MVM;
@@ -14995,8 +14974,8 @@ try {
                 
             } else {
                 var skill = World.PLAYER.craftAvailable[World.PLAYER.craftIdSelected];
-                nvmnM.pos.x = offsetX + (454 * scaleby);
-                nvmnM.pos.y = offsetY + (153 * scaleby);
+                nvmnM.pos.x = wX + (454 * scaleby);
+                nvmnM.pos.y = wY + (153 * scaleby);
                 if (skill === 1) nvmnM.draw();
                 else if (skill === 0) {
                     ctx.globalAlpha = 0.5;
@@ -15006,24 +14985,24 @@ try {
                     if (World.PLAYER.craftSelected !== MMNWW) {
                         context2J.clearRect(0, 0, 420, 148);
                         MMNWW = World.PLAYER.craftSelected;
-                        var detail = INVENTORY[MMNWW].detail;
+                        var NW = INVENTORY[MMNWW].detail;
                         var MwNwV = 20;
-                        if (detail.level > World.PLAYER.level) {
-                            var text = GUI.renderText(("Require level " + detail.level) + " or higher", "'Viga', sans-serif", "#D8BA3D", 30, 600);
+                        if (NW.level > World.PLAYER.level) {
+                            var text = GUI.renderText(("Require level " + NW.level) + " or higher", "'Viga', sans-serif", "#D8BA3D", 30, 600);
                             context2J.drawImage(text, 20, MwNwV);
                             MwNwV += 50;
                         }
-                        if ((detail.previous !== -1) && (World.PLAYER.skillUnlocked[detail.previous] === window.undefined)) {
-                            var text = GUI.renderText(("Unlock " + INVENTORY[detail.previous].detail.name) + " before", "'Viga', sans-serif", "#D8BA3D", 30, 600);
+                        if ((NW.previous !== -1) && (World.PLAYER.skillUnlocked[NW.previous] === window.undefined)) {
+                            var text = GUI.renderText(("Unlock " + INVENTORY[NW.previous].detail.name) + " before", "'Viga', sans-serif", "#D8BA3D", 30, 600);
                             context2J.drawImage(text, 20, MwNwV);
                             MwNwV += 50;
                         }
-                        if (World.PLAYER.skillPoint < detail.price) {
-                            var text = GUI.renderText((("Cost " + detail.price) + " skill point") + ((detail.price !== 1) ? "s" : ""), "'Viga', sans-serif", "#D8BA3D", 30, 600);
+                        if (World.PLAYER.skillPoint < NW.price) {
+                            var text = GUI.renderText((("Cost " + NW.price) + " skill point") + ((NW.price !== 1) ? "s" : ""), "'Viga', sans-serif", "#D8BA3D", 30, 600);
                             context2J.drawImage(text, 20, MwNwV);
                         }
                     }
-                    ctx.drawImage(canvasJ, offsetX + (356 * scaleby), offsetY + (211 * scaleby), (scaleby * canvasJ.width) / 2, (scaleby * canvasJ.height) / 2);
+                    ctx.drawImage(canvasJ, wX + (356 * scaleby), wY + (211 * scaleby), (scaleby * canvasJ.width) / 2, (scaleby * canvasJ.height) / 2);
                 } else {
                     nvmnM.setState(GUI.__BUTTON_CLICK__);
                     nvmnM.draw();
@@ -15036,8 +15015,8 @@ try {
                     if (((area === AREAS.__SMELTER__) || (area === AREAS.__EXTRACTOR__)) || (area === AREAS.__AGITATOR__)) wm = BUTTON_FUEL1;
                     else if (area === AREAS.__TESLA__ || area === AREAS.__FEEDER__) wm = BUTTON_CELLS;
                     else wm = BUTTON_FUEL;
-                    wm.pos.x = offsetX + (532 * scaleby);
-                    wm.pos.y = offsetY + (153 * scaleby);
+                    wm.pos.x = wX + (532 * scaleby);
+                    wm.pos.y = wY + (153 * scaleby);
                     if (World.PLAYER.building.fuel !== 255) wm.draw();
                     else {
                         ctx.globalAlpha = 0.5;
@@ -15074,8 +15053,8 @@ try {
                         CanvasUtils.drawImageHd(STROKE_BONUS, (wm.pos.x / scaleby) + 20, (wm.pos.y / scaleby) + 20, 0, 0, 0, breath * 0.85);
                         ctx.globalAlpha = 1;
                     }
-                    wm.pos.x = (mnMmm + offsetX) + (i * MVM);
-                    wm.pos.y = NWNmV + offsetY;
+                    wm.pos.x = (mnMmm + wX) + (i * MVM);
+                    wm.pos.y = NWNmV + wY;
                     wm.draw();
                 }
             }
@@ -15086,8 +15065,8 @@ try {
             NWNmV = 151 * scaleby;
             for (var i = 0; i < len; i++) {
                 var wm = tools[i];
-                wm.pos.x = (mnMmm + offsetX) + (i * MVM);
-                wm.pos.y = NWNmV + offsetY;
+                wm.pos.x = (mnMmm + wX) + (i * MVM);
+                wm.pos.y = NWNmV + wY;
                 wm.draw();
             }
             if (World.PLAYER.skillPoint !== wmmVm) {
@@ -15096,17 +15075,17 @@ try {
                 var text = GUI.renderText("SKILL POINT: " + wmmVm, "'Viga', sans-serif", "#FFFFFF", 32, 400);
                 context2H.drawImage(text, 24, 12);
             }
-            ctx.drawImage(skillPoint, offsetX + (455 * scaleby), offsetY + (378 * scaleby), (scaleby * skillPoint.width) / 2, (scaleby * skillPoint.height) / 2);
+            ctx.drawImage(skillPoint, wX + (455 * scaleby), wY + (378 * scaleby), (scaleby * skillPoint.width) / 2, (scaleby * skillPoint.height) / 2);
             if (World.PLAYER.craftSelected !== mwwNm) {
                 context2dG.clearRect(0, 0, 280, 148);
                 mwwNm = World.PLAYER.craftSelected;
                 itemstatsfunc(context2dG, mwwNm);
             }
-            ctx.drawImage(canvasG, offsetX + (439 * scaleby), offsetY + (24 * scaleby), (scaleby * canvasG.width) / 2, (scaleby * canvasG.height) / 2);
+            ctx.drawImage(canvasG, wX + (439 * scaleby), wY + (24 * scaleby), (scaleby * canvasG.width) / 2, (scaleby * canvasG.height) / 2);
             if ((World.PLAYER.skillPoint > 0) || (wvV.effect > 0)) {
                 var move = (wvV.move + delta) % 1000;
                 wvV.move = move;
-                var _y = offsetY / scaleby;
+                var _y = wY / scaleby;
                 if (wvV.move < 500) _y += -62 - (15 * MathUtils.Ease.inOutQuad(move / 500));
                 else _y += -62 - (15 * MathUtils.Ease.inOutQuad((1000 - move) / 500));
                 ctx.globalAlpha = MathUtils.Ease.inQuad(wvV.effect);
@@ -15124,8 +15103,8 @@ try {
             NWNmV = 107 * scaleby;
             for (var i = 0; i < len; i++) {
                 var wm = recipe[i];
-                wm.pos.x = (mnMmm + offsetX) + (i * MVM);
-                wm.pos.y = NWNmV + offsetY;
+                wm.pos.x = (mnMmm + wX) + (i * MVM);
+                wm.pos.y = NWNmV + wY;
                 var amount = window.Math.abs(recipeAvailable[i]);
                 if (inventoryItemNumber[amount] === window.undefined) {
                     inventoryItemNumber[amount] = {
@@ -15142,63 +15121,63 @@ try {
                     wm.draw();
                     CanvasUtils.drawImageHd(inventoryItemNumber[amount], (wm.pos.x / scaleby) + 30, (wm.pos.y / scaleby) + 32, -0.5, 0, 0, 0.9);
                 }
-                if ((NWmNn === i) && (World.PLAYER.recipeList[i] > 0)) drawDarkBox(World.PLAYER.recipeList[i], wm.pos.x, wm.pos.y + (45 * scaleby));
+                if ((NWmNn === i) && (World.PLAYER.recipeList[i] > 0)) NMMwN(World.PLAYER.recipeList[i], wm.pos.x, wm.pos.y + (45 * scaleby));
             }
         };
 
         function _Config(WWmVM, nmvnW, wMMmv, NNWVW, nMmMw, vNVNN, wvmWv, WmWnm, VNNMW, NVVwW, BUTTON_CLOSE_BOX, WVVMw, vnNWN, MnvNV) {
             WWmVM.draw();
-            var offsetX = WWmVM.pos.x;
-            var offsetY = WWmVM.pos.y;
-            BUTTON_CLOSE_BOX.pos.x = offsetX + (265 * scaleby);
-            BUTTON_CLOSE_BOX.pos.y = offsetY + (0 * scaleby);
+            var wX = WWmVM.pos.x;
+            var wY = WWmVM.pos.y;
+            BUTTON_CLOSE_BOX.pos.x = wX + (265 * scaleby);
+            BUTTON_CLOSE_BOX.pos.y = wY + (0 * scaleby);
             BUTTON_CLOSE_BOX.draw();
-            nMmMw.pos.x = offsetX + (87 * scaleby);
-            nMmMw.pos.y = offsetY + (15 * scaleby);
+            nMmMw.pos.x = wX + (87 * scaleby);
+            nMmMw.pos.y = wY + (15 * scaleby);
             if (Keyboard.isAzerty() === 1) nMmMw.setState(GUI.__BUTTON_CLICK__);
             nMmMw.draw();
-            vNVNN.pos.x = offsetX + (173 * scaleby);
-            vNVNN.pos.y = offsetY + (15 * scaleby);
+            vNVNN.pos.x = wX + (173 * scaleby);
+            vNVNN.pos.y = wY + (15 * scaleby);
             if (Keyboard.isQwerty() === 1) vNVNN.setState(GUI.__BUTTON_CLICK__);
             vNVNN.draw();
-            NNWVW.pos.x = offsetX + (87 * scaleby);
-            NNWVW.pos.y = offsetY + (62 * scaleby);
+            NNWVW.pos.x = wX + (87 * scaleby);
+            NNWVW.pos.y = wY + (62 * scaleby);
             if (CanvasUtils.options.forceResolution === 3) NNWVW.setState(GUI.__BUTTON_CLICK__);
             NNWVW.draw();
-            wMMmv.pos.x = offsetX + (147 * scaleby);
-            wMMmv.pos.y = offsetY + (62 * scaleby);
+            wMMmv.pos.x = wX + (147 * scaleby);
+            wMMmv.pos.y = wY + (62 * scaleby);
             if (CanvasUtils.options.forceResolution === 2) wMMmv.setState(GUI.__BUTTON_CLICK__);
             wMMmv.draw();
-            nmvnW.pos.x = offsetX + (207 * scaleby);
-            nmvnW.pos.y = offsetY + (62 * scaleby);
+            nmvnW.pos.x = wX + (207 * scaleby);
+            nmvnW.pos.y = wY + (62 * scaleby);
             if (CanvasUtils.options.forceResolution === 1) nmvnW.setState(GUI.__BUTTON_CLICK__);
             nmvnW.draw();
-            wvmWv.pos.x = offsetX + (87 * scaleby);
-            wvmWv.pos.y = offsetY + (117 * scaleby);
+            wvmWv.pos.x = wX + (87 * scaleby);
+            wvmWv.pos.y = wY + (117 * scaleby);
             if (AudioUtils.options.isAudio === 1) wvmWv.setState(GUI.__BUTTON_CLICK__);
             wvmWv.draw();
-            WmWnm.pos.x = offsetX + (147 * scaleby);
-            WmWnm.pos.y = offsetY + (117 * scaleby);
+            WmWnm.pos.x = wX + (147 * scaleby);
+            WmWnm.pos.y = wY + (117 * scaleby);
             if (AudioUtils.options.isAudio === 0) WmWnm.setState(GUI.__BUTTON_CLICK__);
             WmWnm.draw();
-            VNNMW.pos.x = offsetX + (87 * scaleby);
-            VNNMW.pos.y = offsetY + (167 * scaleby);
+            VNNMW.pos.x = wX + (87 * scaleby);
+            VNNMW.pos.y = wY + (167 * scaleby);
             if (AudioUtils.options.isFx === 1) VNNMW.setState(GUI.__BUTTON_CLICK__);
             VNNMW.draw();
-            NVVwW.pos.x = offsetX + (147 * scaleby);
-            NVVwW.pos.y = offsetY + (167 * scaleby);
+            NVVwW.pos.x = wX + (147 * scaleby);
+            NVVwW.pos.y = wY + (167 * scaleby);
             if (AudioUtils.options.isFx === 0) NVVwW.setState(GUI.__BUTTON_CLICK__);
             NVVwW.draw();
-            MnvNV.pos.x = offsetX + (87 * scaleby);
-            MnvNV.pos.y = offsetY + (217 * scaleby);
+            MnvNV.pos.x = wX + (87 * scaleby);
+            MnvNV.pos.y = wY + (217 * scaleby);
             if (setParticles === 0) MnvNV.setState(GUI.__BUTTON_CLICK__);
             MnvNV.draw();
-            vnNWN.pos.x = offsetX + (147 * scaleby);
-            vnNWN.pos.y = offsetY + (217 * scaleby);
+            vnNWN.pos.x = wX + (147 * scaleby);
+            vnNWN.pos.y = wY + (217 * scaleby);
             if (setParticles === 1) vnNWN.setState(GUI.__BUTTON_CLICK__);
             vnNWN.draw();
-            WVVMw.pos.x = offsetX + (207 * scaleby);
-            WVVMw.pos.y = offsetY + (217 * scaleby);
+            WVVMw.pos.x = wX + (207 * scaleby);
+            WVVMw.pos.y = wY + (217 * scaleby);
             if (setParticles === 2) WVVMw.setState(GUI.__BUTTON_CLICK__);
             WVVMw.draw();
         };
@@ -15228,9 +15207,9 @@ try {
                         if (effect < 0.25) ctx.globalAlpha = effect * 4;
                         else if (effect > 4.75) ctx.globalAlpha = window.Math.max((5 - effect) * 5, 0);
                         else ctx.globalAlpha = 1;
-                        var offsetY = 118;
+                        var wY = 118;
                         var img = PLAYER.label[i];
-                        ctx.drawImage(img, 0, 0, img.width, img.height, ((vertst + player.x) - (img.width / 4)) * scaleby, (((horist + player.y) - offsetY) - PLAYER.textMove[i]) * scaleby, (img.width / 2) * scaleby, (img.height / 2) * scaleby);
+                        ctx.drawImage(img, 0, 0, img.width, img.height, ((vertst + player.x) - (img.width / 4)) * scaleby, (((horist + player.y) - wY) - PLAYER.textMove[i]) * scaleby, (img.width / 2) * scaleby, (img.height / 2) * scaleby);
                         ctx.globalAlpha = 1;
                     }
                 }
@@ -15249,8 +15228,8 @@ try {
             if (((((player.extra & 255) === 16) && (World.PLAYER.admin !== 1)) && (player.pid !== World.PLAYER.id)) && (((PLAYER.team === -1) || (World.teams[PLAYER.team].uid !== PLAYER.teamUid)) || (World.PLAYER.team !== PLAYER.team))) return;
             if (PLAYER.playerIdLabel === null) PLAYER.playerIdLabel = GUI.renderText("#" + PLAYER.id, "'Viga', sans-serif", "#FFFFFF", 24, 400, window.undefined, 16, 25, window.undefined, 0.5, window.undefined, window.undefined, "#000000", 5);
             var img = PLAYER.playerIdLabel;
-            var offsetY = 90;
-            ctx.drawImage(img, ((vertst + player.x) - (img.wh / 2)) * scaleby, ((horist + player.y) - offsetY - 13) * scaleby, img.wh * scaleby, img.h2 * scaleby);
+            var wY = 90;
+            ctx.drawImage(img, ((vertst + player.x) - (img.wh / 2)) * scaleby, ((horist + player.y) - wY - 13) * scaleby, img.wh * scaleby, img.h2 * scaleby);
         }
 
         function _playerName(player) {
@@ -15261,8 +15240,8 @@ try {
             if (((((player.extra & 255) === 16) && (World.PLAYER.admin !== 1)) && (player.pid !== World.PLAYER.id)) && (((PLAYER.team === -1) || (World.teams[PLAYER.team].uid !== PLAYER.teamUid)) || (World.PLAYER.team !== PLAYER.team))) return;
             if (PLAYER.nicknameLabel === null) PLAYER.nicknameLabel = GUI.renderText(PLAYER.nickname, "'Viga', sans-serif", "#FFFFFF", 38, 400, window.undefined, 16, 25, window.undefined, window.undefined, window.undefined, window.undefined, "#000000", 12);
             var img = PLAYER.nicknameLabel;
-            var offsetY = 90;
-            if (PLAYER.team === -1) ctx.drawImage(img, ((vertst + player.x) - (img.wh / 2)) * scaleby, ((horist + player.y) - offsetY) * scaleby, img.wh * scaleby, img.h2 * scaleby);
+            var wY = 90;
+            if (PLAYER.team === -1) ctx.drawImage(img, ((vertst + player.x) - (img.wh / 2)) * scaleby, ((horist + player.y) - wY) * scaleby, img.wh * scaleby, img.h2 * scaleby);
             else if (PLAYER.team !== -1) {
                 var team = World.teams[PLAYER.team];
                 if (team.uid === PLAYER.teamUid) {
@@ -15272,8 +15251,8 @@ try {
                         team.labelNickname = GUI.renderText(("[" + team.name) + "]", "'Viga', sans-serif", colorTeam, 38, 400, window.undefined, 16, 25, window.undefined, window.undefined, window.undefined, window.undefined, "#000000", 12);
                     } else team.labelNickname = GUI.renderText(("[" + team.name) + "]", "'Viga', sans-serif", colorEnemy, 38, 400, window.undefined, 16, 25, window.undefined, window.undefined, window.undefined, window.undefined, "#000000", 12);
                     var wvMMv = team.labelNickname;
-                    ctx.drawImage(wvMMv, ((((vertst + player.x) - (img.wh / 2)) - (wvMMv.wh / 2)) - 0.5) * scaleby, ((horist + player.y) - offsetY) * scaleby, wvMMv.wh * scaleby, wvMMv.h2 * scaleby);
-                    if ((img.width !== 0) && (img.height !== 0)) ctx.drawImage(img, (((vertst + player.x) - (img.wh / 2)) + (wvMMv.wh / 2)) * scaleby, ((horist + player.y) - offsetY) * scaleby, img.wh * scaleby, img.h2 * scaleby);
+                    ctx.drawImage(wvMMv, ((((vertst + player.x) - (img.wh / 2)) - (wvMMv.wh / 2)) - 0.5) * scaleby, ((horist + player.y) - wY) * scaleby, wvMMv.wh * scaleby, wvMMv.h2 * scaleby);
+                    if ((img.width !== 0) && (img.height !== 0)) ctx.drawImage(img, (((vertst + player.x) - (img.wh / 2)) + (wvMMv.wh / 2)) * scaleby, ((horist + player.y) - wY) * scaleby, img.wh * scaleby, img.h2 * scaleby);
                 } else PLAYER.team = -1;
             }
 
@@ -15281,24 +15260,24 @@ try {
             if (MOD.autoEat) {
                 if (AutoEatLabel === null) AutoEatLabel = GUI.renderText('FOOD', "'Viga', sans-serif", "#00FF00", 20, 400, window.undefined, 16, 25, window.undefined, window.undefined, window.undefined, window.undefined, "#000000", 10);
                 var img = AutoEatLabel;
-                var offsetY = 90;
-                ctx.drawImage(img, ((vertst + World.PLAYER.x) - (img.wh / 2)) * scaleby, ((horist + World.PLAYER.y) - offsetY + 32) * scaleby, img.wh * scaleby, img.h2 * scaleby);
+                var wY = 90;
+                ctx.drawImage(img, ((vertst + World.PLAYER.x) - (img.wh / 2)) * scaleby, ((horist + World.PLAYER.y) - wY + 32) * scaleby, img.wh * scaleby, img.h2 * scaleby);
             }
 
             // Auto Loot Label
             if (MOD.autoLoot) {
                 if (AutoLootLabel === null) AutoLootLabel = GUI.renderText('LOOT', "'Viga', sans-serif", "#FF0000", 20, 400, window.undefined, 16, 25, window.undefined, window.undefined, window.undefined, window.undefined, "#000000", 10);
                 var img = AutoLootLabel;
-                var offsetY = 90;
-                ctx.drawImage(img, ((vertst + World.PLAYER.x) - (img.wh / 2)) * scaleby, ((horist + World.PLAYER.y) - offsetY + 21) * scaleby, img.wh * scaleby, img.h2 * scaleby);
+                var wY = 90;
+                ctx.drawImage(img, ((vertst + World.PLAYER.x) - (img.wh / 2)) * scaleby, ((horist + World.PLAYER.y) - wY + 21) * scaleby, img.wh * scaleby, img.h2 * scaleby);
             }
 
             // Aim Bot Label
             if (MOD.AimBotEnable) {
                 if (AimBotLabel === null) AimBotLabel = GUI.renderText('AIM', "'Viga', sans-serif", "#ad00e3", 20, 400, window.undefined, 16, 25, window.undefined, window.undefined, window.undefined, window.undefined, "#000000", 10);
                 var img = AimBotLabel;
-                var offsetY = 90;
-                ctx.drawImage(img, ((vertst + World.PLAYER.x) - ((img.wh - 60) / 2)) * scaleby, ((horist + World.PLAYER.y) - offsetY + 21) * scaleby, img.wh * scaleby, img.h2 * scaleby);
+                var wY = 90;
+                ctx.drawImage(img, ((vertst + World.PLAYER.x) - ((img.wh - 60) / 2)) * scaleby, ((horist + World.PLAYER.y) - wY + 21) * scaleby, img.wh * scaleby, img.h2 * scaleby);
             }
 
         };
@@ -15330,26 +15309,26 @@ try {
                     } else vMnnw[_i][_j] = frameId;
                 }
             }
-            var offsetX = 0;
-            var offsetY = 0;
+            var wX = 0;
+            var wY = 0;
             var height = 0;
             var width = 0;
             if ((nMNww !== 0) || (WvMwV !== 0)) {
-                offsetX = (((tile.j + VwMWn) * __TILE_SIZE__) + vertst) * scaleby;
-                offsetY = (((tile.i + nVNNn) * __TILE_SIZE__) + horist) * scaleby;
+                wX = (((tile.j + VwMWn) * __TILE_SIZE__) + vertst) * scaleby;
+                wY = (((tile.i + nVNNn) * __TILE_SIZE__) + horist) * scaleby;
                 nVNNn *= 32;
                 VwMWn *= 32;
                 height = (img.height - (nMNww * 32)) + nVNNn;
                 width = (img.width - (WvMwV * 32)) + VwMWn;
             } else {
-                offsetX = (((tile.j + VwMWn) * __TILE_SIZE__) + vertst) * scaleby;
-                offsetY = (((tile.i + nVNNn) * __TILE_SIZE__) + horist) * scaleby;
+                wX = (((tile.j + VwMWn) * __TILE_SIZE__) + vertst) * scaleby;
+                wY = (((tile.i + nVNNn) * __TILE_SIZE__) + horist) * scaleby;
                 nVNNn *= 32;
                 VwMWn *= 32;
                 height = img.height - nVNNn;
                 width = img.width - VwMWn;
             }
-            ctx.drawImage(img, VwMWn, nVNNn, width, height, offsetX, offsetY, (width * 3) * scaleby, (height * 3) * scaleby);
+            ctx.drawImage(img, VwMWn, nVNNn, width, height, wX, wY, (width * 3) * scaleby, (height * 3) * scaleby);
         };
         
         function wNnvM() {
@@ -15386,12 +15365,12 @@ try {
                     World.PLAYER._j = PLAYER.j;
                     World.PLAYER.isBuilding = (ENTITIES[__ENTITIE_PLAYER__].weapons[(PLAYER.extra >> 8) & 255].type === 6) ? 1 : 0;
                     var vWwvm = window.Math.min(canh4ns, canw4ns);
-                    if (Mouse.distance > vWwvm) vWwvm = WwmVw * window.Math.min((Mouse.distance - vWwvm) / vWwvm, 1);
+                    if (Mouse.dist > vWwvm) vWwvm = WwmVw * window.Math.min((Mouse.dist - vWwvm) / vWwvm, 1);
                     else vWwvm = 0;
-                    var offsetX = vWwvm * window.Math.cos(Mouse.angle);
-                    var offsetY = vWwvm * window.Math.sin(Mouse.angle);
-                    vvWnv = CanvasUtils.lerp(vvWnv, offsetX, 0.025);
-                    Nvmmn = CanvasUtils.lerp(Nvmmn, offsetY, 0.025);
+                    var wX = vWwvm * window.Math.cos(Mouse.angle);
+                    var wY = vWwvm * window.Math.sin(Mouse.angle);
+                    vvWnv = CanvasUtils.lerp(vvWnv, wX, 0.025);
+                    Nvmmn = CanvasUtils.lerp(Nvmmn, wY, 0.025);
                     var nvVvv = 0;
                     var WvnMn = 0;
                     if (Render.shake > 0) {
@@ -15451,20 +15430,20 @@ try {
                 return;
             }
             ctx.globalAlpha = World.PLAYER.grid / Mvvwv;
-            var offsetY = scaleby * (((World.PLAYER.iGrid * __TILE_SIZE__) + horist) + __TILE_SIZE2__);
-            var offsetX = scaleby * (((World.PLAYER.jGrid * __TILE_SIZE__) + vertst) + __TILE_SIZE2__);
+            var wY = scaleby * (((World.PLAYER.iGrid * __TILE_SIZE__) + horist) + __TILE_SIZE2__);
+            var wX = scaleby * (((World.PLAYER.jGrid * __TILE_SIZE__) + vertst) + __TILE_SIZE2__);
             var width = (scaleby * wWNmv.width) / 2;
             var height = (scaleby * wWNmv.height) / 2;
-            ctx.drawImage(wWNmv, offsetX - (width / 2), offsetY - (height / 2), width, height);
+            ctx.drawImage(wWNmv, wX - (width / 2), wY - (height / 2), width, height);
             ctx.globalAlpha = 1;
             for (var i = 0; i < World.PLAYER.gridPrev.length; i++) {
                 if (World.PLAYER.gridPrev[i] > 0) {
                     ctx.globalAlpha = World.PLAYER.gridPrev[i] / Mvvwv;
-                    var offsetY = scaleby * (((World.PLAYER.iGridPrev[i] * __TILE_SIZE__) + horist) + __TILE_SIZE2__);
-                    var offsetX = scaleby * (((World.PLAYER.jGridPrev[i] * __TILE_SIZE__) + vertst) + __TILE_SIZE2__);
+                    var wY = scaleby * (((World.PLAYER.iGridPrev[i] * __TILE_SIZE__) + horist) + __TILE_SIZE2__);
+                    var wX = scaleby * (((World.PLAYER.jGridPrev[i] * __TILE_SIZE__) + vertst) + __TILE_SIZE2__);
                     var width = (scaleby * wWNmv.width) / 2;
                     var height = (scaleby * wWNmv.height) / 2;
-                    ctx.drawImage(wWNmv, offsetX - (width / 2), offsetY - (height / 2), width, height);
+                    ctx.drawImage(wWNmv, wX - (width / 2), wY - (height / 2), width, height);
                     ctx.globalAlpha = 1;
                 }
             }
@@ -15490,7 +15469,7 @@ try {
                 var level = PLAYER.notificationLevel[0];
                 var type = PLAYER.notification[0];
                 if (delay === 0) {
-                    var distance = Math2d.distance(player.x, player.y, NmM, WWV);
+                    var dist = Math2d.dist(player.x, player.y, NmM, WWV);
                 }
                 PLAYER.notificationDelay += delta;
                 if (PLAYER.notificationDelay >= Mvnwm) {
@@ -15540,20 +15519,20 @@ try {
                         effect.y = player.y;
                         effect.size = 1 + (window.Math.random() * 0.8);
                     } else effect.delay -= delta;
-                    var value = MathUtils.Ease.outQuart(window.Math.max(0, effect.delay / 750));
-                    var w = (((scaleby * (effect.size + 1)) * value) * img.width) / 7;
+                    var vW = MathUtils.Ease.outQuart(window.Math.max(0, effect.delay / 750));
+                    var w = (((scaleby * (effect.size + 1)) * vW) * img.width) / 7;
                     var wh = -w / 2;
                     ctx.save();
                     ctx.translate((vertst + effect.x) * scaleby, (horist + effect.y) * scaleby);
                     ctx.rotate(effect.angle);
-                    ctx.globalAlpha = window.Math.max(0, value * value);
+                    ctx.globalAlpha = window.Math.max(0, vW * vW);
                     ctx.drawImage(img, wh, wh, w, w);
                     ctx.restore();
                 }
             }
         };
         
-        function Wvmnw(mVn, weapon, wVn, player, imageScale, offsetX, offsetY) {
+        function Wvmnw(mVn, weapon, wVn, player, imgMovement, wX, wY) {
             var PLAYER = World.players[player.pid];
             var skinType = 0;
             var repellent = PLAYER.repellent - Render.globalTime;
@@ -15576,14 +15555,14 @@ try {
                     if ((AudioUtils._fx.shot[MNmnm] !== 0) && ((Render.globalTime - PLAYER.consumableLast) > 800)) {
                         PLAYER.consumableLast = Render.globalTime;
                         var VVmnw = window.Math.floor(window.Math.random() * weapon.soundLen);
-                        AudioUtils.playFx(AudioUtils._fx.shot[MNmnm][VVmnw], weapon.soundVolume, Math2d.distance(World.PLAYER.x, World.PLAYER.y, player.x, player.y) / 4, weapon.soundDelay);
+                        AudioUtils.playFx(AudioUtils._fx.shot[MNmnm][VVmnw], weapon.soundVolume, Math2d.dist(World.PLAYER.x, World.PLAYER.y, player.x, player.y) / 4, weapon.soundDelay);
                     }
                     PLAYER.consumable = 0;
                 }
                 if (PLAYER.punch === 1) PLAYER.consumable = window.Math.max(0, PLAYER.consumable - delta);
                 else PLAYER.consumable = window.Math.min(weapon.consumableDelay, PLAYER.consumable + delta);
-                var value = PLAYER.consumable / weapon.consumableDelay;
-                recoil = value * weapon.recoil;
+                var vW = PLAYER.consumable / weapon.consumableDelay;
+                recoil = vW * weapon.recoil;
                 if ((PLAYER.consumable === 0) || (PLAYER.consumable === weapon.consumableDelay)) PLAYER.punch *= -1;
             } else if (Math2d.fastDist(player.x, player.y, player.nx, player.ny) < 1) {
                 PLAYER.consumable = -1;
@@ -15610,37 +15589,37 @@ try {
             var breath = weapon.breath * ((PLAYER.breath < 750) ? (PLAYER.breath / 750) : (1 - ((PLAYER.breath - 750) / 750)));
             var move = weapon.move * ((PLAYER.move < 400) ? (PLAYER.move / 400) : (1 - ((PLAYER.move - 400) / 400)));
             var MVn = (wVn.rightArm === window.undefined) ? skin.rightArm : wVn.rightArm;
-            CanvasUtils.drawImageHd(MVn, offsetX, offsetY, Nmm.angle + player.angle, ((Nmm.x + (move * PLAYER.orientation)) + recoil) + breath, Nmm.y, imageScale);
+            CanvasUtils.drawImageHd(MVn, wX, wY, Nmm.angle + player.angle, ((Nmm.x + (move * PLAYER.orientation)) + recoil) + breath, Nmm.y, imgMovement);
             MVn = (wVn.leftArm === window.undefined) ? skin.leftArm : wVn.leftArm;
-            CanvasUtils.drawImageHd(MVn, offsetX, offsetY, -VnN.angle + player.angle, ((VnN.x + (move * PLAYER.orientation)) + recoil) + breath, VnN.y, imageScale);
+            CanvasUtils.drawImageHd(MVn, wX, wY, -VnN.angle + player.angle, ((VnN.x + (move * PLAYER.orientation)) + recoil) + breath, VnN.y, imgMovement);
             var item = weapon.weapon;
-            CanvasUtils.drawImageHd(item, offsetX, offsetY, player.angle, ((item.x + (move * PLAYER.orientation)) + breath) + recoil, item.y, imageScale);
+            CanvasUtils.drawImageHd(item, wX, wY, player.angle, ((item.x + (move * PLAYER.orientation)) + breath) + recoil, item.y, imgMovement);
             if (player.hurt2 > 0) {
                 var mnM = 1;
                 player.hurt2 -= delta;
-                var value = 0;
-                if (player.hurt2 > 150) value = MathUtils.Ease.inQuad((300 - player.hurt2) / 300);
+                var vW = 0;
+                if (player.hurt2 > 150) vW = MathUtils.Ease.inQuad((300 - player.hurt2) / 300);
                 else {
-                    value = MathUtils.Ease.outQuad(player.hurt2 / 150);
-                    mnM += (1 - value) * 0.2;
+                    vW = MathUtils.Ease.outQuad(player.hurt2 / 150);
+                    mnM += (1 - vW) * 0.2;
                 }
-                ctx.globalAlpha = window.Math.min(1, window.Math.max(0, value));
-                CanvasUtils.drawImageHd(mVn.food, offsetX, offsetY, player.angle, 0, 0, mnM);
+                ctx.globalAlpha = window.Math.min(1, window.Math.max(0, vW));
+                CanvasUtils.drawImageHd(mVn.food, wX, wY, player.angle, 0, 0, mnM);
                 ctx.globalAlpha = 1;
             }
             if (player.hurt > 0) {
                 var mnM = 1;
                 player.hurt -= delta;
-                var value = 0;
-                if (player.hurt > 150) value = MathUtils.Ease.inQuad((300 - player.hurt) / 300);
+                var vW = 0;
+                if (player.hurt > 150) vW = MathUtils.Ease.inQuad((300 - player.hurt) / 300);
                 else {
-                    value = MathUtils.Ease.outQuad(player.hurt / 150);
-                    mnM += (1 - value) * 0.2;
+                    vW = MathUtils.Ease.outQuad(player.hurt / 150);
+                    mnM += (1 - vW) * 0.2;
                 }
-                offsetX += (window.Math.cos(player.hurtAngle) * value) * 3;
-                offsetY += (window.Math.sin(player.hurtAngle) * value) * 3;
-                ctx.globalAlpha = window.Math.min(1, window.Math.max(0, value));
-                CanvasUtils.drawImageHd(mVn.hurt, offsetX, offsetY, player.angle, 0, 0, mnM);
+                wX += (window.Math.cos(player.hurtAngle) * vW) * 3;
+                wY += (window.Math.sin(player.hurtAngle) * vW) * 3;
+                ctx.globalAlpha = window.Math.min(1, window.Math.max(0, vW));
+                CanvasUtils.drawImageHd(mVn.hurt, wX, wY, player.angle, 0, 0, mnM);
                 ctx.globalAlpha = 1;
             }
             if (player.heal > 0) {
@@ -15648,18 +15627,18 @@ try {
                 player.heal -= delta;
                 if (player.heal > 150) ctx.globalAlpha = window.Math.min(1, window.Math.max(0, MathUtils.Ease.inQuad((300 - player.heal) / 300)));
                 else {
-                    var value = MathUtils.Ease.outQuad(player.heal / 150);
-                    mnM += (1 - value) * 0.2;
-                    ctx.globalAlpha = window.Math.min(1, window.Math.max(0, value));
+                    var vW = MathUtils.Ease.outQuad(player.heal / 150);
+                    mnM += (1 - vW) * 0.2;
+                    ctx.globalAlpha = window.Math.min(1, window.Math.max(0, vW));
                 }
-                CanvasUtils.drawImageHd(mVn.heal, offsetX, offsetY, player.angle, 0, 0, mnM);
+                CanvasUtils.drawImageHd(mVn.heal, wX, wY, player.angle, 0, 0, mnM);
                 ctx.globalAlpha = 1;
             }
-            CanvasUtils.drawImageHd(skin.head, offsetX, offsetY, player.angle, 0, 0, imageScale);
-            if (wVn.head !== window.undefined) CanvasUtils.drawImageHd(wVn.head, offsetX, offsetY, player.angle, 0, 0, imageScale);
+            CanvasUtils.drawImageHd(skin.head, wX, wY, player.angle, 0, 0, imgMovement);
+            if (wVn.head !== window.undefined) CanvasUtils.drawImageHd(wVn.head, wX, wY, player.angle, 0, 0, imgMovement);
         };
         
-        function vwVWm(mVn, weapon, wVn, player, imageScale, offsetX, offsetY) {
+        function vwVWm(mVn, weapon, wVn, player, imgMovement, wX, wY) {
             var PLAYER = World.players[player.pid];
             var skinType = 0;
             var repellent = PLAYER.repellent - Render.globalTime;
@@ -15686,8 +15665,8 @@ try {
                         if (cartridge.delay <= 0) {
                             cartridge.type = weapon.cartridge;
                             cartridge.delay = weapon.cartridgeDelay;
-                            cartridge.x = offsetX + (window.Math.cos(player.angle) * 44);
-                            cartridge.y = offsetY + (window.Math.sin(player.angle) * 44);
+                            cartridge.x = wX + (window.Math.cos(player.angle) * 44);
+                            cartridge.y = wY + (window.Math.sin(player.angle) * 44);
                             var angle = ((-window.Math.PI / 2.5) + player.angle) + ((window.Math.random() * -window.Math.PI) / 3.5);
                             cartridge.ax = window.Math.cos(angle);
                             cartridge.ay = window.Math.sin(angle);
@@ -15696,7 +15675,7 @@ try {
                     }
                 }
                 player.hit = window.Math.max(0, player.hit - delta);
-                var value = (player.hit > 80) ? (1 - ((player.hit - 80) / 100)) : (player.hit / 80);
+                var vW = (player.hit > 80) ? (1 - ((player.hit - 80) / 100)) : (player.hit / 80);
                 if (weapon.noEffect === 0) {
                     var nWvvW = mVn.gunEffect[weapon.gunEffect].length;
                     for (var gunEffect = 0; gunEffect < nWvvW; gunEffect++) {
@@ -15706,9 +15685,9 @@ try {
                         }
                     }
                 }
-                recoilHead = value * weapon.recoilHead;
-                recoilGun = value * weapon.recoilGun;
-                recoil = value * weapon.recoil;
+                recoilHead = vW * weapon.recoilHead;
+                recoilGun = vW * weapon.recoilGun;
+                recoil = vW * weapon.recoil;
             } else if (Math2d.fastDist(player.x, player.y, player.nx, player.ny) < 1) {
                 PLAYER.breath = (PLAYER.breath + delta) % 1500;
                 if (PLAYER.move !== 0) {
@@ -15732,15 +15711,15 @@ try {
             var breath = weapon.breath * ((PLAYER.breath < 750) ? (PLAYER.breath / 750) : (1 - ((PLAYER.breath - 750) / 750)));
             var move = weapon.move * ((PLAYER.move < 400) ? (PLAYER.move / 400) : (1 - ((PLAYER.move - 400) / 400)));
             var MVn = (wVn.rightArm === window.undefined) ? skin.rightArm : wVn.rightArm;
-            CanvasUtils.drawImageHd(MVn, offsetX, offsetY, Nmm.angle + player.angle, ((Nmm.x + (move * PLAYER.orientation)) + recoil) + breath, Nmm.y, imageScale);
+            CanvasUtils.drawImageHd(MVn, wX, wY, Nmm.angle + player.angle, ((Nmm.x + (move * PLAYER.orientation)) + recoil) + breath, Nmm.y, imgMovement);
             MVn = (wVn.leftArm === window.undefined) ? skin.leftArm : wVn.leftArm;
-            CanvasUtils.drawImageHd(MVn, offsetX, offsetY, -VnN.angle + player.angle, ((VnN.x + (move * PLAYER.orientation)) + recoil) + breath, VnN.y, imageScale);
+            CanvasUtils.drawImageHd(MVn, wX, wY, -VnN.angle + player.angle, ((VnN.x + (move * PLAYER.orientation)) + recoil) + breath, VnN.y, imgMovement);
             var item = weapon.weapon;
             if ((effect >= 0) && (weapon.noEffect === 0)) {
                 var gunEffect = mVn.gunEffect[weapon.gunEffect][effect];
-                CanvasUtils.drawImageHd(gunEffect, offsetX, offsetY, player.angle, (((item.x + (move * PLAYER.orientation)) + breath) + recoilGun) + weapon.distance, item.y, imageScale);
+                CanvasUtils.drawImageHd(gunEffect, wX, wY, player.angle, (((item.x + (move * PLAYER.orientation)) + breath) + recoilGun) + weapon.distance, item.y, imgMovement);
             }
-            CanvasUtils.drawImageHd(item, offsetX, offsetY, player.angle, ((item.x + (move * PLAYER.orientation)) + breath) + recoilGun, item.y, imageScale);
+            CanvasUtils.drawImageHd(item, wX, wY, player.angle, ((item.x + (move * PLAYER.orientation)) + breath) + recoilGun, item.y, imgMovement);
             for (var i = 0; i < cartridges.length; i++) {
                 var cartridge = cartridges[i];
                 if (cartridge.delay > 0) {
@@ -15748,25 +15727,25 @@ try {
                     cartridge.y += (delta * cartridge.ay) * 0.18;
                     if ((cartridge.delay < 200) && (ctx.globalAlpha === 1)) {
                         ctx.globalAlpha = MathUtils.Ease.outQuad(cartridge.delay / 200);
-                        CanvasUtils.drawImageHd(mVn.cartridges[cartridge.type], cartridge.x, cartridge.y, cartridge.delay * 0.007, 0, 0, imageScale);
+                        CanvasUtils.drawImageHd(mVn.cartridges[cartridge.type], cartridge.x, cartridge.y, cartridge.delay * 0.007, 0, 0, imgMovement);
                         ctx.globalAlpha = 1;
-                    } else CanvasUtils.drawImageHd(mVn.cartridges[cartridge.type], cartridge.x, cartridge.y, cartridge.delay * 0.007, 0, 0, imageScale);
+                    } else CanvasUtils.drawImageHd(mVn.cartridges[cartridge.type], cartridge.x, cartridge.y, cartridge.delay * 0.007, 0, 0, imgMovement);
                     cartridge.delay -= delta;
                 }
             }
             if (player.hurt > 0) {
                 var mnM = 1;
                 player.hurt -= delta;
-                var value = 0;
-                if (player.hurt > 150) value = MathUtils.Ease.inQuad((300 - player.hurt) / 300);
+                var vW = 0;
+                if (player.hurt > 150) vW = MathUtils.Ease.inQuad((300 - player.hurt) / 300);
                 else {
-                    value = MathUtils.Ease.outQuad(player.hurt / 150);
-                    mnM += (1 - value) * 0.2;
+                    vW = MathUtils.Ease.outQuad(player.hurt / 150);
+                    mnM += (1 - vW) * 0.2;
                 }
-                offsetX += (window.Math.cos(player.hurtAngle) * value) * 3;
-                offsetY += (window.Math.sin(player.hurtAngle) * value) * 3;
-                ctx.globalAlpha = window.Math.min(1, window.Math.max(0, value));
-                CanvasUtils.drawImageHd(mVn.hurt, offsetX, offsetY, player.angle, recoilHead, 0, mnM);
+                wX += (window.Math.cos(player.hurtAngle) * vW) * 3;
+                wY += (window.Math.sin(player.hurtAngle) * vW) * 3;
+                ctx.globalAlpha = window.Math.min(1, window.Math.max(0, vW));
+                CanvasUtils.drawImageHd(mVn.hurt, wX, wY, player.angle, recoilHead, 0, mnM);
                 ctx.globalAlpha = 1;
             }
             if (player.heal > 0) {
@@ -15774,18 +15753,18 @@ try {
                 player.heal -= delta;
                 if (player.heal > 150) ctx.globalAlpha = window.Math.min(1, window.Math.max(0, MathUtils.Ease.inQuad((300 - player.heal) / 300)));
                 else {
-                    var value = MathUtils.Ease.outQuad(player.heal / 150);
-                    mnM += (1 - value) * 0.2;
-                    ctx.globalAlpha = window.Math.min(1, window.Math.max(0, value));
+                    var vW = MathUtils.Ease.outQuad(player.heal / 150);
+                    mnM += (1 - vW) * 0.2;
+                    ctx.globalAlpha = window.Math.min(1, window.Math.max(0, vW));
                 }
-                CanvasUtils.drawImageHd(mVn.heal, offsetX, offsetY, player.angle, recoilHead, 0, mnM);
+                CanvasUtils.drawImageHd(mVn.heal, wX, wY, player.angle, recoilHead, 0, mnM);
                 ctx.globalAlpha = 1;
             }
-            CanvasUtils.drawImageHd(skin.head, offsetX, offsetY, player.angle, recoilHead, 0, imageScale);
-            if (wVn.head !== window.undefined) CanvasUtils.drawImageHd(wVn.head, offsetX, offsetY, player.angle, recoilHead, 0, imageScale);
+            CanvasUtils.drawImageHd(skin.head, wX, wY, player.angle, recoilHead, 0, imgMovement);
+            if (wVn.head !== window.undefined) CanvasUtils.drawImageHd(wVn.head, wX, wY, player.angle, recoilHead, 0, imgMovement);
         };
         
-        function WVVmN(mVn, weapon, wVn, player, imageScale, offsetX, offsetY) {
+        function WVVmN(mVn, weapon, wVn, player, imgMovement, wX, wY) {
             var PLAYER = World.players[player.pid];
             var skinType = 0;
             var repellent = PLAYER.repellent - Render.globalTime;
@@ -15804,11 +15783,11 @@ try {
             var wnN = 0;
             if (player.hit > 0) {
                 player.hit = window.Math.max(0, player.hit - delta);
-                value = (player.hit > weapon.impactClient) ? (1 - ((player.hit - weapon.impactClient) / (weapon.delay - weapon.impactClient))) : (player.hit / weapon.impactClient);
-                nmm = -MathUtils.Ease.inOutQuad(value) * 0.35;
-                wnN = value * 3;
-                NWW = -value * 20;
-                NNM = value * 3;
+                vW = (player.hit > weapon.impactClient) ? (1 - ((player.hit - weapon.impactClient) / (weapon.delay - weapon.impactClient))) : (player.hit / weapon.impactClient);
+                nmm = -MathUtils.Ease.inOutQuad(vW) * 0.35;
+                wnN = vW * 3;
+                NWW = -vW * 20;
+                NNM = vW * 3;
             } else if (Math2d.fastDist(player.x, player.y, player.nx, player.ny) < 1) {
                 PLAYER.breath = (PLAYER.breath + delta) % 1500;
                 if (PLAYER.move !== 0) {
@@ -15834,29 +15813,29 @@ try {
             var breathWeapon = weapon.breathWeapon * ((PLAYER.breath < 750) ? (PLAYER.breath / 750) : (1 - ((PLAYER.breath - 750) / 750)));
             var NwM = weapon.rightArm;
             var MVn = (wVn.rightArm === window.undefined) ? skin.rightArm : wVn.rightArm;
-            CanvasUtils.drawImageHd(MVn, offsetX, offsetY, (NwM.angle + player.angle) - nmm, ((NwM.x - (move * PLAYER.orientation)) + NWW) + breathWeapon, NwM.y, imageScale);
+            CanvasUtils.drawImageHd(MVn, wX, wY, (NwM.angle + player.angle) - nmm, ((NwM.x - (move * PLAYER.orientation)) + NWW) + breathWeapon, NwM.y, imgMovement);
             if (player.hit > 0) {
                 var WnVmv = weapon.WnVmv;
-                CanvasUtils.drawImageHd(WnVmv, offsetX, offsetY, player.angle, ((WnVmv.x - (move * PLAYER.orientation)) + breathWeapon) + NWW, WnVmv.y, imageScale);
+                CanvasUtils.drawImageHd(WnVmv, wX, wY, player.angle, ((WnVmv.x - (move * PLAYER.orientation)) + breathWeapon) + NWW, WnVmv.y, imgMovement);
             }
             var item = weapon.weapon;
-            CanvasUtils.drawImageHd(item, offsetX, offsetY, item.angle + player.angle, ((item.x + (move * PLAYER.orientation)) + breath) + NNM, item.y, imageScale);
+            CanvasUtils.drawImageHd(item, wX, wY, item.angle + player.angle, ((item.x + (move * PLAYER.orientation)) + breath) + NNM, item.y, imgMovement);
             NwM = weapon.leftArm;
             MVn = (wVn.leftArm === window.undefined) ? skin.leftArm : wVn.leftArm;
-            CanvasUtils.drawImageHd(MVn, offsetX, offsetY, -NwM.angle + player.angle, ((NwM.x + (move * PLAYER.orientation)) + NNM) + breath, NwM.y, imageScale);
+            CanvasUtils.drawImageHd(MVn, wX, wY, -NwM.angle + player.angle, ((NwM.x + (move * PLAYER.orientation)) + NNM) + breath, NwM.y, imgMovement);
             if (player.hurt > 0) {
                 var mnM = 1;
                 player.hurt -= delta;
-                var value = 0;
-                if (player.hurt > 150) value = MathUtils.Ease.inQuad((300 - player.hurt) / 300);
+                var vW = 0;
+                if (player.hurt > 150) vW = MathUtils.Ease.inQuad((300 - player.hurt) / 300);
                 else {
-                    value = MathUtils.Ease.outQuad(player.hurt / 150);
-                    mnM += (1 - value) * 0.2;
+                    vW = MathUtils.Ease.outQuad(player.hurt / 150);
+                    mnM += (1 - vW) * 0.2;
                 }
-                offsetX += (window.Math.cos(player.hurtAngle) * value) * 3;
-                offsetY += (window.Math.sin(player.hurtAngle) * value) * 3;
-                ctx.globalAlpha = window.Math.min(1, window.Math.max(0, value));
-                CanvasUtils.drawImageHd(mVn.hurt, offsetX, offsetY, player.angle - (nmm / 1.5), wnN, 0, mnM);
+                wX += (window.Math.cos(player.hurtAngle) * vW) * 3;
+                wY += (window.Math.sin(player.hurtAngle) * vW) * 3;
+                ctx.globalAlpha = window.Math.min(1, window.Math.max(0, vW));
+                CanvasUtils.drawImageHd(mVn.hurt, wX, wY, player.angle - (nmm / 1.5), wnN, 0, mnM);
                 ctx.globalAlpha = 1;
             }
             if (player.heal > 0) {
@@ -15864,18 +15843,18 @@ try {
                 player.heal -= delta;
                 if (player.heal > 150) ctx.globalAlpha = window.Math.min(1, window.Math.max(0, MathUtils.Ease.inQuad((300 - player.heal) / 300)));
                 else {
-                    var value = MathUtils.Ease.outQuad(player.heal / 150);
-                    mnM += (1 - value) * 0.2;
-                    ctx.globalAlpha = window.Math.min(1, window.Math.max(0, value));
+                    var vW = MathUtils.Ease.outQuad(player.heal / 150);
+                    mnM += (1 - vW) * 0.2;
+                    ctx.globalAlpha = window.Math.min(1, window.Math.max(0, vW));
                 }
-                CanvasUtils.drawImageHd(mVn.heal, offsetX, offsetY, player.angle - (nmm / 1.5), wnN, 0, mnM);
+                CanvasUtils.drawImageHd(mVn.heal, wX, wY, player.angle - (nmm / 1.5), wnN, 0, mnM);
                 ctx.globalAlpha = 1;
             }
-            CanvasUtils.drawImageHd(skin.head, offsetX, offsetY, player.angle - (nmm / 1.5), wnN, 0, imageScale);
-            if (wVn.head !== window.undefined) CanvasUtils.drawImageHd(wVn.head, offsetX, offsetY, player.angle - (nmm / 1.5), wnN, 0, imageScale);
+            CanvasUtils.drawImageHd(skin.head, wX, wY, player.angle - (nmm / 1.5), wnN, 0, imgMovement);
+            if (wVn.head !== window.undefined) CanvasUtils.drawImageHd(wVn.head, wX, wY, player.angle - (nmm / 1.5), wnN, 0, imgMovement);
         };
         
-        function mWNvw(mVn, weapon, wVn, player, imageScale, offsetX, offsetY) {
+        function mWNvw(mVn, weapon, wVn, player, imgMovement, wX, wY) {
             var PLAYER = World.players[player.pid];
             var skinType = 0;
             var repellent = PLAYER.repellent - Render.globalTime;
@@ -15894,11 +15873,11 @@ try {
             var wnN = 0;
             if (player.hit > 0) {
                 player.hit = window.Math.max(0, player.hit - delta);
-                value = (player.hit > weapon.impactClient) ? (1 - ((player.hit - weapon.impactClient) / (weapon.delay - weapon.impactClient))) : (player.hit / weapon.impactClient);
-                nmm = -MathUtils.Ease.inOutQuad(value) * 0.55;
-                wnN = value * 3;
-                NWW = -value * 25;
-                NNM = value * 10;
+                vW = (player.hit > weapon.impactClient) ? (1 - ((player.hit - weapon.impactClient) / (weapon.delay - weapon.impactClient))) : (player.hit / weapon.impactClient);
+                nmm = -MathUtils.Ease.inOutQuad(vW) * 0.55;
+                wnN = vW * 3;
+                NWW = -vW * 25;
+                NNM = vW * 10;
             } else if (Math2d.fastDist(player.x, player.y, player.nx, player.ny) < 1) {
                 PLAYER.breath = (PLAYER.breath + delta) % 1500;
                 if (PLAYER.move !== 0) {
@@ -15923,20 +15902,20 @@ try {
             var move = weapon.move * ((PLAYER.move < 400) ? (PLAYER.move / 400) : (1 - ((PLAYER.move - 400) / 400)));
             var NwM = weapon.leftArm;
             var MVn = (wVn.leftArm === window.undefined) ? skin.leftArm : wVn.leftArm;
-            CanvasUtils.drawImageHd(MVn, offsetX, offsetY, ((-NwM.angle + player.angle) - breath) - nmm, (NwM.x - (move * PLAYER.orientation)) + NNM, NwM.y, imageScale);
+            CanvasUtils.drawImageHd(MVn, wX, wY, ((-NwM.angle + player.angle) - breath) - nmm, (NwM.x - (move * PLAYER.orientation)) + NNM, NwM.y, imgMovement);
             if (player.hurt > 0) {
                 var mnM = 1;
                 player.hurt -= delta;
-                var value = 0;
-                if (player.hurt > 150) value = MathUtils.Ease.inQuad((300 - player.hurt) / 300);
+                var vW = 0;
+                if (player.hurt > 150) vW = MathUtils.Ease.inQuad((300 - player.hurt) / 300);
                 else {
-                    value = MathUtils.Ease.outQuad(player.hurt / 150);
-                    mnM += (1 - value) * 0.2;
+                    vW = MathUtils.Ease.outQuad(player.hurt / 150);
+                    mnM += (1 - vW) * 0.2;
                 }
-                offsetX += (window.Math.cos(player.hurtAngle) * value) * 3;
-                offsetY += (window.Math.sin(player.hurtAngle) * value) * 3;
-                ctx.globalAlpha = window.Math.min(1, window.Math.max(0, value));
-                CanvasUtils.drawImageHd(mVn.hurt, offsetX, offsetY, player.angle - (nmm / 1.5), wnN, 0, mnM);
+                wX += (window.Math.cos(player.hurtAngle) * vW) * 3;
+                wY += (window.Math.sin(player.hurtAngle) * vW) * 3;
+                ctx.globalAlpha = window.Math.min(1, window.Math.max(0, vW));
+                CanvasUtils.drawImageHd(mVn.hurt, wX, wY, player.angle - (nmm / 1.5), wnN, 0, mnM);
                 ctx.globalAlpha = 1;
             }
             if (player.heal > 0) {
@@ -15944,24 +15923,24 @@ try {
                 player.heal -= delta;
                 if (player.heal > 150) ctx.globalAlpha = window.Math.min(1, window.Math.max(0, MathUtils.Ease.inQuad((300 - player.heal) / 300)));
                 else {
-                    var value = MathUtils.Ease.outQuad(player.heal / 150);
-                    mnM += (1 - value) * 0.2;
-                    ctx.globalAlpha = window.Math.min(1, window.Math.max(0, value));
+                    var vW = MathUtils.Ease.outQuad(player.heal / 150);
+                    mnM += (1 - vW) * 0.2;
+                    ctx.globalAlpha = window.Math.min(1, window.Math.max(0, vW));
                 }
-                CanvasUtils.drawImageHd(mVn.heal, offsetX, offsetY, player.angle - (nmm / 1.5), wnN, 0, mnM);
+                CanvasUtils.drawImageHd(mVn.heal, wX, wY, player.angle - (nmm / 1.5), wnN, 0, mnM);
                 ctx.globalAlpha = 1;
             }
-            CanvasUtils.drawImageHd(skin.head, offsetX, offsetY, player.angle - (nmm / 1.5), wnN, 0, imageScale);
-            if (wVn.head !== window.undefined) CanvasUtils.drawImageHd(wVn.head, offsetX, offsetY, player.angle - (nmm / 1.5), wnN, 0, imageScale);
+            CanvasUtils.drawImageHd(skin.head, wX, wY, player.angle - (nmm / 1.5), wnN, 0, imgMovement);
+            if (wVn.head !== window.undefined) CanvasUtils.drawImageHd(wVn.head, wX, wY, player.angle - (nmm / 1.5), wnN, 0, imgMovement);
             var breathWeapon = weapon.breathWeapon * ((PLAYER.breath < 750) ? (PLAYER.breath / 750) : (1 - ((PLAYER.breath - 750) / 750)));
             NwM = weapon.rightArm;
             MVn = (wVn.rightArm === window.undefined) ? skin.rightArm : wVn.rightArm;
-            CanvasUtils.drawImageHd(MVn, offsetX, offsetY, NwM.angle + player.angle, ((NwM.x + (move * PLAYER.orientation)) + NWW) + breathWeapon, NwM.y, imageScale);
+            CanvasUtils.drawImageHd(MVn, wX, wY, NwM.angle + player.angle, ((NwM.x + (move * PLAYER.orientation)) + NWW) + breathWeapon, NwM.y, imgMovement);
             var item = weapon.weapon;
-            CanvasUtils.drawImageHd(item, offsetX, offsetY, item.angle + player.angle, ((item.x + (move * PLAYER.orientation)) + breathWeapon) + NWW, item.y, imageScale);
+            CanvasUtils.drawImageHd(item, wX, wY, item.angle + player.angle, ((item.x + (move * PLAYER.orientation)) + breathWeapon) + NWW, item.y, imgMovement);
         };
         
-        function mvwMm(mVn, weapon, wVn, player, imageScale, offsetX, offsetY) {
+        function mvwMm(mVn, weapon, wVn, player, imgMovement, wX, wY) {
             var PLAYER = World.players[player.pid];
             var skinType = 0;
             var repellent = PLAYER.repellent - Render.globalTime;
@@ -15982,11 +15961,11 @@ try {
             var VnN = weapon.leftArm;
             if (player.hit > 0) {
                 player.hit = window.Math.max(0, player.hit - delta);
-                value = (player.hit > weapon.impactClient) ? (1 - ((player.hit - weapon.impactClient) / (weapon.delay - weapon.impactClient))) : (player.hit / weapon.impactClient);
-                nmm = -MathUtils.Ease.inOutQuad(value) * 0.4;
-                wnN = value * 3;
-                NNM = value * VnN.distance;
-                NWW = value * Nmm.distance;
+                vW = (player.hit > weapon.impactClient) ? (1 - ((player.hit - weapon.impactClient) / (weapon.delay - weapon.impactClient))) : (player.hit / weapon.impactClient);
+                nmm = -MathUtils.Ease.inOutQuad(vW) * 0.4;
+                wnN = vW * 3;
+                NNM = vW * VnN.dist;
+                NWW = vW * Nmm.dist;
             } else if (Math2d.fastDist(player.x, player.y, player.nx, player.ny) < 1) {
                 PLAYER.breath = (PLAYER.breath + delta) % 1500;
                 if (PLAYER.move !== 0) {
@@ -16010,24 +15989,24 @@ try {
             var breath = weapon.breath * ((PLAYER.breath < 750) ? (PLAYER.breath / 750) : (1 - ((PLAYER.breath - 750) / 750)));
             var move = weapon.move * ((PLAYER.move < 400) ? (PLAYER.move / 400) : (1 - ((PLAYER.move - 400) / 400)));
             var item = weapon.weapon;
-            CanvasUtils.drawImageHd2(item, offsetX, offsetY, (item.angle + player.angle) + breath, item.x + (move * PLAYER.orientation), item.y, imageScale, nmm * item.rotation, item.x2, item.y2);
+            CanvasUtils.drawImageHd2(item, wX, wY, (item.angle + player.angle) + breath, item.x + (move * PLAYER.orientation), item.y, imgMovement, nmm * item.rotation, item.x2, item.y2);
             var MVn = (wVn.rightArm === window.undefined) ? skin.rightArm : wVn.rightArm;
-            CanvasUtils.drawImageHd(MVn, offsetX, offsetY, ((Nmm.angle + player.angle) + breath) + (nmm * Nmm.rotation), (Nmm.x + (move * PLAYER.orientation)) + NWW, Nmm.y, imageScale);
+            CanvasUtils.drawImageHd(MVn, wX, wY, ((Nmm.angle + player.angle) + breath) + (nmm * Nmm.rotation), (Nmm.x + (move * PLAYER.orientation)) + NWW, Nmm.y, imgMovement);
             MVn = (wVn.leftArm === window.undefined) ? skin.leftArm : wVn.leftArm;
-            CanvasUtils.drawImageHd(MVn, offsetX, offsetY, ((-VnN.angle + player.angle) + breath) + (nmm * VnN.rotation), (VnN.x + (move * PLAYER.orientation)) + NNM, VnN.y, imageScale);
+            CanvasUtils.drawImageHd(MVn, wX, wY, ((-VnN.angle + player.angle) + breath) + (nmm * VnN.rotation), (VnN.x + (move * PLAYER.orientation)) + NNM, VnN.y, imgMovement);
             if (player.hurt > 0) {
                 var mnM = 1;
                 player.hurt -= delta;
-                var value = 0;
-                if (player.hurt > 150) value = MathUtils.Ease.inQuad((300 - player.hurt) / 300);
+                var vW = 0;
+                if (player.hurt > 150) vW = MathUtils.Ease.inQuad((300 - player.hurt) / 300);
                 else {
-                    value = MathUtils.Ease.outQuad(player.hurt / 150);
-                    mnM += (1 - value) * 0.2;
+                    vW = MathUtils.Ease.outQuad(player.hurt / 150);
+                    mnM += (1 - vW) * 0.2;
                 }
-                offsetX += (window.Math.cos(player.hurtAngle) * value) * 3;
-                offsetY += (window.Math.sin(player.hurtAngle) * value) * 3;
-                ctx.globalAlpha = window.Math.min(1, window.Math.max(0, value));
-                CanvasUtils.drawImageHd(mVn.hurt, offsetX, offsetY, player.angle + (nmm / 1.5), wnN, 0, mnM);
+                wX += (window.Math.cos(player.hurtAngle) * vW) * 3;
+                wY += (window.Math.sin(player.hurtAngle) * vW) * 3;
+                ctx.globalAlpha = window.Math.min(1, window.Math.max(0, vW));
+                CanvasUtils.drawImageHd(mVn.hurt, wX, wY, player.angle + (nmm / 1.5), wnN, 0, mnM);
                 ctx.globalAlpha = 1;
             }
             if (player.heal > 0) {
@@ -16035,18 +16014,18 @@ try {
                 player.heal -= delta;
                 if (player.heal > 150) ctx.globalAlpha = window.Math.min(1, window.Math.max(0, MathUtils.Ease.inQuad((300 - player.heal) / 300)));
                 else {
-                    var value = MathUtils.Ease.outQuad(player.heal / 150);
-                    mnM += (1 - value) * 0.2;
-                    ctx.globalAlpha = window.Math.min(1, window.Math.max(0, value));
+                    var vW = MathUtils.Ease.outQuad(player.heal / 150);
+                    mnM += (1 - vW) * 0.2;
+                    ctx.globalAlpha = window.Math.min(1, window.Math.max(0, vW));
                 }
-                CanvasUtils.drawImageHd(mVn.heal, offsetX, offsetY, player.angle + (nmm / 1.5), wnN, 0, mnM);
+                CanvasUtils.drawImageHd(mVn.heal, wX, wY, player.angle + (nmm / 1.5), wnN, 0, mnM);
                 ctx.globalAlpha = 1;
             }
-            CanvasUtils.drawImageHd(skin.head, offsetX, offsetY, player.angle + (nmm / 1.5), wnN, 0, imageScale);
-            if (wVn.head !== window.undefined) CanvasUtils.drawImageHd(wVn.head, offsetX, offsetY, player.angle + (nmm / 1.5), wnN, 0, imageScale);
+            CanvasUtils.drawImageHd(skin.head, wX, wY, player.angle + (nmm / 1.5), wnN, 0, imgMovement);
+            if (wVn.head !== window.undefined) CanvasUtils.drawImageHd(wVn.head, wX, wY, player.angle + (nmm / 1.5), wnN, 0, imgMovement);
         };
         
-        function mmmMw(mVn, weapon, wVn, player, imageScale, offsetX, offsetY) {
+        function mmmMw(mVn, weapon, wVn, player, imgMovement, wX, wY) {
             var PLAYER = World.players[player.pid];
             var skinType = 0;
             var repellent = PLAYER.repellent - Render.globalTime;
@@ -16085,24 +16064,24 @@ try {
             var move = weapon.move * ((PLAYER.move < 400) ? (PLAYER.move / 400) : (1 - ((PLAYER.move - 400) / 400)));
             var NwM = weapon.rightArm;
             var MVn = (wVn.rightArm === window.undefined) ? skin.rightArm : wVn.rightArm;
-            CanvasUtils.drawImageHd(MVn, offsetX, offsetY, (NwM.angle + player.angle) + breath, (NwM.x + (move * PLAYER.orientation)) + NWW, NwM.y, imageScale);
+            CanvasUtils.drawImageHd(MVn, wX, wY, (NwM.angle + player.angle) + breath, (NwM.x + (move * PLAYER.orientation)) + NWW, NwM.y, imgMovement);
             NwM = weapon.leftArm;
             MVn = (wVn.leftArm === window.undefined) ? skin.leftArm : wVn.leftArm;
-            CanvasUtils.drawImageHd(MVn, offsetX, offsetY, (-NwM.angle + player.angle) - breath, (NwM.x - (move * PLAYER.orientation)) + NNM, NwM.y, imageScale);
-            CanvasUtils.drawImageHd(weapon.blueprint, offsetX, offsetY, ((-NwM.angle + player.angle) - breath) + (window.Math.PI / 3), ((NwM.x - (move * PLAYER.orientation)) + NNM) - 40, NwM.y - 15, imageScale);
+            CanvasUtils.drawImageHd(MVn, wX, wY, (-NwM.angle + player.angle) - breath, (NwM.x - (move * PLAYER.orientation)) + NNM, NwM.y, imgMovement);
+            CanvasUtils.drawImageHd(weapon.blueprint, wX, wY, ((-NwM.angle + player.angle) - breath) + (window.Math.PI / 3), ((NwM.x - (move * PLAYER.orientation)) + NNM) - 40, NwM.y - 15, imgMovement);
             if (player.hurt > 0) {
                 var mnM = 1;
                 player.hurt -= delta;
-                var value = 0;
-                if (player.hurt > 150) value = MathUtils.Ease.inQuad((300 - player.hurt) / 300);
+                var vW = 0;
+                if (player.hurt > 150) vW = MathUtils.Ease.inQuad((300 - player.hurt) / 300);
                 else {
-                    value = MathUtils.Ease.outQuad(player.hurt / 150);
-                    mnM += (1 - value) * 0.2;
+                    vW = MathUtils.Ease.outQuad(player.hurt / 150);
+                    mnM += (1 - vW) * 0.2;
                 }
-                offsetX += (window.Math.cos(player.hurtAngle) * value) * 3;
-                offsetY += (window.Math.sin(player.hurtAngle) * value) * 3;
-                ctx.globalAlpha = window.Math.min(1, window.Math.max(0, value));
-                CanvasUtils.drawImageHd(mVn.hurt, offsetX, offsetY, player.angle, 0, 0, mnM);
+                wX += (window.Math.cos(player.hurtAngle) * vW) * 3;
+                wY += (window.Math.sin(player.hurtAngle) * vW) * 3;
+                ctx.globalAlpha = window.Math.min(1, window.Math.max(0, vW));
+                CanvasUtils.drawImageHd(mVn.hurt, wX, wY, player.angle, 0, 0, mnM);
                 ctx.globalAlpha = 1;
             }
             if (player.heal > 0) {
@@ -16110,16 +16089,16 @@ try {
                 player.heal -= delta;
                 if (player.heal > 150) ctx.globalAlpha = window.Math.min(1, window.Math.max(0, MathUtils.Ease.inQuad((300 - player.heal) / 300)));
                 else {
-                    var value = MathUtils.Ease.outQuad(player.heal / 150);
-                    mnM += (1 - value) * 0.2;
-                    ctx.globalAlpha = window.Math.min(1, window.Math.max(0, value));
+                    var vW = MathUtils.Ease.outQuad(player.heal / 150);
+                    mnM += (1 - vW) * 0.2;
+                    ctx.globalAlpha = window.Math.min(1, window.Math.max(0, vW));
                 }
-                CanvasUtils.drawImageHd(mVn.heal, offsetX, offsetY, player.angle, 0, 0, mnM);
+                CanvasUtils.drawImageHd(mVn.heal, wX, wY, player.angle, 0, 0, mnM);
                 ctx.globalAlpha = 1;
             }
-            CanvasUtils.drawImageHd(skin.head, offsetX, offsetY, player.angle, 0, 0, imageScale);
-            if (wVn.head !== window.undefined) CanvasUtils.drawImageHd(wVn.head, offsetX, offsetY, player.angle, 0, 0, imageScale);
-            CanvasUtils.drawImageHd(weapon.pencil, offsetX, offsetY, player.angle, 0, 0, imageScale);
+            CanvasUtils.drawImageHd(skin.head, wX, wY, player.angle, 0, 0, imgMovement);
+            if (wVn.head !== window.undefined) CanvasUtils.drawImageHd(wVn.head, wX, wY, player.angle, 0, 0, imgMovement);
+            CanvasUtils.drawImageHd(weapon.pencil, wX, wY, player.angle, 0, 0, imgMovement);
         };
         var nVWnV = [0, 0, 0, 0];
         
@@ -16135,26 +16114,26 @@ try {
                     item.yCenter = nVWnV;
                 }
                 var angle = Mouse.angle;
-                var rotation = (item.wall === 1) ? 0 : World.PLAYER.buildRotate;
+                var Rot = (item.wall === 1) ? 0 : World.PLAYER.buildRotate;
                 World.PLAYER.jBuild = World.PLAYER._j + window.Math.floor((__TILE_SIZE2__ + (window.Math.cos(angle) * __TILE_SIZE__)) / __TILE_SIZE__);
                 World.PLAYER.iBuild = World.PLAYER._i + window.Math.floor((__TILE_SIZE2__ + (window.Math.sin(angle) * __TILE_SIZE__)) / __TILE_SIZE__);
-                var offsetX = ((item.xCenter[rotation] + vertst) + __TILE_SIZE2__) + (__TILE_SIZE__ * World.PLAYER.jBuild);
-                var offsetY = ((item.yCenter[rotation] + horist) + __TILE_SIZE2__) + (__TILE_SIZE__ * World.PLAYER.iBuild);
+                var wX = ((item.xCenter[Rot] + vertst) + __TILE_SIZE2__) + (__TILE_SIZE__ * World.PLAYER.jBuild);
+                var wY = ((item.yCenter[Rot] + horist) + __TILE_SIZE2__) + (__TILE_SIZE__ * World.PLAYER.iBuild);
                 if ((((World.PLAYER.jBuild >= 0) && (World.PLAYER.iBuild >= 0)) && (World.PLAYER.jBuild < worldWidth)) && (World.PLAYER.iBuild < worldHeight)) {
                     var VMV = matrix[World.PLAYER.iBuild][World.PLAYER.jBuild];
                     var team = (World.PLAYER.team === -1) ? -2 : World.PLAYER.team;
                     if ((VMV.tile === frameId) && (((item.zid !== 2) || (VMV.tilePid === 0)) || (VMV.category === SKILLS.__PLANT__))) {
                         World.PLAYER.canBuild = 1; // before 0
-                        CanvasUtils.drawImageHd(item.redprint, offsetX, offsetY, rotation * PIby2, 0, 0, 1);
+                        CanvasUtils.drawImageHd(item.redprint, wX, wY, Rot * PIby2, 0, 0, 1);
                     } else if ((((item.detail.category === SKILLS.__PLANT__) || (item.zid === 2)) || (((VMV.pid !== 0) && (VMV.pid !== World.PLAYER.id)) && (World.players[VMV.pid].team !== team))) && (VMV.ground === frameId)) {
                         World.PLAYER.canBuild = 0;
-                        CanvasUtils.drawImageHd(item.redprint, offsetX, offsetY, rotation * PIby2, 0, 0, 1);
-                    } else if ((item.iTile !== window.undefined) && ((((rotation % 2) === 0) && ((((((World.PLAYER.iBuild < 1) || (World.PLAYER.iBuild >= (worldHeight - 1))) || (matrix[World.PLAYER.iBuild + 1][World.PLAYER.jBuild].tile === frameId)) || ((matrix[World.PLAYER.iBuild + 1][World.PLAYER.jBuild].ground === frameId) && (((matrix[World.PLAYER.iBuild + 1][World.PLAYER.jBuild].pid !== World.PLAYER.id) && (matrix[World.PLAYER.iBuild + 1][World.PLAYER.jBuild].pid !== 0)) && (World.players[matrix[World.PLAYER.iBuild + 1][World.PLAYER.jBuild].pid].team !== team)))) || (matrix[World.PLAYER.iBuild - 1][World.PLAYER.jBuild].tile === frameId)) || ((matrix[World.PLAYER.iBuild - 1][World.PLAYER.jBuild].ground === frameId) && (((matrix[World.PLAYER.iBuild - 1][World.PLAYER.jBuild].pid !== World.PLAYER.id) && (matrix[World.PLAYER.iBuild - 1][World.PLAYER.jBuild].pid !== 0)) && (World.players[matrix[World.PLAYER.iBuild - 1][World.PLAYER.jBuild].pid].team !== team))))) || (((rotation % 2) === 1) && (((((((World.PLAYER.jBuild < 1) || (World.PLAYER.jBuild >= (worldWidth - 1))) || (matrix[World.PLAYER.iBuild][World.PLAYER.jBuild + 1].tile === frameId)) || ((matrix[World.PLAYER.iBuild][World.PLAYER.jBuild + 1].ground === frameId) && (((matrix[World.PLAYER.iBuild][World.PLAYER.jBuild + 1].pid !== World.PLAYER.id) && (matrix[World.PLAYER.iBuild][World.PLAYER.jBuild + 1].pid !== 0)) && (World.players[matrix[World.PLAYER.iBuild][World.PLAYER.jBuild + 1].pid].team !== team)))) || (matrix[World.PLAYER.iBuild][World.PLAYER.jBuild - 1].tile === frameId)) || ((matrix[World.PLAYER.iBuild][World.PLAYER.jBuild - 1].ground === frameId) && (((matrix[World.PLAYER.iBuild][World.PLAYER.jBuild - 1].pid !== World.PLAYER.id) && (matrix[World.PLAYER.iBuild][World.PLAYER.jBuild - 1].pid !== 0)) && (World.players[matrix[World.PLAYER.iBuild][World.PLAYER.jBuild - 1].pid].team !== team)))) || (World.PLAYER._i === World.PLAYER.iBuild))))) {
+                        CanvasUtils.drawImageHd(item.redprint, wX, wY, Rot * PIby2, 0, 0, 1);
+                    } else if ((item.iTile !== window.undefined) && ((((Rot % 2) === 0) && ((((((World.PLAYER.iBuild < 1) || (World.PLAYER.iBuild >= (worldHeight - 1))) || (matrix[World.PLAYER.iBuild + 1][World.PLAYER.jBuild].tile === frameId)) || ((matrix[World.PLAYER.iBuild + 1][World.PLAYER.jBuild].ground === frameId) && (((matrix[World.PLAYER.iBuild + 1][World.PLAYER.jBuild].pid !== World.PLAYER.id) && (matrix[World.PLAYER.iBuild + 1][World.PLAYER.jBuild].pid !== 0)) && (World.players[matrix[World.PLAYER.iBuild + 1][World.PLAYER.jBuild].pid].team !== team)))) || (matrix[World.PLAYER.iBuild - 1][World.PLAYER.jBuild].tile === frameId)) || ((matrix[World.PLAYER.iBuild - 1][World.PLAYER.jBuild].ground === frameId) && (((matrix[World.PLAYER.iBuild - 1][World.PLAYER.jBuild].pid !== World.PLAYER.id) && (matrix[World.PLAYER.iBuild - 1][World.PLAYER.jBuild].pid !== 0)) && (World.players[matrix[World.PLAYER.iBuild - 1][World.PLAYER.jBuild].pid].team !== team))))) || (((Rot % 2) === 1) && (((((((World.PLAYER.jBuild < 1) || (World.PLAYER.jBuild >= (worldWidth - 1))) || (matrix[World.PLAYER.iBuild][World.PLAYER.jBuild + 1].tile === frameId)) || ((matrix[World.PLAYER.iBuild][World.PLAYER.jBuild + 1].ground === frameId) && (((matrix[World.PLAYER.iBuild][World.PLAYER.jBuild + 1].pid !== World.PLAYER.id) && (matrix[World.PLAYER.iBuild][World.PLAYER.jBuild + 1].pid !== 0)) && (World.players[matrix[World.PLAYER.iBuild][World.PLAYER.jBuild + 1].pid].team !== team)))) || (matrix[World.PLAYER.iBuild][World.PLAYER.jBuild - 1].tile === frameId)) || ((matrix[World.PLAYER.iBuild][World.PLAYER.jBuild - 1].ground === frameId) && (((matrix[World.PLAYER.iBuild][World.PLAYER.jBuild - 1].pid !== World.PLAYER.id) && (matrix[World.PLAYER.iBuild][World.PLAYER.jBuild - 1].pid !== 0)) && (World.players[matrix[World.PLAYER.iBuild][World.PLAYER.jBuild - 1].pid].team !== team)))) || (World.PLAYER._i === World.PLAYER.iBuild))))) {
                         World.PLAYER.canBuild = 0;
-                        CanvasUtils.drawImageHd(item.redprint, offsetX, offsetY, rotation * PIby2, 0, 0, 1);
+                        CanvasUtils.drawImageHd(item.redprint, wX, wY, Rot * PIby2, 0, 0, 1);
                     } else {
                         World.PLAYER.canBuild = 1;
-                        CanvasUtils.drawImageHd(item.blueprint, offsetX, offsetY, rotation * PIby2, 0, 0, 1);
+                        CanvasUtils.drawImageHd(item.blueprint, wX, wY, Rot * PIby2, 0, 0, 1);
                     }
                 }
                 if (hintRotate.isLoaded !== 1) {
@@ -16166,8 +16145,8 @@ try {
             } else nwmVM = window.Math.max(0, World.PLAYER.hintRotate - delta);
             if (nwmVM > 0) {
                 ctx.globalAlpha = MathUtils.Ease.outQuad(window.Math.max(0, nwmVM - 600) / 300);
-                var imageScale = scaleby + (WvmnV * scaleby);
-                var vNwMN = imageScale / scaleby;
+                var imgMovement = scaleby + (WvmnV * scaleby);
+                var vNwMN = imgMovement / scaleby;
                 var width = (scaleby * hintRotate.width) / 2;
                 var height = (scaleby * hintRotate.height) / 2;
                 ctx.drawImage(hintRotate, ((vertst + NmM) * scaleby) - (width / 2), window.Math.max(10 * scaleby, ((((horist + WWV) * scaleby) - (height / 2)) - (65 * scaleby)) - (60 * scaleby)), width, height);
@@ -16176,7 +16155,7 @@ try {
             World.PLAYER.hintRotate = nwmVM;
         };
 
-        function nwMNv(mVn, weapon, wVn, player, imageScale, offsetX, offsetY) {
+        function nwMNv(mVn, weapon, wVn, player, imgMovement, wX, wY) {
             var PLAYER = World.players[player.pid];
             var skinType = 0;
             var repellent = PLAYER.repellent - Render.globalTime;
@@ -16196,11 +16175,11 @@ try {
             if (player.hit > 0) {
                 player.hit = window.Math.max(0, player.hit - delta);
                 player.hit = window.Math.min(player.hit, weapon.delay);
-                value = (player.hit > weapon.impactClient) ? (1 - ((player.hit - weapon.impactClient) / (weapon.delay - weapon.impactClient))) : (player.hit / weapon.impactClient);
-                nmm = (PLAYER.punch * MathUtils.Ease.inOutQuad(value)) * 0.55;
-                wnN = value * 3;
-                if (PLAYER.punch === 1) NNM = value * 25;
-                else NWW = value * 25;
+                vW = (player.hit > weapon.impactClient) ? (1 - ((player.hit - weapon.impactClient) / (weapon.delay - weapon.impactClient))) : (player.hit / weapon.impactClient);
+                nmm = (PLAYER.punch * MathUtils.Ease.inOutQuad(vW)) * 0.55;
+                wnN = vW * 3;
+                if (PLAYER.punch === 1) NNM = vW * 25;
+                else NWW = vW * 25;
                 if (player.hit === 0) PLAYER.punch *= -1;
             } else if (Math2d.fastDist(player.x, player.y, player.nx, player.ny) < 1) {
                 PLAYER.breath = (PLAYER.breath + delta) % 1500;
@@ -16226,36 +16205,36 @@ try {
             var move = weapon.move * ((PLAYER.move < 400) ? (PLAYER.move / 400) : (1 - ((PLAYER.move - 400) / 400)));
             var NwM = weapon.rightArm;
             var MVn = (wVn.rightArm === window.undefined) ? skin.rightArm : wVn.rightArm;
-            CanvasUtils.drawImageHd(MVn, offsetX, offsetY, ((NwM.angle + player.angle) + breath) + nmm, (NwM.x + (move * PLAYER.orientation)) + NWW, NwM.y, imageScale);
+            CanvasUtils.drawImageHd(MVn, wX, wY, ((NwM.angle + player.angle) + breath) + nmm, (NwM.x + (move * PLAYER.orientation)) + NWW, NwM.y, imgMovement);
             NwM = weapon.leftArm;
             MVn = (wVn.leftArm === window.undefined) ? skin.leftArm : wVn.leftArm;
-            CanvasUtils.drawImageHd(MVn, offsetX, offsetY, ((-NwM.angle + player.angle) - breath) + nmm, (NwM.x - (move * PLAYER.orientation)) + NNM, NwM.y, imageScale);
+            CanvasUtils.drawImageHd(MVn, wX, wY, ((-NwM.angle + player.angle) - breath) + nmm, (NwM.x - (move * PLAYER.orientation)) + NNM, NwM.y, imgMovement);
             if (player.hurt2 > 0) {
                 var mnM = 1;
                 player.hurt2 -= delta;
-                var value = 0;
-                if (player.hurt2 > 150) value = MathUtils.Ease.inQuad((300 - player.hurt2) / 300);
+                var vW = 0;
+                if (player.hurt2 > 150) vW = MathUtils.Ease.inQuad((300 - player.hurt2) / 300);
                 else {
-                    value = MathUtils.Ease.outQuad(player.hurt2 / 150);
-                    mnM += (1 - value) * 0.2;
+                    vW = MathUtils.Ease.outQuad(player.hurt2 / 150);
+                    mnM += (1 - vW) * 0.2;
                 }
-                ctx.globalAlpha = window.Math.min(1, window.Math.max(0, value));
-                CanvasUtils.drawImageHd(mVn.food, offsetX, offsetY, player.angle + (nmm / 1.5), wnN, 0, mnM);
+                ctx.globalAlpha = window.Math.min(1, window.Math.max(0, vW));
+                CanvasUtils.drawImageHd(mVn.food, wX, wY, player.angle + (nmm / 1.5), wnN, 0, mnM);
                 ctx.globalAlpha = 1;
             }
             if (player.hurt > 0) {
                 var mnM = 1;
                 player.hurt -= delta;
-                var value = 0;
-                if (player.hurt > 150) value = MathUtils.Ease.inQuad((300 - player.hurt) / 300);
+                var vW = 0;
+                if (player.hurt > 150) vW = MathUtils.Ease.inQuad((300 - player.hurt) / 300);
                 else {
-                    value = MathUtils.Ease.outQuad(player.hurt / 150);
-                    mnM += (1 - value) * 0.2;
+                    vW = MathUtils.Ease.outQuad(player.hurt / 150);
+                    mnM += (1 - vW) * 0.2;
                 }
-                offsetX += (window.Math.cos(player.hurtAngle) * value) * 3;
-                offsetY += (window.Math.sin(player.hurtAngle) * value) * 3;
-                ctx.globalAlpha = window.Math.min(1, window.Math.max(0, value));
-                CanvasUtils.drawImageHd(mVn.hurt, offsetX, offsetY, player.angle + (nmm / 1.5), wnN, 0, mnM);
+                wX += (window.Math.cos(player.hurtAngle) * vW) * 3;
+                wY += (window.Math.sin(player.hurtAngle) * vW) * 3;
+                ctx.globalAlpha = window.Math.min(1, window.Math.max(0, vW));
+                CanvasUtils.drawImageHd(mVn.hurt, wX, wY, player.angle + (nmm / 1.5), wnN, 0, mnM);
                 ctx.globalAlpha = 1;
             }
             if (player.heal > 0) {
@@ -16263,15 +16242,15 @@ try {
                 player.heal -= delta;
                 if (player.heal > 150) ctx.globalAlpha = window.Math.min(1, window.Math.max(0, MathUtils.Ease.inQuad((300 - player.heal) / 300)));
                 else {
-                    var value = MathUtils.Ease.outQuad(player.heal / 150);
-                    mnM += (1 - value) * 0.2;
-                    ctx.globalAlpha = window.Math.min(1, window.Math.max(0, value));
+                    var vW = MathUtils.Ease.outQuad(player.heal / 150);
+                    mnM += (1 - vW) * 0.2;
+                    ctx.globalAlpha = window.Math.min(1, window.Math.max(0, vW));
                 }
-                CanvasUtils.drawImageHd(mVn.heal, offsetX, offsetY, player.angle + (nmm / 1.5), wnN, 0, mnM);
+                CanvasUtils.drawImageHd(mVn.heal, wX, wY, player.angle + (nmm / 1.5), wnN, 0, mnM);
                 ctx.globalAlpha = 1;
             }
-            CanvasUtils.drawImageHd(skin.head, offsetX, offsetY, player.angle + (nmm / 1.5), wnN, 0, imageScale);
-            if (wVn.head !== window.undefined) CanvasUtils.drawImageHd(wVn.head, offsetX, offsetY, player.angle + (nmm / 1.5), wnN, 0, imageScale);
+            CanvasUtils.drawImageHd(skin.head, wX, wY, player.angle + (nmm / 1.5), wnN, 0, imgMovement);
+            if (wVn.head !== window.undefined) CanvasUtils.drawImageHd(wVn.head, wX, wY, player.angle + (nmm / 1.5), wnN, 0, imgMovement);
         };
 
         function _EntitieAI(player) {
@@ -16279,24 +16258,24 @@ try {
             matrix[player.i][player.j].tile = frameId;
             matrix[player.i][player.j].tilePid = player.pid;
             matrix[player.i][player.j].category = window.undefined;
-            var imageScale = 1;
-            var offsetX = vertst + player.x;
-            var offsetY = horist + player.y;
+            var imgMovement = 1;
+            var wX = vertst + player.x;
+            var wY = horist + player.y;
             if (player.removed !== 0) {
                 player.death += delta;
-                var value = MathUtils.Ease.outQuart(1 - ((player.death - 500) / 400));
-                ctx.globalAlpha = window.Math.min(window.Math.max(0, value), 1);
-                CanvasUtils.drawImageHd(entitie.death, offsetX, offsetY, player.angle, 0, 0, 1);
-                value = MathUtils.Ease.outQuart(1 - (player.death / 400));
-                imageScale = window.Math.min(1 + (0.5 * (1 - value)), 1.5);
-                ctx.globalAlpha = window.Math.max(0, value);
+                var vW = MathUtils.Ease.outQuart(1 - ((player.death - 500) / 400));
+                ctx.globalAlpha = window.Math.min(window.Math.max(0, vW), 1);
+                CanvasUtils.drawImageHd(entitie.death, wX, wY, player.angle, 0, 0, 1);
+                vW = MathUtils.Ease.outQuart(1 - (player.death / 400));
+                imgMovement = window.Math.min(1 + (0.5 * (1 - vW)), 1.5);
+                ctx.globalAlpha = window.Math.max(0, vW);
             }
             if ((player.extra & 16) === 16) {
                 player.extra &= ~16;
                 player.hurt = 250;
                 player.hurtAngle = (PI2 * ((player.extra >> 5) & 31)) / 31;
             }
-            entitie.draw(entitie, player, offsetX, offsetY, imageScale);
+            entitie.draw(entitie, player, wX, wY, imgMovement);
             if (player.removed !== 0) {
                 if (player.death > 900) player.removed = 2;
                 ctx.globalAlpha = 1;
@@ -16311,24 +16290,24 @@ try {
             var MNmnm = (player.extra >> 8) & 255;
             var weapon = mVn.weapons[MNmnm];
             var wVn = mVn.clothes[player.extra & 255];
-            var imageScale = 1;
+            var imgMovement = 1;
             var Vmwnn = player.state & 254;
-            var offsetX = vertst + player.x;
-            var offsetY = horist + player.y;
+            var wX = vertst + player.x;
+            var wY = horist + player.y;
             if (player.removed !== 0) {
                 player.death += delta;
-                var value = MathUtils.Ease.outQuart(1 - ((player.death - 500) / 400));
-                ctx.globalAlpha = window.Math.min(window.Math.max(0, value), 1);
-                CanvasUtils.drawImageHd(mVn.death, offsetX, offsetY, player.angle, 0, 0, 1);
-                value = MathUtils.Ease.outQuart(1 - (player.death / 400));
-                imageScale = window.Math.min(1 + (0.5 * (1 - value)), 1.5);
-                ctx.globalAlpha = window.Math.max(0, value);
+                var vW = MathUtils.Ease.outQuart(1 - ((player.death - 500) / 400));
+                ctx.globalAlpha = window.Math.min(window.Math.max(0, vW), 1);
+                CanvasUtils.drawImageHd(mVn.death, wX, wY, player.angle, 0, 0, 1);
+                vW = MathUtils.Ease.outQuart(1 - (player.death / 400));
+                imgMovement = window.Math.min(1 + (0.5 * (1 - vW)), 1.5);
+                ctx.globalAlpha = window.Math.max(0, vW);
             }
             if (Vmwnn === 2) {
                 player.state &= 65281;
                 if (AudioUtils._fx.shot[MNmnm] !== 0) {
                     var VVmnw = window.Math.floor(window.Math.random() * weapon.soundLen);
-                    AudioUtils.playFx(AudioUtils._fx.shot[MNmnm][VVmnw], weapon.soundVolume, Math2d.distance(World.PLAYER.x, World.PLAYER.y, player.x, player.y) / 4, weapon.soundDelay);
+                    AudioUtils.playFx(AudioUtils._fx.shot[MNmnm][VVmnw], weapon.soundVolume, Math2d.dist(World.PLAYER.x, World.PLAYER.y, player.x, player.y) / 4, weapon.soundDelay);
                 }
                 if (player.hit <= 0) {
                     player.hit = weapon.delay;
@@ -16337,25 +16316,25 @@ try {
             } else if (Vmwnn === 6) player.state &= 65281;
             switch (weapon.type) {
                 case 0:
-                    nwMNv(mVn, weapon, wVn, player, imageScale, offsetX, offsetY);
+                    nwMNv(mVn, weapon, wVn, player, imgMovement, wX, wY);
                     break;
                 case 1:
-                    mvwMm(mVn, weapon, wVn, player, imageScale, offsetX, offsetY);
+                    mvwMm(mVn, weapon, wVn, player, imgMovement, wX, wY);
                     break;
                 case 2:
-                    vwVWm(mVn, weapon, wVn, player, imageScale, offsetX, offsetY);
+                    vwVWm(mVn, weapon, wVn, player, imgMovement, wX, wY);
                     break;
                 case 3:
-                    mWNvw(mVn, weapon, wVn, player, imageScale, offsetX, offsetY);
+                    mWNvw(mVn, weapon, wVn, player, imgMovement, wX, wY);
                     break;
                 case 4:
-                    WVVmN(mVn, weapon, wVn, player, imageScale, offsetX, offsetY);
+                    WVVmN(mVn, weapon, wVn, player, imgMovement, wX, wY);
                     break;
                 case 5:
-                    Wvmnw(mVn, weapon, wVn, player, imageScale, offsetX, offsetY);
+                    Wvmnw(mVn, weapon, wVn, player, imgMovement, wX, wY);
                     break;
                 case 6:
-                    mmmMw(mVn, weapon, wVn, player, imageScale, offsetX, offsetY);
+                    mmmMw(mVn, weapon, wVn, player, imgMovement, wX, wY);
                     break;
             }
             if (player.removed !== 0) {
@@ -16386,12 +16365,12 @@ try {
                         else nMWVv = CanvasUtils.loadImage(IMG_LOOT_TOUCH, nMWVv);
                         return;
                     }
-                    var imageScale = scaleby + (WvmnV * scaleby);
-                    var vNwMN = imageScale / scaleby;
+                    var imgMovement = scaleby + (WvmnV * scaleby);
+                    var vNwMN = imgMovement / scaleby;
                     var scalex = (scaleby * nMWVv.width) / 2;
                     var scaley = (scaleby * nMWVv.height) / 2;
-                    var posx = ((vertst + NmM) * imageScale) - (scalex / 2);
-                    var posy = window.Math.max(10 * scaleby, ((((horist + WWV) * imageScale) - (scaley / 2)) - (65 * imageScale)) - (60 * scaleby));
+                    var posx = ((vertst + NmM) * imgMovement) - (scalex / 2);
+                    var posy = window.Math.max(10 * scaleby, ((((horist + WWV) * imgMovement) - (scaley / 2)) - (65 * imgMovement)) - (60 * scaleby));
                     if (isTouchScreen === 1) {
                         Game.xInteract = posx;
                         Game.yInteract = posy;
@@ -16405,7 +16384,7 @@ try {
                     CanvasUtils.drawImageHd(loot, posx + 77, posy + 33, loot.angle, 0, 0, loot.scale);
                     break;
                 case 1:
-                    var value = World.PLAYER.interactionDelay / World.PLAYER.interactionWait;
+                    var vW = World.PLAYER.interactionDelay / World.PLAYER.interactionWait;
                     var delay = World.PLAYER.interactionWait - World.PLAYER.interactionDelay;
                     World.PLAYER.interactionDelay -= delta;
                     if (World.PLAYER.interactionDelay < 0) {
@@ -16424,19 +16403,19 @@ try {
                         lights = CanvasUtils.loadImage(IMG_TIMER_LIGHTS, lights);
                         return;
                     }
-                    var imageScale = scaleby + (WvmnV * scaleby);
+                    var imgMovement = scaleby + (WvmnV * scaleby);
                     var scalex = (scaleby * useTimer.width) / 2;
                     var scaley = (scaleby * useTimer.height) / 2;
-                    var _x = (vertst + NmM) * imageScale;
-                    var _y = (horist + WWV) * imageScale;
+                    var _x = (vertst + NmM) * imgMovement;
+                    var _y = (horist + WWV) * imgMovement;
                     var posx = _x - (scalex / 2);
-                    var posy = window.Math.max(10 * imageScale, ((_y - (scaley / 2)) - (65 * imageScale)) - (60 * scaleby));
+                    var posy = window.Math.max(10 * imgMovement, ((_y - (scaley / 2)) - (65 * imgMovement)) - (60 * scaleby));
                     if (delay < 100) ctx.globalAlpha = delay / 100;
                     else if (World.PLAYER.interactionDelay < 100) ctx.globalAlpha = World.PLAYER.interactionDelay / 100;
                     ctx.drawImage(useTimer, posx, posy, scalex, scaley); 
                     ctx.save();
-                    ctx.translate(_x, window.Math.max((10 * imageScale) + (scaley / 2), (_y - (65 * imageScale)) - (60 * scaleby)));
-                    ctx.rotate(-PI2 * value);
+                    ctx.translate(_x, window.Math.max((10 * imgMovement) + (scaley / 2), (_y - (65 * imgMovement)) - (60 * scaleby)));
+                    ctx.rotate(-PI2 * vW);
                     ctx.drawImage(arrow, -scalex / 2, -scaley / 2, scalex, scaley);
                     ctx.restore();
                     ctx.drawImage(lights, posx, posy, scalex, scaley);
@@ -16449,13 +16428,13 @@ try {
                         else World.PLAYER.eInteract.img = CanvasUtils.loadImage(World.PLAYER.eInteract.src.replace("e-", "e-isTouchScreen-"), img);
                         return;
                     }
-                    var imageScale = scaleby + (WvmnV * scaleby);
+                    var imgMovement = scaleby + (WvmnV * scaleby);
                     var scalex = (scaleby * img.width) / 2;
                     var scaley = (scaleby * img.height) / 2;
                     var posx;
-                    if (World.PLAYER.extraLoot === 1) posx = (((vertst + NmM) - 5) * imageScale) - scalex;
-                    else posx = ((vertst + NmM) * imageScale) - (scalex / 2);
-                    var posy = window.Math.max(10 * scaleby, ((((horist + WWV) * imageScale) - (scaley / 2)) - (65 * imageScale)) - (60 * scaleby));
+                    if (World.PLAYER.extraLoot === 1) posx = (((vertst + NmM) - 5) * imgMovement) - scalex;
+                    else posx = ((vertst + NmM) * imgMovement) - (scalex / 2);
+                    var posy = window.Math.max(10 * scaleby, ((((horist + WWV) * imgMovement) - (scaley / 2)) - (65 * imgMovement)) - (60 * scaleby));
                     if (isTouchScreen === 1) {
                         Game.xInteract = posx;
                         Game.yInteract = posy;
@@ -16469,11 +16448,11 @@ try {
                             else VWvVN = CanvasUtils.loadImage(IMG_LOOT_TOUCH, nMWVv);
                             return;
                         }
-                        var vNwMN = imageScale / scaleby;
+                        var vNwMN = imgMovement / scaleby;
                         scalex = (scaleby * VWvVN.width) / 2;
                         scaley = (scaleby * VWvVN.height) / 2;
                         posx += scalex + (10 * scaleby);
-                        posy = window.Math.max(10 * scaleby, ((((horist + WWV) * imageScale) - (scaley / 2)) - (65 * imageScale)) - (60 * scaleby));
+                        posy = window.Math.max(10 * scaleby, ((((horist + WWV) * imgMovement) - (scaley / 2)) - (65 * imgMovement)) - (60 * scaleby));
                         if (isTouchScreen === 1) {
                             Game.xInteract2 = posx;
                             Game.yInteract2 = posy;
@@ -16494,20 +16473,20 @@ try {
             uid: -1
         };
 
-        function vNwNM(player, id, distance, amount) {
+        function vNwNM(player, id, dist, amount) {
             if ((setParticles === 0) || (id === PARTICLESID.__NOTHING__)) return;
             else if (setParticles === 2) amount *= 3;
             if ((Entitie.border[__ENTITIE_PARTICLES__].border + amount) >= wnNWM) return;
             for (var i = 0; i < amount; i++) {
                 var N = window.Math.random();
                 var angle = ((N * 10) % 1) * PI2;
-                var MMwmm = distance + (((N * 10000) % 1) * 25);
-                distance += 8;
+                var MMwmm = dist + (((N * 10000) % 1) * 25);
+                dist += 8;
                 WvWmM = (WvWmM + 1) % wnNWM;
-                var newEntityIndex = WvWmM + Entitie.maxUnitsMaster;
+                var wmWnw = WvWmM + Entitie.maxUnitsMaster;
                 nMVNv += 1;
-                var particle = Entitie.get(0, newEntityIndex, nMVNv, __ENTITIE_PARTICLES__);
-                setEntitie(particle, 0, nMVNv, newEntityIndex, __ENTITIE_PARTICLES__, player.px, player.py, player.px + (window.Math.cos(angle) * MMwmm), player.py + (window.Math.sin(angle) * MMwmm), window.Math.floor(N * PARTICLES[id].length), ((N * 100) % 1) * 255, id);
+                var particle = Entitie.get(0, wmWnw, nMVNv, __ENTITIE_PARTICLES__);
+                setEntitie(particle, 0, nMVNv, wmWnw, __ENTITIE_PARTICLES__, player.px, player.py, player.px + (window.Math.cos(angle) * MMwmm), player.py + (window.Math.sin(angle) * MMwmm), window.Math.floor(N * PARTICLES[id].length), ((N * 100) % 1) * 255, id);
             }
         };
 
@@ -16527,18 +16506,18 @@ try {
             CanvasUtils.drawImageHd(img, vertst + particle.x, horist + particle.y, particle.angle, 0, 0, 1);
         };
 
-        function _Dynamite(item, dynamite, offsetX, offsetY, rotation, imageScale) {
+        function _Dynamite(item, dynamite, wX, wY, Rot, imgMovement) {
             dynamite.breath = (dynamite.breath + delta) % 500;
-            var value = dynamite.breath / 500;
-            var mnM = 0.95 + (0.3 * MathUtils.Ease.inOutQuad(value));
-            ctx.globalAlpha = 1 - value;
-            CanvasUtils.drawImageHd(item.building[1], (vertst + dynamite.x) + offsetX, (horist + dynamite.y) + offsetY, rotation * PIby2, 0, 0, mnM);
+            var vW = dynamite.breath / 500;
+            var mnM = 0.95 + (0.3 * MathUtils.Ease.inOutQuad(vW));
+            ctx.globalAlpha = 1 - vW;
+            CanvasUtils.drawImageHd(item.building[1], (vertst + dynamite.x) + wX, (horist + dynamite.y) + wY, Rot * PIby2, 0, 0, mnM);
             ctx.globalAlpha = 1;
-            CanvasUtils.drawImageHd(item.building[0], (vertst + dynamite.x) + offsetX, (horist + dynamite.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+            CanvasUtils.drawImageHd(item.building[0], (vertst + dynamite.x) + wX, (horist + dynamite.y) + wY, Rot * PIby2, 0, 0, imgMovement);
         };
         
         
-        function _Spike(item, spike, offsetX, offsetY, rotation, imageScale) {
+        function _Spike(item, spike, wX, wY, Rot, imgMovement) {
             var isVisible = 0;
             var isInClan = 0;
             var triggered = 1;
@@ -16551,20 +16530,20 @@ try {
                 if (triggered === 0) {
                     if (spike.hurt2 === 0) vNwNM(spike, item.particles, item.particlesDist, 5);
                     if (spike.hurt2 < 300) {
-                        offsetX += (window.Math.random() * 6) - 4;
-                        offsetY += (window.Math.random() * 6) - 4;
+                        wX += (window.Math.random() * 6) - 4;
+                        wY += (window.Math.random() * 6) - 4;
                         spike.hurt2 += delta;
                     }
-                    CanvasUtils.drawImageHd(item.deployed[spike.id % 3], (vertst + spike.x) + offsetX, (horist + spike.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                    CanvasUtils.drawImageHd(item.deployed[spike.id % 3], (vertst + spike.x) + wX, (horist + spike.y) + wY, Rot * PIby2, 0, 0, imgMovement);
                 } else if (isInClan === 1) {
-                    CanvasUtils.drawImageHd(item.hidden[spike.id % 3], (vertst + spike.x) + offsetX, (horist + spike.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                    CanvasUtils.drawImageHd(item.hidden[spike.id % 3], (vertst + spike.x) + wX, (horist + spike.y) + wY, Rot * PIby2, 0, 0, imgMovement);
                     ctx.globalAlpha = 0.2;
-                    CanvasUtils.drawImageHd(LIGHTFIRE[5], (vertst + spike.x) + offsetX, (horist + spike.y) + offsetY, 0, 0, 0, 0.6);
+                    CanvasUtils.drawImageHd(LIGHTFIRE[5], (vertst + spike.x) + wX, (horist + spike.y) + wY, 0, 0, 0, 0.6);
                     ctx.globalAlpha = 1;
                 } else if (isInClan === 0) {
-                    CanvasUtils.drawImageHd(item.hidden[spike.id % 3], (vertst + spike.x) + offsetX, (horist + spike.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                    CanvasUtils.drawImageHd(item.hidden[spike.id % 3], (vertst + spike.x) + wX, (horist + spike.y) + wY, Rot * PIby2, 0, 0, imgMovement);
                     ctx.globalAlpha = 0.2;
-                    CanvasUtils.drawImageHd(LIGHTFIRE[4], (vertst + spike.x) + offsetX, (horist + spike.y) + offsetY, 0, 0, 0, 0.6);
+                    CanvasUtils.drawImageHd(LIGHTFIRE[4], (vertst + spike.x) + wX, (horist + spike.y) + wY, 0, 0, 0, 0.6);
                     ctx.globalAlpha = 1;
                 }
 
@@ -16572,60 +16551,60 @@ try {
                 if (triggered === 0) {
                     if (spike.hurt2 === 0) vNwNM(spike, item.particles, item.particlesDist, 5);
                     if (spike.hurt2 < 300) {
-                        offsetX += (window.Math.random() * 6) - 4;
-                        offsetY += (window.Math.random() * 6) - 4;
+                        wX += (window.Math.random() * 6) - 4;
+                        wY += (window.Math.random() * 6) - 4;
                         spike.hurt2 += delta;
                     }
                     if (spike.breath > 0) {
                         spike.breath = window.Math.max(0, spike.breath - (delta / 5));
                         ctx.globalAlpha = MathUtils.Ease.inOutQuad(spike.breath / 300);
-                        CanvasUtils.drawImageHd(item.hidden[spike.id % 3], (vertst + spike.x) + offsetX, (horist + spike.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                        CanvasUtils.drawImageHd(item.hidden[spike.id % 3], (vertst + spike.x) + wX, (horist + spike.y) + wY, Rot * PIby2, 0, 0, imgMovement);
                         ctx.globalAlpha = 1;
                     }
-                    CanvasUtils.drawImageHd(item.deployed[spike.id % 3], (vertst + spike.x) + offsetX, (horist + spike.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                    CanvasUtils.drawImageHd(item.deployed[spike.id % 3], (vertst + spike.x) + wX, (horist + spike.y) + wY, Rot * PIby2, 0, 0, imgMovement);
                 } else if (isVisible === 1) {
-                    if (spike.breath === 300) CanvasUtils.drawImageHd(item.hidden[spike.id % 3], (vertst + spike.x) + offsetX, (horist + spike.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                    if (spike.breath === 300) CanvasUtils.drawImageHd(item.hidden[spike.id % 3], (vertst + spike.x) + wX, (horist + spike.y) + wY, Rot * PIby2, 0, 0, imgMovement);
                     else {
                         spike.breath = window.Math.min(300, spike.breath + delta);
                         ctx.globalAlpha = MathUtils.Ease.inOutQuad(spike.breath / 300);
-                        CanvasUtils.drawImageHd(item.hidden[spike.id % 3], (vertst + spike.x) + offsetX, (horist + spike.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                        CanvasUtils.drawImageHd(item.hidden[spike.id % 3], (vertst + spike.x) + wX, (horist + spike.y) + wY, Rot * PIby2, 0, 0, imgMovement);
                         ctx.globalAlpha = 1;
                     }
                 } else if ((isVisible === 0) && (spike.breath > 0)) {
                     spike.breath = window.Math.max(0, spike.breath - (delta / 5));
                     ctx.globalAlpha = MathUtils.Ease.inOutQuad(spike.breath / 300);
-                    CanvasUtils.drawImageHd(item.hidden[spike.id % 3], (vertst + spike.x) + offsetX, (horist + spike.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                    CanvasUtils.drawImageHd(item.hidden[spike.id % 3], (vertst + spike.x) + wX, (horist + spike.y) + wY, Rot * PIby2, 0, 0, imgMovement);
                     ctx.globalAlpha = 1;
                 }
         }
         };
         
-        function _HiddenBuilding(item, building, offsetX, offsetY, rotation, imageScale) {
-            if (MOD.showWires) {CanvasUtils.drawImageHd(item.building, (vertst + building.x) + offsetX, (horist + building.y) + offsetY, rotation * PIby2, 0, 0, imageScale)} 
+        function _HiddenBuilding(item, building, wX, wY, Rot, imgMovement) {
+            if (MOD.showWires) {CanvasUtils.drawImageHd(item.building, (vertst + building.x) + wX, (horist + building.y) + wY, Rot * PIby2, 0, 0, imgMovement)} 
             else {
                 var isVisible = 0;
                 if (((building.pid === World.PLAYER.id) || (((World.PLAYER.team !== -1) && (World.PLAYER.team === World.players[building.pid].team)) && (World.players[building.pid].teamUid === World.teams[World.PLAYER.team].uid))) || (Math2d.fastDist(NmM, WWV, building.x, building.y) < 52000)) isVisible = 1;
-                //CanvasUtils.drawImageHd(item.building, (vertst + building.x) + offsetX, (horist + building.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                //CanvasUtils.drawImageHd(item.building, (vertst + building.x) + wX, (horist + building.y) + wY, Rot * PIby2, 0, 0, imgMovement);
         
                 if (isVisible === 1) {
-                    if (building.breath === 300) CanvasUtils.drawImageHd(item.building, (vertst + building.x) + offsetX, (horist + building.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                    if (building.breath === 300) CanvasUtils.drawImageHd(item.building, (vertst + building.x) + wX, (horist + building.y) + wY, Rot * PIby2, 0, 0, imgMovement);
                     else {
                         building.breath = window.Math.min(300, building.breath + delta);
                         ctx.globalAlpha = MathUtils.Ease.inOutQuad(building.breath / 300);
-                        CanvasUtils.drawImageHd(item.building, (vertst + building.x) + offsetX, (horist + building.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                        CanvasUtils.drawImageHd(item.building, (vertst + building.x) + wX, (horist + building.y) + wY, Rot * PIby2, 0, 0, imgMovement);
                         ctx.globalAlpha = 1;
                     }
                 }
                 else if ((isVisible === 0) && (building.breath > 0)) {
                     building.breath = window.Math.max(0, building.breath - (delta / 5));
                     ctx.globalAlpha = MathUtils.Ease.inOutQuad(building.breath / 300);
-                    CanvasUtils.drawImageHd(item.building, (vertst + building.x) + offsetX, (horist + building.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                    CanvasUtils.drawImageHd(item.building, (vertst + building.x) + wX, (horist + building.y) + wY, Rot * PIby2, 0, 0, imgMovement);
                     ctx.globalAlpha = 1;
                 }
             }
         };
         
-        function _Landmine(item, landmine, offsetX, offsetY, rotation, imageScale) {
+        function _Landmine(item, landmine, wX, wY, Rot, imgMovement) {
             var isVisible = 0;
             var isInClan = 0;
             if (((landmine.pid === World.PLAYER.id) || (((World.PLAYER.team !== -1) && (World.PLAYER.team === World.players[landmine.pid].team)) && (World.players[landmine.pid].teamUid === World.teams[World.PLAYER.team].uid))) || (Math2d.fastDist(NmM, WWV, landmine.x, landmine.y) < 52000)) isVisible = 1;
@@ -16633,16 +16612,16 @@ try {
             
             if (MOD.showLandmines) {
                 if (isVisible === 1) {
-                    CanvasUtils.drawImageHd(item.building[landmine.id % 3], (vertst + landmine.x) + offsetX, (horist + landmine.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                    CanvasUtils.drawImageHd(item.building[landmine.id % 3], (vertst + landmine.x) + wX, (horist + landmine.y) + wY, Rot * PIby2, 0, 0, imgMovement);
                     ctx.globalAlpha = 0.2;
-                    CanvasUtils.drawImageHd(LIGHTFIRE[5], (vertst + landmine.x) + offsetX, (horist + landmine.y) + offsetY, 0, 0, 0, 0.6);
+                    CanvasUtils.drawImageHd(LIGHTFIRE[5], (vertst + landmine.x) + wX, (horist + landmine.y) + wY, 0, 0, 0, 0.6);
                     ctx.globalAlpha = 1;
                 }
             
                 else if (isVisible === 0) {
-                    CanvasUtils.drawImageHd(item.building[landmine.id % 3], (vertst + landmine.x) + offsetX, (horist + landmine.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                    CanvasUtils.drawImageHd(item.building[landmine.id % 3], (vertst + landmine.x) + wX, (horist + landmine.y) + wY, Rot * PIby2, 0, 0, imgMovement);
                     ctx.globalAlpha = 0.2;
-                    CanvasUtils.drawImageHd(LIGHTFIRE[4], (vertst + landmine.x) + offsetX, (horist + landmine.y) + offsetY, 0, 0, 0, 0.6);
+                    CanvasUtils.drawImageHd(LIGHTFIRE[4], (vertst + landmine.x) + wX, (horist + landmine.y) + wY, 0, 0, 0, 0.6);
                     ctx.globalAlpha = 1; 
             
                 }
@@ -16651,14 +16630,14 @@ try {
                 if (isVisible === 1) {
                     landmine.breath = window.Math.min(300, landmine.breath + delta);
                     ctx.globalAlpha = MathUtils.Ease.inOutQuad(landmine.breath / 300);
-                    CanvasUtils.drawImageHd(item.building[landmine.id % 3], (vertst + landmine.x) + offsetX, (horist + landmine.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                    CanvasUtils.drawImageHd(item.building[landmine.id % 3], (vertst + landmine.x) + wX, (horist + landmine.y) + wY, Rot * PIby2, 0, 0, imgMovement);
                     ctx.globalAlpha = 1;
                 }
             
                 else if (isVisible === 0) {
                     landmine.breath = window.Math.min(300, landmine.breath + delta / 5);
                     ctx.globalAlpha = MathUtils.Ease.inOutQuad(landmine.breath / 300);
-                    CanvasUtils.drawImageHd(item.building[landmine.id % 3], (vertst + landmine.x) + offsetX, (horist + landmine.y) + offsetY, rotation * PIby2, 0, 0, imageScale)
+                    CanvasUtils.drawImageHd(item.building[landmine.id % 3], (vertst + landmine.x) + wX, (horist + landmine.y) + wY, Rot * PIby2, 0, 0, imgMovement)
                     ctx.globalAlpha = 1;
 
             
@@ -16666,28 +16645,28 @@ try {
             }
         };
         
-        function _DefaultBuilding(item, building, offsetX, offsetY, rotation, imageScale) {
-            CanvasUtils.drawImageHd(item.building, (vertst + building.x) + offsetX, (horist + building.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+        function _DefaultBuilding(item, building, wX, wY, Rot, imgMovement) {
+            CanvasUtils.drawImageHd(item.building, (vertst + building.x) + wX, (horist + building.y) + wY, Rot * PIby2, 0, 0, imgMovement);
         };
         
-        function _Breakable(item, building, offsetX, offsetY, rotation, imageScale) {
-            CanvasUtils.drawImageHd(item.building[building.broke], (vertst + building.x) + offsetX, (horist + building.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+        function _Breakable(item, building, wX, wY, Rot, imgMovement) {
+            CanvasUtils.drawImageHd(item.building[building.broke], (vertst + building.x) + wX, (horist + building.y) + wY, Rot * PIby2, 0, 0, imgMovement);
         };
         
-        function _Wall(item, wall, offsetX, offsetY, rotation, imageScale) {
-            if (wall.broke > 0) CanvasUtils.drawImageHd(item.broken[wall.broke - 1], (vertst + wall.x) + offsetX, (horist + wall.y) + offsetY, 0, 0, 0, imageScale);
-            else CanvasUtils.drawImageHd(item.building[WwmwN(wall)], (vertst + wall.x) + offsetX, (horist + wall.y) + offsetY, 0, 0, 0, imageScale);
+        function _Wall(item, wall, wX, wY, Rot, imgMovement) {
+            if (wall.broke > 0) CanvasUtils.drawImageHd(item.broken[wall.broke - 1], (vertst + wall.x) + wX, (horist + wall.y) + wY, 0, 0, 0, imgMovement);
+            else CanvasUtils.drawImageHd(item.building[WwmwN(wall)], (vertst + wall.x) + wX, (horist + wall.y) + wY, 0, 0, 0, imgMovement);
         };
         
-        function handleProximity(item, player, checkPid) {
-            if ((((player.removed === 0) && (World.PLAYER.interaction !== 1)) && (World.PLAYER.isInBuilding !== 1)) && (((checkPid === 0) || (player.pid === World.PLAYER.id)) || (((World.PLAYER.team !== -1) && (World.PLAYER.team === World.players[player.pid].team)) && (World.players[player.pid].teamUid === World.teams[World.PLAYER.team].uid)))) {
-                var distance = Math2d.fastDist(NmM, WWV, player.x, player.y);
-                if (distance < nearestDistance) {
+        function nearme(item, player, MMwnn) {
+            if ((((player.removed === 0) && (World.PLAYER.interaction !== 1)) && (World.PLAYER.isInBuilding !== 1)) && (((MMwnn === 0) || (player.pid === World.PLAYER.id)) || (((World.PLAYER.team !== -1) && (World.PLAYER.team === World.players[player.pid].team)) && (World.players[player.pid].teamUid === World.teams[World.PLAYER.team].uid)))) {
+                var dist = Math2d.fastDist(NmM, WWV, player.x, player.y);
+                if (dist < vnVmM) {
                     World.PLAYER.packetId = item.packetId;
                     World.PLAYER.buildingId = player.id;
                     World.PLAYER.buildingPid = player.pid;
                     World.PLAYER.buildingArea = item.area;
-                    nearestDistance = distance;
+                    vnVmM = dist;
                     if (World.PLAYER.interaction === 0) World.PLAYER.extraLoot = 1;
                     World.PLAYER.interaction = 2;
                     World.PLAYER.eInteract = item.interact;
@@ -16697,94 +16676,98 @@ try {
             return 0;
         };
         
-        function _Construction(item, player, offsetX, offsetY, rotation, imageScale) {
-            CanvasUtils.drawImageHd(item.builder, (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, 1);
-            var constructionLevel = (player.state >> 4) & 15;
-            if (player.breath2 !== constructionLevel) {
-                player.breath2 = constructionLevel;
+        function _Construction(item, player, wX, wY, Rot, imgMovement) {
+            CanvasUtils.drawImageHd(item.builder, (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, 1);
+            var level = (player.state >> 4) & 15;
+            if (player.breath2 !== level) {
+                player.breath2 = level;
                 player.breath = 0;
             }
             player.breath = player.breath + delta;
             player.heal = (player.heal + delta) % 1000;
-            var imageScale = 1 + (0.03 * ((player.heal < 500) ? (player.heal / 500) : (1 - ((player.heal - 500) / 500))));
-            if (constructionLevel === 0) {
+            var imgMovement = 1 + (0.03 * ((player.heal < 500) ? (player.heal / 500) : (1 - ((player.heal - 500) / 500))));
+            if (level === 0) {
                 ctx.globalAlpha = MathUtils.Ease.inOutQuad(player.breath / item.evolve);
-                CanvasUtils.drawImageHd(item.building[0], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                CanvasUtils.drawImageHd(item.building[0], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
                 ctx.globalAlpha = 1;
             } else if (player.breath < item.evolve) {
-                var progress = MathUtils.Ease.inOutQuad(player.breath / item.evolve);
-                ctx.globalAlpha = 1 - progress;
-                CanvasUtils.drawImageHd(item.building[constructionLevel - 1], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
-                ctx.globalAlpha = progress;
-                CanvasUtils.drawImageHd(item.building[constructionLevel], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                var MwMvw = MathUtils.Ease.inOutQuad(player.breath / item.evolve);
+                ctx.globalAlpha = 1 - MwMvw;
+                CanvasUtils.drawImageHd(item.building[level - 1], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
+                ctx.globalAlpha = MwMvw;
+                CanvasUtils.drawImageHd(item.building[level], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
                 ctx.globalAlpha = 1;
-            } else CanvasUtils.drawImageHd(item.building[constructionLevel], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+            } else CanvasUtils.drawImageHd(item.building[level], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
         };
         
-        function _TreeSeed(item, player, offsetX, offsetY, rotation, imageScale) {
-            var constructionLevel = (player.state >> 4) & 15;
+        function _TreeSeed(item, player, wX, wY, Rot, imgMovement) {
+            var level = (player.state >> 4) & 15;
             player.breath = (player.breath + delta) % 1000;
-            var imageScale = 1 + (0.01 * ((player.breath < 500) ? (player.breath / 500) : (1 - ((player.breath - 500) / 500))));
-            CanvasUtils.drawImageHd(item.building[constructionLevel], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+            var imgMovement = 1 + (0.01 * ((player.breath < 500) ? (player.breath / 500) : (1 - ((player.breath - 500) / 500))));
+            CanvasUtils.drawImageHd(item.building[level], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
         };
         
-        function _OrangeSeed(item, player, offsetX, offsetY, rotation, imageScale) {
-            var constructionLevel = (player.state >> 4) & 15;
+        function _OrangeSeed(item, player, wX, wY, Rot, imgMovement) {
+            var level = (player.state >> 4) & 15;
             player.breath = (player.breath + delta) % 1000;
-            var imageScale = 1 + (0.03 * ((player.breath < 500) ? (player.breath / 500) : (1 - ((player.breath - 500) / 500))));
-            CanvasUtils.drawImageHd(item.building[constructionLevel], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+            var imgMovement = 1 + (0.03 * ((player.breath < 500) ? (player.breath / 500) : (1 - ((player.breath - 500) / 500))));
+            CanvasUtils.drawImageHd(item.building[level], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
         };
         
-        function _LowWall(item, player, offsetX, offsetY, rotation, imageScale) {
-            var WVV = (player.broke > 0) ? item.broken[player.broke - 1] : item.building[wmNMv(player, rotation)];
+        function _LowWall(item, player, wX, wY, Rot, imgMovement) {
+            var WVV = (player.broke > 0) ? item.broken[player.broke - 1] : item.building[wmNMv(player, Rot)];
             var img = WVV.img;
             if (img.isLoaded !== 1) {
                 WVV.img = CanvasUtils.loadImage(WVV.src, WVV.img);
                 return;
             }
-            var w = ((scaleby * img.width) / 2) * imageScale;
-            var h = ((scaleby * img.height) / 2) * imageScale;
+            var w = ((scaleby * img.width) / 2) * imgMovement;
+            var h = ((scaleby * img.height) / 2) * imgMovement;
             ctx.save();
-            ctx.translate(scaleby * ((vertst + player.x) + offsetX), scaleby * ((horist + player.y) + offsetY));
-            ctx.rotate(rotation * PIby2);
+            ctx.translate(scaleby * ((vertst + player.x) + wX), scaleby * ((horist + player.y) + wY));
+            ctx.rotate(Rot * PIby2);
             ctx.translate((item.xRotate * scaleby) - (w / 2), (item.yRotate * scaleby) - (h / 2));
             ctx.drawImage(img, -item.xRotate * scaleby, -item.yRotate * scaleby, w, h);
             ctx.restore();
         };
         
-        function _AutomaticDoor(item, player, offsetX, offsetY, rotation, imageScale) {
+        function _AutomaticDoor(item, player, wX, wY, Rot, imgMovement) {
             ctx.globalAlpha = 1;
             var MvVvv = (player.state >> 7) & 1;
             if (MvVvv === 1) player.hitMax = window.Math.min(500, player.hitMax + delta);
             else if (player.hitMax > 0) player.hitMax = window.Math.max(0, player.hitMax - delta);
             if ((player.hitMax > 0) && (player.hitMax !== 500)) {
                 ctx.globalAlpha = MathUtils.Ease.outQuad(player.hitMax / 500);
-                CanvasUtils.drawImageHd(item.building[1][player.broke], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                CanvasUtils.drawImageHd(item.building[1][player.broke], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
                 ctx.globalAlpha = MathUtils.Ease.outQuad(1 - (player.hitMax / 500));
-                CanvasUtils.drawImageHd(item.building[0][player.broke], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                CanvasUtils.drawImageHd(item.building[0][player.broke], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
                 ctx.globalAlpha = 1;
-            } else CanvasUtils.drawImageHd(item.building[MvVvv][player.broke], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+            } else CanvasUtils.drawImageHd(item.building[MvVvv][player.broke], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
         };
         
-        function _SwitchOff(item, player, offsetX, offsetY, rotation, imageScale) {
-            handleProximity(item, player, 0);
-            CanvasUtils.drawImageHd(item.building[(player.state >> 4) & 1], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+        function _SwitchOff(item, player, wX, wY, Rot, imgMovement) {
+        nearme(item, player, 0);
+        CanvasUtils.drawImageHd(item.building[(player.state >> 4) & 1], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
+            var wY = scaleby * (((player.i * 100) + horist) + 50);
+            var wX = scaleby * (((player.j * 100) + vertst) + 50);
+            var width = (imgMovement * arv.width) / 3;
+            var height = (imgMovement * arv.height) / 3;
         };
         
-        function _TimerGate(item, player, offsetX, offsetY, rotation, imageScale) {
-            handleProximity(item, player, 0);
-            CanvasUtils.drawImageHd(item.building[(player.state >> 4) & 3], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+        function _TimerGate(item, player, wX, wY, Rot, imgMovement) {
+            nearme(item, player, 0);
+            CanvasUtils.drawImageHd(item.building[(player.state >> 4) & 3], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
         };
         
-        function _Lamp(item, player, offsetX, offsetY, rotation, imageScale) {
-            handleProximity(item, player, 0);
+        function _Lamp(item, player, wX, wY, Rot, imgMovement) {
+            nearme(item, player, 0);
             var light = (player.state >> 7) & 1;
             if (light === 1) player.hitMax = window.Math.min(500, player.hitMax + delta);
             else if (player.hitMax > 0) player.hitMax = window.Math.max(0, player.hitMax - delta);
             if (player.hitMax > 0) {
                 WvnvV[pplonscr++] = player;
-                CanvasUtils.drawImageHd(item.buildingOn[(player.state >> 4) & 7], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
-            } else CanvasUtils.drawImageHd(item.building, (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                CanvasUtils.drawImageHd(item.buildingOn[(player.state >> 4) & 7], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
+            } else CanvasUtils.drawImageHd(item.building, (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
         };
         
         function _LampLight(player) {
@@ -16792,16 +16775,16 @@ try {
             ctx.globalAlpha = MathUtils.Ease.outQuad(player.hitMax / 500);
             player.breath2 = (player.breath2 + delta) % 5000;
             var breath = player.breath2;
-            var imageScale = 1 + (0.09 * ((breath < 2500) ? (breath / 2500) : (1 - ((breath - 2500) / 2500))));
-            CanvasUtils.drawImageHd(item.buildingTop[(player.state >> 4) & 7], vertst + player.x, horist + player.y, 0, 0, 0, imageScale);
+            var imgMovement = 1 + (0.09 * ((breath < 2500) ? (breath / 2500) : (1 - ((breath - 2500) / 2500))));
+            CanvasUtils.drawImageHd(item.buildingTop[(player.state >> 4) & 7], vertst + player.x, horist + player.y, 0, 0, 0, imgMovement);
             ctx.globalAlpha = 1;
         };
         
         
-        function _Door(item, player, offsetX, offsetY, rotation, imageScale) {
+        function _Door(item, player, wX, wY, Rot, imgMovement) {
             var NVNvv = (player.state >> 4) & 1;
             var MWwVn = (player.pid === 0) ? 0 : 1;
-            if ((handleProximity(item, player, MWwVn) === 1) && (NVNvv === 1)) World.PLAYER.eInteract = item.interactclose;
+            if ((nearme(item, player, MWwVn) === 1) && (NVNvv === 1)) World.PLAYER.eInteract = item.interactclose;
             if (player.hit !== NVNvv) {
                 player.hitMax = 500;
                 player.hit = NVNvv;
@@ -16816,18 +16799,18 @@ try {
                 WVV.img = CanvasUtils.loadImage(WVV.src, WVV.img);
                 return;
             }
-            var w = ((scaleby * img.width) / 2) * imageScale;
-            var h = ((scaleby * img.height) / 2) * imageScale;
+            var w = ((scaleby * img.width) / 2) * imgMovement;
+            var h = ((scaleby * img.height) / 2) * imgMovement;
             ctx.save();
-            ctx.translate(scaleby * ((vertst + player.x) + offsetX), scaleby * ((horist + player.y) + offsetY));
-            ctx.rotate(rotation * PIby2);
+            ctx.translate(scaleby * ((vertst + player.x) + wX), scaleby * ((horist + player.y) + wY));
+            ctx.rotate(Rot * PIby2);
             ctx.translate((item.xRotate * scaleby) - (w / 2), (item.yRotate * scaleby) - (h / 2));
             ctx.rotate(angle);
             ctx.drawImage(img, -item.xRotate * scaleby, -item.yRotate * scaleby, w, h);
             ctx.restore();
             if ((player.state & 32) === 32) {
                 player.state -= 32;
-                if (((player.breath === 0) && (offsetX === 0)) && (offsetY === 0)) player.breath = 600;
+                if (((player.breath === 0) && (wX === 0)) && (wY === 0)) player.breath = 600;
             }
             if (player.breath > 0) {
                 if (arv.isLoaded !== 1) {
@@ -16836,44 +16819,44 @@ try {
                 }
                 if (player.breath > 400) ctx.globalAlpha = MathUtils.Ease.outQuad(1 - ((player.breath - 400) / 200));
                 else if (player.breath < 200) ctx.globalAlpha = MathUtils.Ease.outQuad(player.breath / 200);
-                var offsetY = scaleby * (((player.i * __TILE_SIZE__) + horist) + __TILE_SIZE2__);
-                var offsetX = scaleby * (((player.j * __TILE_SIZE__) + vertst) + __TILE_SIZE2__);
+                var wY = scaleby * (((player.i * __TILE_SIZE__) + horist) + __TILE_SIZE2__);
+                var wX = scaleby * (((player.j * __TILE_SIZE__) + vertst) + __TILE_SIZE2__);
                 var width = (scaleby * arv.width) / 2;
                 var height = (scaleby * arv.height) / 2;
-                ctx.drawImage(arv, offsetX - (width / 2), offsetY - (height / 2), width, height);
+                ctx.drawImage(arv, wX - (width / 2), wY - (height / 2), width, height);
                 ctx.globalAlpha = 1;
                 player.breath = window.Math.max(0, player.breath - delta);
             }
         };
         
-        function _GroundFloor(item, player, offsetX, offsetY, rotation, imageScale) {
+        function _GroundFloor(item, player, wX, wY, Rot, imgMovement) {
             var mmWVw = matrix[player.i][player.j];
             mmWVw.tile = 0;
             mmWVw.ground = frameId;
             mmWVw.pid = player.pid;
             if ((mmWVw.wallFrame !== frameId) || (mmWVw.drawFloor === 1)) {
-                if (player.broke > 0) CanvasUtils.drawImageHd(item.broken[player.broke - 1], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, 0, 0, 0, imageScale);
-                else CanvasUtils.drawImageHd(item.building[Wwmwm(player)], vertst + player.x, horist + player.y, 0, 0, 0, imageScale);
+                if (player.broke > 0) CanvasUtils.drawImageHd(item.broken[player.broke - 1], (vertst + player.x) + wX, (horist + player.y) + wY, 0, 0, 0, imgMovement);
+                else CanvasUtils.drawImageHd(item.building[Wwmwm(player)], vertst + player.x, horist + player.y, 0, 0, 0, imgMovement);
             }
         };
         
         
-        function _Furniture(item, player, offsetX, offsetY, rotation, imageScale) {
+        function _Furniture(item, player, wX, wY, Rot, imgMovement) {
             var inuse = (player.state >> 4) & 1;
             var objects = INVENTORY[item.id].subtype[player.subtype];
             if (inuse === 1) player.hit = window.Math.min(500, player.hit + delta);
             else if (player.hit > 0) player.hit = window.Math.max(0, player.hit - delta);
-            if (((inuse === 0) && (objects.usable === 1)) && (handleProximity(objects, player, 0) === 1)) World.PLAYER.eInteract = ICON_E_FURNITURE;
-            CanvasUtils.drawImageHd(objects.building, (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
-            if (player.hit > 0) containeropenic(player, offsetX, offsetY);
+            if (((inuse === 0) && (objects.usable === 1)) && (nearme(objects, player, 0) === 1)) World.PLAYER.eInteract = ICON_E_FURNITURE;
+            CanvasUtils.drawImageHd(objects.building, (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
+            if (player.hit > 0) containeropenic(player, wX, wY);
         };
         
-        function _Road(item, player, offsetX, offsetY, rotation, imageScale) {
+        function _Road(item, player, wX, wY, Rot, imgMovement) {
             var objects = INVENTORY[item.id].subtype[player.subtype];
-            CanvasUtils.drawImageHd(objects.building, vertst + player.x, horist + player.y, 0, 0, 0, imageScale);
+            CanvasUtils.drawImageHd(objects.building, vertst + player.x, horist + player.y, 0, 0, 0, imgMovement);
         };
         
-        function _Ghoul(entitie, player, offsetX, offsetY, imageScale) {
+        function _Ghoul(entitie, player, wX, wY, imgMovement) {
             var Vmwnn = player.state & 254;
             if (Vmwnn === 2) {
                 player.state &= 65281;
@@ -16881,7 +16864,7 @@ try {
                     player.hit = entitie.actionDelay;
                     player.hitMax = entitie.actionDelay;
                     var VVmnw = window.Math.floor(window.Math.random() * 3);
-                    AudioUtils.playFx(AudioUtils._fx.shot[0][VVmnw], 0.5, Math2d.distance(World.PLAYER.x, World.PLAYER.y, player.x, player.y) / 3.5, 0);
+                    AudioUtils.playFx(AudioUtils._fx.shot[0][VVmnw], 0.5, Math2d.dist(World.PLAYER.x, World.PLAYER.y, player.x, player.y) / 3.5, 0);
                 }
             }
             var nmm = 0;
@@ -16891,11 +16874,11 @@ try {
             if (player.hit > 0) {
                 player.hit = window.Math.max(0, player.hit - delta);
                 player.hit = window.Math.min(player.hit, entitie.actionDelay);
-                value = (player.hit > entitie.actionImpactClient) ? (1 - ((player.hit - entitie.actionImpactClient) / (entitie.actionDelay - entitie.actionImpactClient))) : (player.hit / entitie.actionImpactClient);
-                nmm = (player.hurt2 * MathUtils.Ease.inOutQuad(value)) * 0.55;
-                wnN = value * 6;
-                if (player.hurt2 === 1) NNM = value * 25;
-                else NWW = value * 25;
+                vW = (player.hit > entitie.actionImpactClient) ? (1 - ((player.hit - entitie.actionImpactClient) / (entitie.actionDelay - entitie.actionImpactClient))) : (player.hit / entitie.actionImpactClient);
+                nmm = (player.hurt2 * MathUtils.Ease.inOutQuad(vW)) * 0.55;
+                wnN = vW * 6;
+                if (player.hurt2 === 1) NNM = vW * 25;
+                else NWW = vW * 25;
                 if (player.hit === 0) player.hurt2 *= -1;
             } else if (Math2d.fastDist(player.x, player.y, player.nx, player.ny) < 1) {
                 player.breath = (player.breath + delta) % 1500;
@@ -16918,148 +16901,148 @@ try {
             }
             var breath = entitie.breath * ((player.breath < 750) ? (player.breath / 750) : (1 - ((player.breath - 750) / 750)));
             var move = entitie.armMove * ((player.breath2 < 750) ? (player.breath2 / 750) : (1 - ((player.breath2 - 750) / 750)));
-            CanvasUtils.drawImageHd(entitie.rightArm, offsetX, offsetY, ((entitie.rightArm.angle + player.angle) + breath) + nmm, (entitie.rightArm.x + (move * player.heal)) + NWW, entitie.rightArm.y, imageScale);
-            CanvasUtils.drawImageHd(entitie.leftArm, offsetX, offsetY, ((-entitie.leftArm.angle + player.angle) - breath) + nmm, (entitie.leftArm.x - (move * player.heal)) + NNM, entitie.leftArm.y, imageScale);
+            CanvasUtils.drawImageHd(entitie.rightArm, wX, wY, ((entitie.rightArm.angle + player.angle) + breath) + nmm, (entitie.rightArm.x + (move * player.heal)) + NWW, entitie.rightArm.y, imgMovement);
+            CanvasUtils.drawImageHd(entitie.leftArm, wX, wY, ((-entitie.leftArm.angle + player.angle) - breath) + nmm, (entitie.leftArm.x - (move * player.heal)) + NNM, entitie.leftArm.y, imgMovement);
             if (player.hurt > 0) {
                 var mnM = 1;
                 player.hurt -= delta;
-                var value = 0;
-                if (player.hurt > 150) value = MathUtils.Ease.inQuad((300 - player.hurt) / 300);
+                var vW = 0;
+                if (player.hurt > 150) vW = MathUtils.Ease.inQuad((300 - player.hurt) / 300);
                 else {
-                    value = MathUtils.Ease.outQuad(player.hurt / 150);
-                    mnM += (1 - value) * 0.2;
+                    vW = MathUtils.Ease.outQuad(player.hurt / 150);
+                    mnM += (1 - vW) * 0.2;
                 }
-                offsetX += (window.Math.cos(player.hurtAngle) * value) * 10;
-                offsetY += (window.Math.sin(player.hurtAngle) * value) * 10;
-                ctx.globalAlpha = window.Math.min(1, window.Math.max(0, value));
-                CanvasUtils.drawImageHd(entitie.hurt, offsetX, offsetY, player.angle + (nmm / 1.5), wnN, 0, mnM);
+                wX += (window.Math.cos(player.hurtAngle) * vW) * 10;
+                wY += (window.Math.sin(player.hurtAngle) * vW) * 10;
+                ctx.globalAlpha = window.Math.min(1, window.Math.max(0, vW));
+                CanvasUtils.drawImageHd(entitie.hurt, wX, wY, player.angle + (nmm / 1.5), wnN, 0, mnM);
                 ctx.globalAlpha = 1;
             }
-            CanvasUtils.drawImageHd(entitie.head, offsetX, offsetY, player.angle + (nmm / 1.5), wnN, 0, imageScale);
+            CanvasUtils.drawImageHd(entitie.head, wX, wY, player.angle + (nmm / 1.5), wnN, 0, imgMovement);
         };
         
         
-        function _Workbench(item, player, offsetX, offsetY, rotation, imageScale) {
+        function _Workbench(item, player, wX, wY, Rot, imgMovement) {
             var inuse = (player.state >> 4) & 1;
             if (inuse === 1) player.hit = window.Math.min(500, player.hit + delta);
             else if (player.hit > 0) player.hit = window.Math.max(0, player.hit - delta);
-            if (inuse === 0) handleProximity(item, player, 0);
-            CanvasUtils.drawImageHd(item.building, (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
-            if (player.hit > 0) containeropenic(player, offsetX, offsetY);
+            if (inuse === 0) nearme(item, player, 0);
+            CanvasUtils.drawImageHd(item.building, (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
+            if (player.hit > 0) containeropenic(player, wX, wY);
         };
         
-        function _Workbench2(item, player, offsetX, offsetY, rotation, imageScale) {
-            var i = (rotation + 1) % 2;
-            var j = rotation % 2;
+        function _Workbench2(item, player, wX, wY, Rot, imgMovement) {
+            var i = (Rot + 1) % 2;
+            var j = Rot % 2;
             matrix[player.i + i][player.j + j].tile = frameId;
             matrix[player.i - i][player.j - j].tile = frameId;
             matrix[player.i + i][player.j + j].tilePid = player.pid;
             matrix[player.i - i][player.j - j].tilePid = player.pid;
             matrix[player.i + i][player.j + j].category = window.undefined;
             matrix[player.i - i][player.j - j].category = window.undefined;
-            handleProximity(item, player, 0);
-            CanvasUtils.drawImageHd(item.building, (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+            nearme(item, player, 0);
+            CanvasUtils.drawImageHd(item.building, (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
         };
         
-        function _Agitator(item, player, offsetX, offsetY, rotation, imageScale) {
+        function _Agitator(item, player, wX, wY, Rot, imgMovement) {
             var MWm = (player.state >> 4) & 1;
             if (MWm === 1) player.hit = window.Math.min(500, player.hit + delta);
             else if (player.hit > 0) player.hit = window.Math.max(0, player.hit - delta);
-            if (MWm === 0) handleProximity(item, player, 0);
+            if (MWm === 0) nearme(item, player, 0);
             var light = (player.state >> 5) & 1;
             if (light === 1) player.hitMax = window.Math.min(10000, player.hitMax + delta);
             else if (player.hitMax > 0) player.hitMax = window.Math.max(0, player.hitMax - delta);
-            var value = 0;
+            var vW = 0;
             if (player.hitMax > 0) {
-                value = MathUtils.Ease.outQuad(player.hitMax / 10000);
-                player.heal += (value * delta) / 300;
-                CanvasUtils.drawImageHd(item.building[1], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
-                CanvasUtils.drawImageHd(item.building[2], ((vertst + player.x) + offsetX) + item.spine[rotation][0], ((horist + player.y) + offsetY) + item.spine[rotation][1], (rotation * PIby2) + player.heal, 0, 0, imageScale);
-                CanvasUtils.drawImageHd(item.building[3], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
-            } else CanvasUtils.drawImageHd(item.building[0], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
-            if (player.hit > 0) containeropenic(player, offsetX, offsetY);
+                vW = MathUtils.Ease.outQuad(player.hitMax / 10000);
+                player.heal += (vW * delta) / 300;
+                CanvasUtils.drawImageHd(item.building[1], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
+                CanvasUtils.drawImageHd(item.building[2], ((vertst + player.x) + wX) + item.spine[Rot][0], ((horist + player.y) + wY) + item.spine[Rot][1], (Rot * PIby2) + player.heal, 0, 0, imgMovement);
+                CanvasUtils.drawImageHd(item.building[3], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
+            } else CanvasUtils.drawImageHd(item.building[0], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
+            if (player.hit > 0) containeropenic(player, wX, wY);
         };
         
-        function _Extractor(item, player, offsetX, offsetY, rotation, imageScale) {
+        function _Extractor(item, player, wX, wY, Rot, imgMovement) {
             var MWm = (player.state >> 4) & 1;
             if (MWm === 1) player.hit = window.Math.min(500, player.hit + delta);
             else if (player.hit > 0) player.hit = window.Math.max(0, player.hit - delta);
-            if (MWm === 0) handleProximity(item, player, 0);
+            if (MWm === 0) nearme(item, player, 0);
             var light = (player.state >> 5) & 1;
             if (light === 1) player.hitMax = window.Math.min(10000, player.hitMax + delta);
             else if (player.hitMax > 0) player.hitMax = window.Math.max(0, player.hitMax - delta);
-            var value = 0;
+            var vW = 0;
             if (player.hitMax > 0) {
-                value = MathUtils.Ease.outQuad(player.hitMax / 10000);
-                offsetX += ((window.Math.random() * 2) - 1) * value;
-                offsetY += ((window.Math.random() * 2) - 1) * value;
-                player.heal += (value * delta) / 300;
-                CanvasUtils.drawImageHd(item.building[1], ((vertst + player.x) + offsetX) + item.spine[rotation][0], ((horist + player.y) + offsetY) + item.spine[rotation][1], (rotation * PIby2) + player.heal, 0, 0, imageScale);
-                CanvasUtils.drawImageHd(item.building[0], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
-            } else CanvasUtils.drawImageHd(item.building[2], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
-            if (player.hit > 0) containeropenic(player, offsetX, offsetY);
+                vW = MathUtils.Ease.outQuad(player.hitMax / 10000);
+                wX += ((window.Math.random() * 2) - 1) * vW;
+                wY += ((window.Math.random() * 2) - 1) * vW;
+                player.heal += (vW * delta) / 300;
+                CanvasUtils.drawImageHd(item.building[1], ((vertst + player.x) + wX) + item.spine[Rot][0], ((horist + player.y) + wY) + item.spine[Rot][1], (Rot * PIby2) + player.heal, 0, 0, imgMovement);
+                CanvasUtils.drawImageHd(item.building[0], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
+            } else CanvasUtils.drawImageHd(item.building[2], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
+            if (player.hit > 0) containeropenic(player, wX, wY);
         };
 
-        function _Feeder(item, player, offsetX, offsetY, rotation, imageScale) {
+        function _Feeder(item, player, wX, wY, Rot, imgMovement) {
             var MWm = (player.state >> 4) & 1;
             if (MWm === 1) player.hit = window.Math.min(500, player.hit + delta);
             else if (player.hit > 0) player.hit = window.Math.max(0, player.hit - delta);
-            if (MWm === 0) handleProximity(item, player, 0);
+            if (MWm === 0) nearme(item, player, 0);
             var light = (player.state >> 5) & 1;
             if (light === 1) player.hitMax = window.Math.min(10000, player.hitMax + delta);
             else if (player.hitMax > 0) player.hitMax = window.Math.max(0, player.hitMax - delta);
-            var value = 0;
+            var vW = 0;
             if (player.hitMax > 0) {
-                value = MathUtils.Ease.outQuad(player.hitMax / 10000);
-                offsetX += ((window.Math.random() * 2) - 1) * value;
-                offsetY += ((window.Math.random() * 2) - 1) * value;
-                player.heal += (value * delta) / 300;
-                CanvasUtils.drawImageHd(item.building[1], ((vertst + player.x) + offsetX) + item.spine[rotation][0], ((horist + player.y) + offsetY) + item.spine[rotation][1], (rotation * PIby2) + player.heal, 0, 0, imageScale);
-                CanvasUtils.drawImageHd(item.building[0], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
-            } else CanvasUtils.drawImageHd(item.building[2], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
-            if (player.hit > 0) containeropenic(player, offsetX, offsetY);
+                vW = MathUtils.Ease.outQuad(player.hitMax / 10000);
+                wX += ((window.Math.random() * 2) - 1) * vW;
+                wY += ((window.Math.random() * 2) - 1) * vW;
+                player.heal += (vW * delta) / 300;
+                CanvasUtils.drawImageHd(item.building[1], ((vertst + player.x) + wX) + item.spine[Rot][0], ((horist + player.y) + wY) + item.spine[Rot][1], (Rot * PIby2) + player.heal, 0, 0, imgMovement);
+                CanvasUtils.drawImageHd(item.building[0], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
+            } else CanvasUtils.drawImageHd(item.building[2], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
+            if (player.hit > 0) containeropenic(player, wX, wY);
         };
         
-        function containeropenic(player, offsetX, offsetY) {
+        function containeropenic(player, wX, wY) {
             player.breath = (player.breath + delta) % 1000;
-            var imageScale = 1 + (0.15 * ((player.breath < 500) ? (player.breath / 500) : (1 - ((player.breath - 500) / 500))));
-            imageScale *= scaleby;
+            var imgMovement = 1 + (0.15 * ((player.breath < 500) ? (player.breath / 500) : (1 - ((player.breath - 500) / 500))));
+            imgMovement *= scaleby;
             if (arv.isLoaded !== 1) {
                 arv = CanvasUtils.loadImage(IMG_DAY_UNUSABLE, arv);
                 return;
             }
             ctx.globalAlpha = MathUtils.Ease.outQuad(player.hit / 500);
-            var offsetY = scaleby * (((player.i * __TILE_SIZE__) + horist) + __TILE_SIZE2__);
-            var offsetX = scaleby * (((player.j * __TILE_SIZE__) + vertst) + __TILE_SIZE2__);
-            var width = (imageScale * arv.width) / 2;
-            var height = (imageScale * arv.height) / 2;
-            ctx.drawImage(arv, offsetX - (width / 2), offsetY - (height / 2), width, height);
+            var wY = scaleby * (((player.i * __TILE_SIZE__) + horist) + __TILE_SIZE2__);
+            var wX = scaleby * (((player.j * __TILE_SIZE__) + vertst) + __TILE_SIZE2__);
+            var width = (imgMovement * arv.width) / 2;
+            var height = (imgMovement * arv.height) / 2;
+            ctx.drawImage(arv, wX - (width / 2), wY - (height / 2), width, height);
             ctx.globalAlpha = 1;
         };
         
-        function _Compost(item, player, offsetX, offsetY, rotation, imageScale) {
+        function _Compost(item, player, wX, wY, Rot, imgMovement) {
             var MWm = (player.state >> 4) & 1;
             if (MWm === 1) player.hit = window.Math.min(500, player.hit + delta);
             else if (player.hit > 0) player.hit = window.Math.max(0, player.hit - delta);
-            if (MWm === 0) handleProximity(item, player, 0);
+            if (MWm === 0) nearme(item, player, 0);
             var light = (player.state >> 5) & 1;
             if (light === 1) player.hitMax = window.Math.min(10000, player.hitMax + delta);
             else if (player.hitMax > 0) {
                 player.hitMax = window.Math.max(0, player.hitMax - delta);
             }
-            var value = 0;
+            var vW = 0;
             if (player.hitMax > 0) {
-                value = MathUtils.Ease.outQuad(player.hitMax / 10000);
-                offsetX += ((window.Math.random() * 2) - 1) * value;
-                offsetY += ((window.Math.random() * 2) - 1) * value;
-                CanvasUtils.drawImageHd(item.building[0], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
-            } else CanvasUtils.drawImageHd(item.building[1], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
-            if (player.hit > 0) containeropenic(player, offsetX, offsetY);
+                vW = MathUtils.Ease.outQuad(player.hitMax / 10000);
+                wX += ((window.Math.random() * 2) - 1) * vW;
+                wY += ((window.Math.random() * 2) - 1) * vW;
+                CanvasUtils.drawImageHd(item.building[0], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
+            } else CanvasUtils.drawImageHd(item.building[1], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
+            if (player.hit > 0) containeropenic(player, wX, wY);
         };
         
-        function _Smelter(item, player, offsetX, offsetY, rotation, imageScale) {
-            var i = (rotation + 1) % 2;
-            var j = rotation % 2;
+        function _Smelter(item, player, wX, wY, Rot, imgMovement) {
+            var i = (Rot + 1) % 2;
+            var j = Rot % 2;
             matrix[player.i + i][player.j + j].tile = frameId;
             matrix[player.i - i][player.j - j].tile = frameId;
             matrix[player.i + i][player.j + j].tilePid = player.pid;
@@ -17069,25 +17052,25 @@ try {
             var MWm = (player.state >> 4) & 1;
             if (MWm === 1) player.hit = window.Math.min(500, player.hit + delta);
             else if (player.hit > 0) player.hit = window.Math.max(0, player.hit - delta);
-            if (MWm === 0) handleProximity(item, player, 0);
+            if (MWm === 0) nearme(item, player, 0);
             var light = (player.state >> 5) & 1;
             if (light === 1) player.hitMax = window.Math.min(10000, player.hitMax + delta);
             else if (player.hitMax > 0) {
                 player.hitMax = window.Math.max(0, player.hitMax - delta);
             }
-            var value = 0;
+            var vW = 0;
             if (player.hitMax > 0) {
-                value = MathUtils.Ease.outQuad(player.hitMax / 10000);
-                offsetX += ((window.Math.random() * 2) - 1) * value;
-                offsetY += ((window.Math.random() * 2) - 1) * value;
-                CanvasUtils.drawImageHd(item.building[1], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
-            } else CanvasUtils.drawImageHd(item.building[0], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
-            if (player.hit > 0) containeropenic(player, offsetX, offsetY);
+                vW = MathUtils.Ease.outQuad(player.hitMax / 10000);
+                wX += ((window.Math.random() * 2) - 1) * vW;
+                wY += ((window.Math.random() * 2) - 1) * vW;
+                CanvasUtils.drawImageHd(item.building[1], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
+            } else CanvasUtils.drawImageHd(item.building[0], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
+            if (player.hit > 0) containeropenic(player, wX, wY);
         };
         
-        function _TeslaBench(item, player, offsetX, offsetY, rotation, imageScale) {
-            var i = (rotation + 1) % 2;
-            var j = rotation % 2;
+        function _TeslaBench(item, player, wX, wY, Rot, imgMovement) {
+            var i = (Rot + 1) % 2;
+            var j = Rot % 2;
             matrix[player.i + i][player.j + j].tile = frameId;
             matrix[player.i - i][player.j - j].tile = frameId;
             matrix[player.i + i][player.j + j].tilePid = player.pid;
@@ -17097,17 +17080,17 @@ try {
             var MWm = (player.state >> 4) & 1;
             if (MWm === 1) player.hit = window.Math.min(500, player.hit + delta);
             else if (player.hit > 0) player.hit = window.Math.max(0, player.hit - delta);
-            if (MWm === 0) handleProximity(item, player, 0);
+            if (MWm === 0) nearme(item, player, 0);
             var light = (player.state >> 5) & 1;
             if (light === 1) player.hitMax = 1 + (player.hitMax + (delta % 300000));
             else player.hitMax = 0;
-            var value = 0;
+            var vW = 0;
             if (player.hitMax > 0) {
-                CanvasUtils.drawImageHd(item.building[1 + (window.Math.floor(player.hitMax / 500) % 3)], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+                CanvasUtils.drawImageHd(item.building[1 + (window.Math.floor(player.hitMax / 500) % 3)], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
                 var light = item.light[window.Math.floor(player.hitMax / 50) % item.light.length];
-                if (light !== 0) CanvasUtils.drawImageHd(light, (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
-            } else CanvasUtils.drawImageHd(item.building[0], (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
-            if (player.hit > 0) containeropenic(player, offsetX, offsetY);
+                if (light !== 0) CanvasUtils.drawImageHd(light, (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
+            } else CanvasUtils.drawImageHd(item.building[0], (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
+            if (player.hit > 0) containeropenic(player, wX, wY);
         };
         
         function _CampfireLight(player) {
@@ -17115,29 +17098,29 @@ try {
             player.heal = (player.heal + delta) % 1000;
             for (var i = 0; i < 3; i++) {
                 var breath = (player.heal + (i * 333)) % 1000;
-                var imageScale = 1 + (0.15 * ((breath < 500) ? (breath / 500) : (1 - ((breath - 500) / 500))));
-                CanvasUtils.drawImageHd(LIGHTFIRE[i], (vertst + player.x) + LIGHTFIREX[i], (horist + player.y) + LIGHTFIREY[i], 0, 0, 0, imageScale);
+                var imgMovement = 1 + (0.15 * ((breath < 500) ? (breath / 500) : (1 - ((breath - 500) / 500))));
+                CanvasUtils.drawImageHd(LIGHTFIRE[i], (vertst + player.x) + LIGHTFIREX[i], (horist + player.y) + LIGHTFIREY[i], 0, 0, 0, imgMovement);
             }
             player.breath2 = (player.breath2 + delta) % 5000;
             var breath = player.breath2;
-            var imageScale = 1 + (0.15 * ((breath < 2500) ? (breath / 2500) : (1 - ((breath - 2500) / 2500))));
-            CanvasUtils.drawImageHd(LIGHTFIRE[3], (vertst + player.x) + LIGHTFIREX[3], (horist + player.y) + LIGHTFIREY[3], 0, 0, 0, imageScale);
+            var imgMovement = 1 + (0.15 * ((breath < 2500) ? (breath / 2500) : (1 - ((breath - 2500) / 2500))));
+            CanvasUtils.drawImageHd(LIGHTFIRE[3], (vertst + player.x) + LIGHTFIREX[3], (horist + player.y) + LIGHTFIREY[3], 0, 0, 0, imgMovement);
             ctx.globalAlpha = 1;
         };
         
-        function _Campfire(item, player, offsetX, offsetY, rotation, imageScale) {
+        function _Campfire(item, player, wX, wY, Rot, imgMovement) {
             
             var MWm = (player.state >> 4) & 1;
             if (MWm === 1) player.hit = window.Math.min(500, player.hit + delta);
             else if (player.hit > 0) player.hit = window.Math.max(0, player.hit - delta);
-            if (MWm === 0) handleProximity(item, player, 0);
-            CanvasUtils.drawImageHd(item.building, (vertst + player.x) + offsetX, (horist + player.y) + offsetY, rotation * PIby2, 0, 0, imageScale);
+            if (MWm === 0) nearme(item, player, 0);
+            CanvasUtils.drawImageHd(item.building, (vertst + player.x) + wX, (horist + player.y) + wY, Rot * PIby2, 0, 0, imgMovement);
         
             var light = (player.state >> 5) & 1;
             if (light === 1) player.hitMax = window.Math.min(500, player.hitMax + delta);
             else if (player.hitMax > 0) player.hitMax = window.Math.max(0, player.hitMax - delta);
             if (player.hitMax > 0) WvnvV[pplonscr++] = player;
-            if (player.hit > 0) containeropenic(player, offsetX, offsetY);
+            if (player.hit > 0) containeropenic(player, wX, wY);
         };
         
         function _Explosions(player) {
@@ -17146,7 +17129,7 @@ try {
             if (mVn < 10) {
                 if (player.born === 0) {
                     if (Render.explosionShake !== -2) Render.explosionShake = 20;
-                    AudioUtils.playFx(AudioUtils._fx.explosion, 0.7, Math2d.distance(World.PLAYER.x, World.PLAYER.y, player.x, player.y) / 4);
+                    AudioUtils.playFx(AudioUtils._fx.explosion, 0.7, Math2d.dist(World.PLAYER.x, World.PLAYER.y, player.x, player.y) / 4);
                 }
                 CanvasUtils.drawImageHd(img[mVn], vertst + player.x, horist + player.y, 0, 0, 0, 1);
             }
@@ -17159,19 +17142,19 @@ try {
             matrix[resource.i][resource.j].category = window.undefined;
             var WwMWW = RESOURCES[(resource.extra >> 5) & 31];
             var type = WwMWW.type[(resource.extra >> 10) & 7];
-            var imageScale = 1;
+            var imgMovement = 1;
             if (resource.removed !== 0) {
                 if (resource.death === 0) {
                     if ((WwMWW.destroy !== 0) && (soundLimit[WwMWW.destroy] === 0)) {
-                        AudioUtils.playFx(AudioUtils._fx.damage[WwMWW.destroy], 1, Math2d.distance(World.PLAYER.x, World.PLAYER.y, resource.x, resource.y) / 2.5);
+                        AudioUtils.playFx(AudioUtils._fx.damage[WwMWW.destroy], 1, Math2d.dist(World.PLAYER.x, World.PLAYER.y, resource.x, resource.y) / 2.5);
                         soundLimit[WwMWW.destroy] = 1;
                     }
                     vNwNM(resource, WwMWW.particles, type.particlesDist, type.particle);
                 }
                 resource.death += delta;
-                var value = window.Math.max(0, MathUtils.Ease.outQuart(1 - (resource.death / 300)));
-                ctx.globalAlpha = value;
-                imageScale = window.Math.min(1 + (0.35 * (1 - value)), 1.35);
+                var vW = window.Math.max(0, MathUtils.Ease.outQuart(1 - (resource.death / 300)));
+                ctx.globalAlpha = vW;
+                imgMovement = window.Math.min(1 + (0.35 * (1 - vW)), 1.35);
             } else if (resource.born < 700) {
                 if ((resource.born === 0) && (type.imgTop !== window.undefined)) {
                     if (WMWvN === 0) resource.breath = window.Math.floor(window.Math.random() * 6000);
@@ -17180,13 +17163,13 @@ try {
                         resource.breath = 3000;
                     }
                 }
-                var value = window.Math.min(1, MathUtils.Ease.outQuart(resource.born / 700));
-                ctx.globalAlpha = value;
-                imageScale = (0.5 * value) + 0.5;
+                var vW = window.Math.min(1, MathUtils.Ease.outQuart(resource.born / 700));
+                ctx.globalAlpha = vW;
+                imgMovement = (0.5 * vW) + 0.5;
             }
             if ((resource.state & 2) === 2) {
                 if ((WwMWW.impact !== 0) && (soundLimit[WwMWW.impact] === 0)) {
-                    AudioUtils.playFx(AudioUtils._fx.damage[WwMWW.impact], 1, Math2d.distance(World.PLAYER.x, World.PLAYER.y, resource.x, resource.y) / 2.8);
+                    AudioUtils.playFx(AudioUtils._fx.damage[WwMWW.impact], 1, Math2d.dist(World.PLAYER.x, World.PLAYER.y, resource.x, resource.y) / 2.8);
                     soundLimit[WwMWW.impact] = 1;
                 }
                 resource.hurt = 250;
@@ -17195,16 +17178,16 @@ try {
                 resource.state &= ~2;
                 vNwNM(resource, WwMWW.particles, type.particlesDist, 1);
             }
-            var offsetX = 0;
-            var offsetY = 0;
+            var wX = 0;
+            var wY = 0;
             if (resource.hurt > 0) {
                 var hurt = (resource.hurt > 200) ? ((20 * (250 - resource.hurt)) / 50) : ((20 * resource.hurt) / 200);
-                offsetX = window.Math.cos(resource.hurtAngle) * hurt;
-                offsetY = window.Math.sin(resource.hurtAngle) * hurt;
+                wX = window.Math.cos(resource.hurtAngle) * hurt;
+                wY = window.Math.sin(resource.hurtAngle) * hurt;
                 resource.hurt -= delta;
             }
             if (((resource.breath === 3000) && (WMWvN !== 0)) && (resource.hurt === 0)) {
-                CanvasUtils.drawImageHd(type.imgFull, (vertst + resource.x) + offsetX, (horist + resource.y) + offsetY, resource.angle, 0, 0, imageScale);
+                CanvasUtils.drawImageHd(type.imgFull, (vertst + resource.x) + wX, (horist + resource.y) + wY, resource.angle, 0, 0, imgMovement);
                 if (resource.removed !== 0) {
                     if (resource.death > 300) resource.removed = 2;
                     ctx.globalAlpha = 1;
@@ -17214,34 +17197,34 @@ try {
                 }
                 return;
             }
-            CanvasUtils.drawImageHd(type.img, (vertst + resource.x) + offsetX, (horist + resource.y) + offsetY, resource.angle, 0, 0, imageScale);
+            CanvasUtils.drawImageHd(type.img, (vertst + resource.x) + wX, (horist + resource.y) + wY, resource.angle, 0, 0, imgMovement);
             if (type.imgTop !== window.undefined) {
-                offsetX = 0;
-                offsetY = 0;
+                wX = 0;
+                wY = 0;
                 if (resource.hurt2 > 0) {
                     var hurt = (resource.hurt2 > 250) ? (10 * MathUtils.Ease.inQuad((300 - resource.hurt2) / 250)) : (10 * MathUtils.Ease.outQuad(resource.hurt2 / 250));
-                    offsetX = window.Math.cos(resource.hurtAngle) * hurt;
-                    offsetY = window.Math.sin(resource.hurtAngle) * hurt;
+                    wX = window.Math.cos(resource.hurtAngle) * hurt;
+                    wY = window.Math.sin(resource.hurtAngle) * hurt;
                     resource.hurt2 -= delta;
                 }
                 if (WMWvN === 0) {
                     if (resource.heal > 0) resource.heal = window.Math.max(0, resource.heal - delta);
                     else resource.breath += delta;
                     if (resource.breath > 6000) resource.breath = 0;
-                    if (resource.breath > 3000) imageScale += (0.025 * (resource.breath - 3000)) / 3000;
-                    else imageScale += 0.025 - ((0.025 * resource.breath) / 3000);
+                    if (resource.breath > 3000) imgMovement += (0.025 * (resource.breath - 3000)) / 3000;
+                    else imgMovement += 0.025 - ((0.025 * resource.breath) / 3000);
                 } else {
                     if (resource.heal === 0) resource.heal = resource.breath;
                     if (resource.breath > 6000) resource.breath = 0;
                     if (resource.breath > 3000) {
                         resource.breath = window.Math.max(3000, resource.breath - delta);
-                        imageScale += (0.025 * (resource.breath - 3000)) / 3000;
+                        imgMovement += (0.025 * (resource.breath - 3000)) / 3000;
                     } else if (resource.breath < 3000) {
                         resource.breath = window.Math.min(3000, resource.breath + delta);
-                        imageScale += 0.025 - ((0.025 * resource.breath) / 3000);
+                        imgMovement += 0.025 - ((0.025 * resource.breath) / 3000);
                     }
                 }
-                CanvasUtils.drawImageHd(type.imgTop, (vertst + resource.x) + offsetX, (horist + resource.y) + offsetY, resource.angle, 0, 0, imageScale);
+                CanvasUtils.drawImageHd(type.imgTop, (vertst + resource.x) + wX, (horist + resource.y) + wY, resource.angle, 0, 0, imgMovement);
             }
             if (resource.removed !== 0) {
                 if (resource.death > 300) resource.removed = 2;
@@ -17254,7 +17237,7 @@ try {
             /*
             var size = type.radius;
             ctx.beginPath();
-            ctx.arc(scaleby * ((vertst + resource.x) + offsetX),scaleby * ((horist + resource.y) + offsetY), scaleby * size, 0, 2 * Math.PI);
+            ctx.arc(scaleby * ((vertst + resource.x) + wX),scaleby * ((horist + resource.y) + wY), scaleby * size, 0, 2 * Math.PI);
             ctx.strokeStyle = '#FF0000';
             ctx.stroke();
             */
@@ -17273,23 +17256,23 @@ try {
             matrix[building.i][building.j].tile = frameId;
             matrix[building.i][building.j].tilePid = building.pid;
             matrix[building.i][building.j].category = window.undefined;
-            var rotation = (building.extra >> 5) & 3;
+            var Rot = (building.extra >> 5) & 3;
             var item = INVENTORY[building.extra >> 7];
-            var imageScale = 1;
+            var imgMovement = 1;
             matrix[building.i][building.j].category = item.detail.category;
             if (building.removed !== 0) {
                 if (building.death === 0) {
                     var _item = (item.particles === -1) ? INVENTORY[item.id].subtype[building.subtype] : item;
                     vNwNM(building, _item.particles, _item.particlesDist, 5);
                     if ((_item.destroy !== 0) && (soundLimit[_item.destroy] === 0)) {
-                        AudioUtils.playFx(AudioUtils._fx.damage[_item.destroy], 1, Math2d.distance(World.PLAYER.x, World.PLAYER.y, building.x, building.y) / 2.5);
+                        AudioUtils.playFx(AudioUtils._fx.damage[_item.destroy], 1, Math2d.dist(World.PLAYER.x, World.PLAYER.y, building.x, building.y) / 2.5);
                         soundLimit[_item.destroy] = 1;
                     }
                 }
                 building.death += delta;
-                var value = window.Math.max(0, MathUtils.Ease.outQuart(1 - (building.death / 300)));
-                ctx.globalAlpha = value;
-                imageScale = window.Math.min(1 + (0.35 * (1 - value)), 1.35);
+                var vW = window.Math.max(0, MathUtils.Ease.outQuart(1 - (building.death / 300)));
+                ctx.globalAlpha = vW;
+                imgMovement = window.Math.min(1 + (0.35 * (1 - vW)), 1.35);
             }
             if ((building.state & 2) === 2) {
                 building.hurt = 250;
@@ -17298,26 +17281,26 @@ try {
                 var _item = (item.particles === -1) ? INVENTORY[item.id].subtype[building.subtype] : item;
                 vNwNM(building, _item.particles, _item.particlesDist, 1);
                 if ((_item.impact !== 0) && (soundLimit[_item.impact] === 0)) {
-                    AudioUtils.playFx(AudioUtils._fx.damage[_item.impact], 1, Math2d.distance(World.PLAYER.x, World.PLAYER.y, building.x, building.y) / 2.8);
+                    AudioUtils.playFx(AudioUtils._fx.damage[_item.impact], 1, Math2d.dist(World.PLAYER.x, World.PLAYER.y, building.x, building.y) / 2.8);
                     soundLimit[_item.impact] = 1;
                 }
             }
-            var offsetX = 0;
-            var offsetY = 0;
+            var wX = 0;
+            var wY = 0;
             if (building.hurt > 0) {
                 if (building.hurt > 200) {
                     var hurt = (20 * (250 - building.hurt)) / 100;
-                    offsetX = window.Math.cos(building.hurtAngle) * hurt;
-                    offsetY = window.Math.sin(building.hurtAngle) * hurt;
+                    wX = window.Math.cos(building.hurtAngle) * hurt;
+                    wY = window.Math.sin(building.hurtAngle) * hurt;
                     building.hurt -= delta;
                 } else {
                     var hurt = (20 * building.hurt) / 200;
-                    offsetX = window.Math.cos(building.hurtAngle) * hurt;
-                    offsetY = window.Math.sin(building.hurtAngle) * hurt;
+                    wX = window.Math.cos(building.hurtAngle) * hurt;
+                    wY = window.Math.sin(building.hurtAngle) * hurt;
                     building.hurt -= delta;
                 }
             }
-            item.draw(item, building, offsetX, offsetY, rotation, imageScale);
+            item.draw(item, building, wX, wY, Rot, imgMovement);
             if (building.removed !== 0) {
                 if (building.death > 300) building.removed = 2;
                 ctx.globalAlpha = 1;
@@ -17333,69 +17316,16 @@ try {
                 }
             }
 
-            if (MOD.buildingOwner) drawBuildingRectangle(building);
+            //var text = "text";
+            //if (item.id != undefined)  text = item.id; else text = 'text';
+            //drawText(building.i, building.j, text)
         };
-
-        // Function to draw rectangle around building
-        function drawBuildingRectangle(building) {
-            // Constants
-            var gridSize = 100;
-            var width = 100;   // Use the first element for the width
-            var height = 100;  // Use the second element for the height
-
-            // Calculate snapped mouse coordinates
-            var mouseX = Math.round(GetAllTargets.mouseMapCords.x);
-            var mouseY = Math.round(GetAllTargets.mouseMapCords.y);
-            var snappedMouseX = Math.floor(mouseX / gridSize) * gridSize;
-            var snappedMouseY = Math.floor(mouseY / gridSize) * gridSize;
-
-            // Calculate grid positions
-            var gridPosX = Math.floor(building.x / gridSize);
-            var gridPosY = Math.floor(building.y / gridSize);
-
-            // Check if the mouse is over the building's grid position and building.pid is not 0
-            if (snappedMouseX === gridPosX * gridSize && snappedMouseY === gridPosY * gridSize && building.pid !== 0) {
-                // Calculate dimensions and positioning
-                var scaledWidth = scaleby * width;
-                var scaledHeight = scaleby * height;
-                var offsetX = 0; // Assuming offsetX and offsetY are defined elsewhere
-                var offsetY = 0; // Adjust as per your requirements
-
-                var x = scaleby * (vertst + snappedMouseX + offsetX) - scaledWidth / 2;
-                var y = scaleby * (horist + snappedMouseY + offsetY) - scaledHeight / 2;
-                x += scaledWidth / 2; // Adjust to center the rectangle
-                y += scaledHeight / 2; // Adjust to center the rectangle
-
-                var isInClan = 0;
-                if (((building.pid === World.PLAYER.id) || (((World.PLAYER.team !== -1) && (World.PLAYER.team === World.players[building.pid].team)) && (World.players[building.pid].teamUid === World.teams[World.PLAYER.team].uid)))) {
-                    isInClan = 1;
-                }
-
-                var lineColor;
-                if (isInClan === 1) {
-                    lineColor = MOD.TeamColor; // Team color
-                } else {
-                    lineColor = MOD.EnemyColor; // Enemy color
-                }
-
-                ctx.lineWidth = 2;
-                // Drawing rectangle
-                ctx.beginPath();
-                ctx.rect(x, y, scaledWidth, scaledHeight);
-                ctx.strokeStyle = lineColor;
-                ctx.stroke();
-
-                // Draw building ID or other information
-                drawDarkBox2(building, x, y)
-                drawText(building.i, building.j, building.pid);
-            }
-        }
         
         function _Bullets(bullet) {
             matrix[bullet.i][bullet.j].tile = frameId;
             matrix[bullet.i][bullet.j].tilePid = bullet.pid;
             matrix[bullet.i][bullet.j].category = window.undefined;
-            var progress = 1;
+            var MwMvw = 1;
             var i = bullet.i;
             var j = bullet.j;
             var NWvmm = (i <= 1) ? 0 : (i - 1);
@@ -17409,10 +17339,10 @@ try {
                     var M = VMV.b;
                     var len = VMV.i;
                     for (var k = 0; k < len; k++) {
-                        var playerGauges = M[k];
-                        var type = playerGauges.type;
-                        var mvnVn = Entitie.units[type][playerGauges.cycle];
-                        if (((mvnVn.pid !== World.PLAYER.id)) && (Math2d.distance(mvnVn.x, mvnVn.y, bullet.x, bullet.y) < (ENTITIES[type].radius - 4))) {
+                        var WvW = M[k];
+                        var type = WvW.type;
+                        var mvnVn = Entitie.units[type][WvW.cycle];
+                        if (((mvnVn.pid !== World.PLAYER.id)) && (Math2d.dist(mvnVn.x, mvnVn.y, bullet.x, bullet.y) < (ENTITIES[type].radius - 4))) {
                             window.console.log("DETECTED");
                             bullet.rx = bullet.x;
                             bullet.ry = bullet.y;
@@ -17424,14 +17354,14 @@ try {
             }
             if (bullet.removed !== 0) {
                 bullet.death += delta;
-                progress = window.Math.max(0, MathUtils.Ease.outQuart(1 - (bullet.death / 200)));
-                ctx.globalAlpha = progress;
+                MwMvw = window.Math.max(0, MathUtils.Ease.outQuart(1 - (bullet.death / 200)));
+                ctx.globalAlpha = MwMvw;
             }
-            var distance = Math2d.fastDist(bullet.nx, bullet.ny, bullet.x, bullet.y);
-            if ((distance < 400) || (bullet.removed !== 0)) {
-                ctx.globalAlpha = window.Math.min(distance / 400, progress);
+            var dist = Math2d.fastDist(bullet.nx, bullet.ny, bullet.x, bullet.y);
+            if ((dist < 400) || (bullet.removed !== 0)) {
+                ctx.globalAlpha = window.Math.min(dist / 400, MwMvw);
                 CanvasUtils.drawImageHd(ENTITIES[__ENTITIE_PLAYER__].bullets[bullet.extra][2], vertst + bullet.x, horist + bullet.y, bullet.angle, 0, 0, 1);
-                ctx.globalAlpha = progress;
+                ctx.globalAlpha = MwMvw;
                 CanvasUtils.drawImageHd(ENTITIES[__ENTITIE_PLAYER__].bullets[bullet.extra][1], vertst + bullet.x, horist + bullet.y, bullet.angle, 0, 0, 1);
             } else CanvasUtils.drawImageHd(ENTITIES[__ENTITIE_PLAYER__].bullets[bullet.extra][0], vertst + bullet.x, horist + bullet.y, bullet.angle, 0, 0, 1);
             if (bullet.removed !== 0) {
@@ -17457,29 +17387,16 @@ try {
             }
 
             if ((loot.removed === 0) && (Math2d.fastDist(loot.x, loot.y, loot.nx, loot.ny) < 1)) {
-                var distance = Math2d.fastDist(NmM, WWV, loot.x, loot.y);
-                if (distance < distance12k) {
+                var dist = Math2d.fastDist(NmM, WWV, loot.x, loot.y);
+                if (dist < distance12k) {
 
                     //Auto Loot
                     if (MOD.autoLoot) {
-                        if (MOD.useLootData) {
-                            for (let lootType in LootData) {
-                                if (
-                                    LootData.hasOwnProperty(lootType) &&
-                                    LootData[lootType].acquire &&
-                                    loot.extra === LootData[lootType].extra
-                                ) {
-                                    Client.sendPacket(window.JSON.stringify([12, loot.id]));
-                                    break; // Break the loop once we find a matching item
-                                }
-                            }
-                        } else {
                             Client.sendPacket(window.JSON.stringify([12, loot.id]));
-                        }
                     };
                     // -----
 
-                    distance12k = distance;
+                    distance12k = dist;
                     World.PLAYER.loot = loot.extra;
                     World.PLAYER.lootId = loot.id;
                     if (World.PLAYER.interaction <= 0) World.PLAYER.interaction = 0;
@@ -17493,8 +17410,8 @@ try {
                 ctx.globalAlpha = window.Math.max(0, MathUtils.Ease.outQuart(1 - (loot.death / 800)));
                 vnwmm = loot.death / 2400;
             } else if (loot.born < 500) {
-                var value = window.Math.min(1, MathUtils.Ease.outQuart(loot.born / 500));
-                ctx.globalAlpha = value;
+                var vW = window.Math.min(1, MathUtils.Ease.outQuart(loot.born / 500));
+                ctx.globalAlpha = vW;
             }
             loot.breath = (loot.breath + delta) % 1500;
             if (loot.breath < 750) breath = 0.95 + (MathUtils.Ease.inOutQuad(loot.breath / 750) * 0.1);
@@ -17516,8 +17433,8 @@ try {
             NNmMN[1] = 0;
             NNmMN[2] = 0;
             NNmMN[3] = 0;
-            nearestDistance = 12000;
-            distance12k = 12000;
+            vnVmM = 36000;
+            distance12k = 36000;
             World.PLAYER.extraLoot    = 0;
             World.PLAYER.buildingId   = -1;
             World.PLAYER.buildingArea = -1;
@@ -17722,11 +17639,11 @@ try {
         };
 
         function drawText(i, j, text) {  
-            var offsetY = scaleby * (((i * __TILE_SIZE__) + horist) + __TILE_SIZE2__);
-            var offsetX = scaleby * (((j * __TILE_SIZE__) + vertst) + __TILE_SIZE2__);
-            var size = 40
+            var wY = scaleby * (((i * __TILE_SIZE__) + horist) + __TILE_SIZE2__);
+            var wX = scaleby * (((j * __TILE_SIZE__) + vertst) + __TILE_SIZE2__);
+            var size = 30
             butlabel = GUI.renderText(text, "'Viga', sans-serif", "#FFFFFF", 38, 400, window.undefined, 16, 25, window.undefined, window.undefined, window.undefined, window.undefined, "#000000", 12);
-            ctx.drawImage(butlabel, offsetX, offsetY,  scaleby * size,  scaleby * size);
+            ctx.drawImage(butlabel, wX, wY,  scaleby * size,  scaleby * size);
         }
 
         function _DrawLines(player) {            
@@ -18012,7 +17929,7 @@ try {
         function _StopPoisonEffect() {
             NNWWn = 0;
         };
-        var handleResize;
+        var bodOnResize;
         var vmvNw = CanvasUtils.options.forceResolution;
         var nvMNv = 0;
         var wMmwW = 0;
@@ -18041,85 +17958,85 @@ try {
                 VnwwM += delta;
                 wMmwW = (wMmwW + delta) % 1500;
             }
-            var value = MathUtils.Ease.inOutQuad(((wMmwW > 750) ? (1500 - wMmwW) : wMmwW) / 750);
+            var vW = MathUtils.Ease.inOutQuad(((wMmwW > 750) ? (1500 - wMmwW) : wMmwW) / 750);
             if (((NNWWn < 750) && (wMmwW > 750)) && ((1500 - wMmwW) > NNWWn)) {
                 var WmNnV = window.Math.max(0, (1500 - wMmwW) / 750);
-                value = (0.5 * WmNnV) + (value * (1 - 0.5));
-            } else if (VnwwM > 750) value = 0.5 + (value * (1 - 0.5));
-            var mvWMM = value * 20;
-            Render.scale = nvMNv + value;
+                vW = (0.5 * WmNnV) + (vW * (1 - 0.5));
+            } else if (VnwwM > 750) vW = 0.5 + (vW * (1 - 0.5));
+            var mvWMM = vW * 20;
+            Render.scale = nvMNv + vW;
             CanvasUtils.options.scheduledRatio = CanvasUtils.options.deviceRatio / (vmvNw + mvWMM);
-            handleResize();
+            bodOnResize();
         };
         var vvMWV = window.document.createElement('canvas');
         var vWwnm = vvMWV.getContext('2d');
 
         function nvVmw() {
-            var temp;
-            var value;
+            var mWN;
+            var vW;
             var WvmWN = ctx;
-            value = 1 - MathUtils.Ease.inQuad(World.transition / 1000);
+            vW = 1 - MathUtils.Ease.inQuad(World.transition / 1000);
             vvMWV.width = canvas.width;
             vvMWV.height = canvas.height;
             ctx = vWwnm;
             ctx.save();
             var mnV = CanvasUtils.options.scheduledRatio / CanvasUtils.options.backingStoreRatio;
             ctx.scale(mnV, mnV);
-            temp = INVENTORY2;
+            mWN = INVENTORY2;
             INVENTORY2 = INVENTORY;
-            INVENTORY = temp;
-            temp = PARTICLES2;
+            INVENTORY = mWN;
+            mWN = PARTICLES2;
             PARTICLES2 = PARTICLES;
-            PARTICLES = temp;
-            temp = LOOT2;
+            PARTICLES = mWN;
+            mWN = LOOT2;
             LOOT2 = LOOT;
-            LOOT = temp;
-            temp = RESOURCES2;
+            LOOT = mWN;
+            mWN = RESOURCES2;
             RESOURCES2 = RESOURCES;
-            RESOURCES = temp;
-            temp = ENTITIES2;
+            RESOURCES = mWN;
+            mWN = ENTITIES2;
             ENTITIES2 = ENTITIES;
-            ENTITIES = temp;
-            temp = LIGHTFIRE2;
+            ENTITIES = mWN;
+            mWN = LIGHTFIRE2;
             LIGHTFIRE2 = LIGHTFIRE;
-            LIGHTFIRE = temp;
-            temp = GROUND2;
+            LIGHTFIRE = mWN;
+            mWN = GROUND2;
             GROUND2 = GROUND;
-            GROUND = temp;
-            temp = AI2;
+            GROUND = mWN;
+            mWN = AI2;
             AI2 = AI;
-            AI = temp;
+            AI = mWN;
             ctx.fillStyle = (World.day === 0) ? "#0B2129" : "#3D5942";
             ctx.fillRect(0, 0, canw, canh);
             vMwNm();
             RenderObjects();
-            temp = INVENTORY2;
+            mWN = INVENTORY2;
             INVENTORY2 = INVENTORY;
-            INVENTORY = temp;
-            temp = PARTICLES2;
+            INVENTORY = mWN;
+            mWN = PARTICLES2;
             PARTICLES2 = PARTICLES;
-            PARTICLES = temp;
-            temp = LOOT2;
+            PARTICLES = mWN;
+            mWN = LOOT2;
             LOOT2 = LOOT;
-            LOOT = temp;
-            temp = RESOURCES2;
+            LOOT = mWN;
+            mWN = RESOURCES2;
             RESOURCES2 = RESOURCES;
-            RESOURCES = temp;
-            temp = ENTITIES2;
+            RESOURCES = mWN;
+            mWN = ENTITIES2;
             ENTITIES2 = ENTITIES;
-            ENTITIES = temp;
-            temp = LIGHTFIRE2;
+            ENTITIES = mWN;
+            mWN = LIGHTFIRE2;
             LIGHTFIRE2 = LIGHTFIRE;
-            LIGHTFIRE = temp;
-            temp = GROUND2;
+            LIGHTFIRE = mWN;
+            mWN = GROUND2;
             GROUND2 = GROUND;
-            GROUND = temp;
-            temp = AI2;
+            GROUND = mWN;
+            mWN = AI2;
             AI2 = AI;
-            AI = temp;
+            AI = mWN;
             ctx.restore();
             ctx = WvmWN;
-            ctx.globalAlpha = value;
+            ctx.globalAlpha = vW;
             ctx.drawImage(vvMWV, 0, 0, canw, canh);
             ctx.globalAlpha = 1;
             World.transition = window.Math.max(0, World.transition - delta);
@@ -18175,7 +18092,7 @@ try {
             if (MOD.mouseFovEnable) GetAllTargets.mouseMapCords = _getMapCordsFromScreenMouseCords(GetAllTargets.mousePosition);
         };
 
-        function _SetDetection(value) {
+        function _SetDetection(vW) {
             WMWvN = 0;
         };
 
@@ -18183,9 +18100,9 @@ try {
             return {x: cords.x / scaleby - vertst, y: cords.y / scaleby - horist};
         };
 
-        function _SetParticles(value) {
-            localStorage2.setItem("particles", "" + value);
-            setParticles = value;
+        function _SetParticles(vW) {
+            localStorage2.setItem("particles", "" + vW);
+            setParticles = vW;
         };
         return {
             globalTime:         window.Date.now(),
@@ -18433,73 +18350,73 @@ __ENTITIE_RESOURCES_STOP__  = COUNTER_ENTITIE++;
 __ENTITIE_EXPLOSION__       = COUNTER_ENTITIE++;
 __ENTITIE_AI__              = COUNTER_ENTITIE++;
 
-ENTITIES[__ENTITIE_PLAYER__].update = function updateEntitiePlayer(entity, offsetX, offsetY) {
-    if (Math2d.distance(entity.x, entity.y, offsetX, offsetY) > 66) {
-        entity.rx = offsetX;
-        entity.ry = offsetY;
-        var angle = Math2d.angle(entity.rx, entity.ry, entity.nx, entity.ny);
-        entity.angleX = window.Math.cos(angle);
-        entity.angleY = window.Math.sin(angle);
+ENTITIES[__ENTITIE_PLAYER__].update = function updateEntitiePlayer(UNIT, wX, wY) {
+    if (Math2d.dist(UNIT.x, UNIT.y, wX, wY) > 66) {
+        UNIT.rx = wX;
+        UNIT.ry = wY;
+        var angle = Math2d.angle(UNIT.rx, UNIT.ry, UNIT.nx, UNIT.ny);
+        UNIT.angleX = window.Math.cos(angle);
+        UNIT.angleY = window.Math.sin(angle);
     }
-    entity.speed = (entity.state >> 8) / 100;
+    UNIT.speed = (UNIT.state >> 8) / 100;
 };
-ENTITIES[__ENTITIE_PLAYER__].init = function initEntitiePlayer(entity) {
-    var PLAYER = World.players[entity.pid];
+ENTITIES[__ENTITIE_PLAYER__].init = function initEntitiePlayer(UNIT) {
+    var PLAYER = World.players[UNIT.pid];
     for (var i = 0; i < PLAYER.runEffect.length; i++) PLAYER.runEffect[i].delay = 0;
     for (var i = 0; i < PLAYER.cartridges.length; i++) PLAYER.cartridges[i].delay = 0;
-    entity.angle = entity.nangle;
+    UNIT.angle = UNIT.nangle;
     if (PLAYER.ghoul > 0) {
-        entity.heal = 1;
-        entity.hurt2 = 1;
+        UNIT.heal = 1;
+        UNIT.hurt2 = 1;
     }
 };
 ENTITIES[__ENTITIE_AI__].update = ENTITIES[__ENTITIE_PLAYER__].update;
-ENTITIES[__ENTITIE_AI__].init = function initEntitieAI(entity) {
-    entity.heal = 1;
-    entity.hurt2 = 1;
-    entity.angle = entity.nangle;
-    entity.speed = (entity.state >> 8) / 100;
+ENTITIES[__ENTITIE_AI__].init = function initEntitieAI(UNIT) {
+    UNIT.heal = 1;
+    UNIT.hurt2 = 1;
+    UNIT.angle = UNIT.nangle;
+    UNIT.speed = (UNIT.state >> 8) / 100;
 };
-ENTITIES[__ENTITIE_LOOT__].init = function initEntitieLoot(entity) {
-    if ((entity.x !== entity.rx) || (entity.y !== entity.ry)) {
-        entity.angle = Math2d.angle(entity.x, entity.y, entity.rx, entity.ry);
-        entity.nangle = entity.angle;
+ENTITIES[__ENTITIE_LOOT__].init = function initEntitieLoot(UNIT) {
+    if ((UNIT.x !== UNIT.rx) || (UNIT.y !== UNIT.ry)) {
+        UNIT.angle = Math2d.angle(UNIT.x, UNIT.y, UNIT.rx, UNIT.ry);
+        UNIT.nangle = UNIT.angle;
     } else {
-        entity.angle += window.Math.PI / 2;
-        entity.nangle = entity.angle;
+        UNIT.angle += window.Math.PI / 2;
+        UNIT.nangle = UNIT.angle;
     }
 };
-ENTITIES[__ENTITIE_LOOT__].update = function updateEntitieLoot(entity, offsetX, offsetY) {
-    entity.hit = entity.state >> 8;
+ENTITIES[__ENTITIE_LOOT__].update = function updateEntitieLoot(UNIT, wX, wY) {
+    UNIT.hit = UNIT.state >> 8;
 };
-ENTITIES[__ENTITIE_BULLET__].init = function initEntitieBullet(entity) {
-    entity.hurtAngle = Math2d.angle(entity.rx, entity.ry, entity.nx, entity.ny);
-    var id = entity.extra;
-    entity.speed = (entity.state >> 8) / 100;
+ENTITIES[__ENTITIE_BULLET__].init = function initEntitieBullet(UNIT) {
+    UNIT.hurtAngle = Math2d.angle(UNIT.rx, UNIT.ry, UNIT.nx, UNIT.ny);
+    var id = UNIT.extra;
+    UNIT.speed = (UNIT.state >> 8) / 100;
     switch (id) {
         case 4:
         case 8:
-            var player = Entitie.findEntitie(__ENTITIE_PLAYER__, entity.pid, 0);
+            var player = Entitie.findEntitie(__ENTITIE_PLAYER__, UNIT.pid, 0);
             if (player !== null) {
                 player.extra = player.extra & 255;
                 player.hit = 0;
             }
             break;
         case 3:
-            var player = Entitie.findEntitie(__ENTITIE_PLAYER__, entity.pid, 0);
+            var player = Entitie.findEntitie(__ENTITIE_PLAYER__, UNIT.pid, 0);
             if (player !== null) player.hit = 0;
             break;
     }
 };
-ENTITIES[__ENTITIE_BULLET__].update = function updateEntitieBullet(entity, offsetX, offsetY) {
-    var angle = Math2d.angle(entity.x, entity.y, entity.nx, entity.ny);
+ENTITIES[__ENTITIE_BULLET__].update = function updateEntitieBullet(UNIT, wX, wY) {
+    var angle = Math2d.angle(UNIT.x, UNIT.y, UNIT.nx, UNIT.ny);
     var pi2 = window.Math.PI * 2;
-    var vWWMM = (((angle + pi2) % pi2) - ((entity.hurtAngle + pi2) % pi2)) % pi2;
+    var vWWMM = (((angle + pi2) % pi2) - ((UNIT.hurtAngle + pi2) % pi2)) % pi2;
     if (window.Math.abs(vWWMM) > 0.1) {
-        entity.rx = entity.x;
-        entity.ry = entity.y;
-        entity.nx = entity.x;
-        entity.ny = entity.y;
+        UNIT.rx = UNIT.x;
+        UNIT.ry = UNIT.y;
+        UNIT.nx = UNIT.x;
+        UNIT.ny = UNIT.y;
     }
 };
 ENTITIES[__ENTITIE_RESOURCES_TOP__].update = function updateEntitieBuilding() {
@@ -18507,23 +18424,23 @@ ENTITIES[__ENTITIE_RESOURCES_TOP__].update = function updateEntitieBuilding() {
 ENTITIES[__ENTITIE_RESOURCES_DOWN__].update = ENTITIES[__ENTITIE_RESOURCES_TOP__].update;
 ENTITIES[__ENTITIE_RESOURCES_MID__].update = ENTITIES[__ENTITIE_RESOURCES_TOP__].update;
 ENTITIES[__ENTITIE_RESOURCES_STOP__].update = ENTITIES[__ENTITIE_RESOURCES_TOP__].update;
-ENTITIES[__ENTITIE_BUILD_TOP__].update = function updateEntitieBuilding(entity, offsetX, offsetY) {
-    var rotation = (entity.extra >> 5) & 3;
-    entity.subtype = (entity.state >> 5) & 63;
-    entity.broke = entity.state >> 14;
-    entity.state = entity.state & 16383;
-    var item = INVENTORY[entity.extra >> 7];
-    entity.x = ((window.Math.floor(offsetX / Render.__TILE_SIZE__) * Render.__TILE_SIZE__) + Render.__TILE_SIZE2__) + item.xCenter[rotation];
-    entity.y = ((window.Math.floor(offsetY / Render.__TILE_SIZE__) * Render.__TILE_SIZE__) + Render.__TILE_SIZE2__) + item.yCenter[rotation];
-    entity.rx = entity.x;
-    entity.ry = entity.y;
-    entity.nx = entity.x;
-    entity.ny = entity.y;
-    entity.px = entity.x;
-    entity.py = entity.y;
-    if ((item.door === 1) && ((entity.state & 16) === 16)) {
-        entity.px = ((window.Math.floor(entity.j + item.jMove[rotation]) * Render.__TILE_SIZE__) + Render.__TILE_SIZE2__) + item.xCenter[(rotation + 1) % 4];
-        entity.py = ((window.Math.floor(entity.i + item.iMove[rotation]) * Render.__TILE_SIZE__) + Render.__TILE_SIZE2__) + item.yCenter[(rotation + 1) % 4];
+ENTITIES[__ENTITIE_BUILD_TOP__].update = function updateEntitieBuilding(UNIT, wX, wY) {
+    var Rot = (UNIT.extra >> 5) & 3;
+    UNIT.subtype = (UNIT.state >> 5) & 63;
+    UNIT.broke = UNIT.state >> 14;
+    UNIT.state = UNIT.state & 16383;
+    var item = INVENTORY[UNIT.extra >> 7];
+    UNIT.x = ((window.Math.floor(wX / Render.__TILE_SIZE__) * Render.__TILE_SIZE__) + Render.__TILE_SIZE2__) + item.xCenter[Rot];
+    UNIT.y = ((window.Math.floor(wY / Render.__TILE_SIZE__) * Render.__TILE_SIZE__) + Render.__TILE_SIZE2__) + item.yCenter[Rot];
+    UNIT.rx = UNIT.x;
+    UNIT.ry = UNIT.y;
+    UNIT.nx = UNIT.x;
+    UNIT.ny = UNIT.y;
+    UNIT.px = UNIT.x;
+    UNIT.py = UNIT.y;
+    if ((item.door === 1) && ((UNIT.state & 16) === 16)) {
+        UNIT.px = ((window.Math.floor(UNIT.j + item.jMove[Rot]) * Render.__TILE_SIZE__) + Render.__TILE_SIZE2__) + item.xCenter[(Rot + 1) % 4];
+        UNIT.py = ((window.Math.floor(UNIT.i + item.iMove[Rot]) * Render.__TILE_SIZE__) + Render.__TILE_SIZE2__) + item.yCenter[(Rot + 1) % 4];
     }
 };
 ENTITIES[__ENTITIE_BUILD_DOWN__].update = ENTITIES[__ENTITIE_BUILD_TOP__].update;
@@ -43871,8 +43788,8 @@ var AudioManager = (function() {
         if ((NNwwM !== AudioManager.geiger) && (mWWVV === 1)) {
             if (VNWVM === 0) {
                 VNWVM = 1000;
-                var distance = AudioManager.geiger - NNwwM;
-                AudioUtils.fadeSound(AudioUtils.audio.geiger, 250, distance);
+                var dist = AudioManager.geiger - NNwwM;
+                AudioUtils.fadeSound(AudioUtils.audio.geiger, 250, dist);
                 NNwwM = AudioManager.geiger;
             }
             VNWVM = window.Math.max(0, VNWVM - delta);
@@ -43928,7 +43845,7 @@ if (debugMode === window.undefined) {
     window.aiptag["cmd"] = window.aiptag["cmd"] || ([]);
     window.aiptag["cmd"]["display"] = window.aiptag["cmd"]["display"] || ([]);
     window.aiptag["cmd"]["player"] = window.aiptag["cmd"]["player"] || ([]);
-     var fun = function() {        
+    /* var fun = function() {        
         adplayer = new aipPlayer({
             AD_WIDTH: 960,
             AD_HEIGHT: 540,
@@ -43946,7 +43863,7 @@ if (debugMode === window.undefined) {
             AIP_REMOVE: function() {}
         });
     };
-    window.aiptag["cmd"]["player"].push(fun);
+    window.aiptag["cmd"]["player"].push(fun); */
 }
 
 function reloadIframe() {
@@ -43995,16 +43912,5 @@ waitHTMLAndRun();
 //var noDebug = window.console;
 //noDebug.log = noDebug.info = noDebug.error = noDebug.warn = noDebug.debug = noDebug.NWVnW = noDebug.trace = noDebug.time = noDebug.timeEnd = function() {};
 
-/**
- * dat-gui JavaScript Controller Library
- * https://github.com/dataarts/dat.gui
- *
- * Copyright 2011 Data Arts Team, Google Creative Lab
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- */
-!function(e,t){"object"==typeof exports&&"undefined"!=typeof module?t(exports):"function"==typeof define&&define.amd?define(["exports"],t):t(e.dat={})}(this,function(e){"use strict";function t(e,t){var n=e.__state.conversionName.toString(),o=Math.round(e.r),i=Math.round(e.g),r=Math.round(e.b),s=e.a,a=Math.round(e.h),l=e.s.toFixed(1),d=e.v.toFixed(1);if(t||"THREE_CHAR_HEX"===n||"SIX_CHAR_HEX"===n){for(var c=e.hex.toString(16);c.length<6;)c="0"+c;return"#"+c}return"CSS_RGB"===n?"rgb("+o+","+i+","+r+")":"CSS_RGBA"===n?"rgba("+o+","+i+","+r+","+s+")":"HEX"===n?"0x"+e.hex.toString(16):"RGB_ARRAY"===n?"["+o+","+i+","+r+"]":"RGBA_ARRAY"===n?"["+o+","+i+","+r+","+s+"]":"RGB_OBJ"===n?"{r:"+o+",g:"+i+",b:"+r+"}":"RGBA_OBJ"===n?"{r:"+o+",g:"+i+",b:"+r+",a:"+s+"}":"HSV_OBJ"===n?"{h:"+a+",s:"+l+",v:"+d+"}":"HSVA_OBJ"===n?"{h:"+a+",s:"+l+",v:"+d+",a:"+s+"}":"unknown format"}function n(e,t,n){Object.defineProperty(e,t,{get:function(){return"RGB"===this.__state.space?this.__state[t]:(I.recalculateRGB(this,t,n),this.__state[t])},set:function(e){"RGB"!==this.__state.space&&(I.recalculateRGB(this,t,n),this.__state.space="RGB"),this.__state[t]=e}})}function o(e,t){Object.defineProperty(e,t,{get:function(){return"HSV"===this.__state.space?this.__state[t]:(I.recalculateHSV(this),this.__state[t])},set:function(e){"HSV"!==this.__state.space&&(I.recalculateHSV(this),this.__state.space="HSV"),this.__state[t]=e}})}function i(e){if("0"===e||S.isUndefined(e))return 0;var t=e.match(U);return S.isNull(t)?0:parseFloat(t[1])}function r(e){var t=e.toString();return t.indexOf(".")>-1?t.length-t.indexOf(".")-1:0}function s(e,t){var n=Math.pow(10,t);return Math.round(e*n)/n}function a(e,t,n,o,i){return o+(e-t)/(n-t)*(i-o)}function l(e,t,n,o){e.style.background="",S.each(ee,function(i){e.style.cssText+="background: "+i+"linear-gradient("+t+", "+n+" 0%, "+o+" 100%); "})}function d(e){e.style.background="",e.style.cssText+="background: -moz-linear-gradient(top,  #ff0000 0%, #ff00ff 17%, #0000ff 34%, #00ffff 50%, #00ff00 67%, #ffff00 84%, #ff0000 100%);",e.style.cssText+="background: -webkit-linear-gradient(top,  #ff0000 0%,#ff00ff 17%,#0000ff 34%,#00ffff 50%,#00ff00 67%,#ffff00 84%,#ff0000 100%);",e.style.cssText+="background: -o-linear-gradient(top,  #ff0000 0%,#ff00ff 17%,#0000ff 34%,#00ffff 50%,#00ff00 67%,#ffff00 84%,#ff0000 100%);",e.style.cssText+="background: -ms-linear-gradient(top,  #ff0000 0%,#ff00ff 17%,#0000ff 34%,#00ffff 50%,#00ff00 67%,#ffff00 84%,#ff0000 100%);",e.style.cssText+="background: linear-gradient(top,  #ff0000 0%,#ff00ff 17%,#0000ff 34%,#00ffff 50%,#00ff00 67%,#ffff00 84%,#ff0000 100%);"}function c(e,t,n){var o=document.createElement("li");return t&&o.appendChild(t),n?e.__ul.insertBefore(o,n):e.__ul.appendChild(o),e.onResize(),o}function u(e){X.unbind(window,"resize",e.__resizeHandler),e.saveToLocalStorageIfPossible&&X.unbind(window,"unload",e.saveToLocalStorageIfPossible)}function _(e,t){var n=e.__preset_select[e.__preset_select.selectedIndex];n.innerHTML=t?n.value+"*":n.value}function h(e,t,n){if(n.__li=t,n.__gui=e,S.extend(n,{options:function(t){if(arguments.length>1){var o=n.__li.nextElementSibling;return n.remove(),f(e,n.object,n.property,{before:o,factoryArgs:[S.toArray(arguments)]})}if(S.isArray(t)||S.isObject(t)){var i=n.__li.nextElementSibling;return n.remove(),f(e,n.object,n.property,{before:i,factoryArgs:[t]})}},name:function(e){return n.__li.firstElementChild.firstElementChild.innerHTML=e,n},listen:function(){return n.__gui.listen(n),n},remove:function(){return n.__gui.remove(n),n}}),n instanceof q){var o=new Q(n.object,n.property,{min:n.__min,max:n.__max,step:n.__step});S.each(["updateDisplay","onChange","onFinishChange","step","min","max"],function(e){var t=n[e],i=o[e];n[e]=o[e]=function(){var e=Array.prototype.slice.call(arguments);return i.apply(o,e),t.apply(n,e)}}),X.addClass(t,"has-slider"),n.domElement.insertBefore(o.domElement,n.domElement.firstElementChild)}else if(n instanceof Q){var i=function(t){if(S.isNumber(n.__min)&&S.isNumber(n.__max)){var o=n.__li.firstElementChild.firstElementChild.innerHTML,i=n.__gui.__listening.indexOf(n)>-1;n.remove();var r=f(e,n.object,n.property,{before:n.__li.nextElementSibling,factoryArgs:[n.__min,n.__max,n.__step]});return r.name(o),i&&r.listen(),r}return t};n.min=S.compose(i,n.min),n.max=S.compose(i,n.max)}else n instanceof K?(X.bind(t,"click",function(){X.fakeEvent(n.__checkbox,"click")}),X.bind(n.__checkbox,"click",function(e){e.stopPropagation()})):n instanceof Z?(X.bind(t,"click",function(){X.fakeEvent(n.__button,"click")}),X.bind(t,"mouseover",function(){X.addClass(n.__button,"hover")}),X.bind(t,"mouseout",function(){X.removeClass(n.__button,"hover")})):n instanceof $&&(X.addClass(t,"color"),n.updateDisplay=S.compose(function(e){return t.style.borderLeftColor=n.__color.toString(),e},n.updateDisplay),n.updateDisplay());n.setValue=S.compose(function(t){return e.getRoot().__preset_select&&n.isModified()&&_(e.getRoot(),!0),t},n.setValue)}function p(e,t){var n=e.getRoot(),o=n.__rememberedObjects.indexOf(t.object);if(-1!==o){var i=n.__rememberedObjectIndecesToControllers[o];if(void 0===i&&(i={},n.__rememberedObjectIndecesToControllers[o]=i),i[t.property]=t,n.load&&n.load.remembered){var r=n.load.remembered,s=void 0;if(r[e.preset])s=r[e.preset];else{if(!r[se])return;s=r[se]}if(s[o]&&void 0!==s[o][t.property]){var a=s[o][t.property];t.initialValue=a,t.setValue(a)}}}}function f(e,t,n,o){if(void 0===t[n])throw new Error('Object "'+t+'" has no property "'+n+'"');var i=void 0;if(o.color)i=new $(t,n);else{var r=[t,n].concat(o.factoryArgs);i=ne.apply(e,r)}o.before instanceof z&&(o.before=o.before.__li),p(e,i),X.addClass(i.domElement,"c");var s=document.createElement("span");X.addClass(s,"property-name"),s.innerHTML=i.property;var a=document.createElement("div");a.appendChild(s),a.appendChild(i.domElement);var l=c(e,a,o.before);return X.addClass(l,he.CLASS_CONTROLLER_ROW),i instanceof $?X.addClass(l,"color"):X.addClass(l,H(i.getValue())),h(e,l,i),e.__controllers.push(i),i}function m(e,t){return document.location.href+"."+t}function g(e,t,n){var o=document.createElement("option");o.innerHTML=t,o.value=t,e.__preset_select.appendChild(o),n&&(e.__preset_select.selectedIndex=e.__preset_select.length-1)}function b(e,t){t.style.display=e.useLocalStorage?"block":"none"}function v(e){var t=e.__save_row=document.createElement("li");X.addClass(e.domElement,"has-save"),e.__ul.insertBefore(t,e.__ul.firstChild),X.addClass(t,"save-row");var n=document.createElement("span");n.innerHTML="&nbsp;",X.addClass(n,"button gears");var o=document.createElement("span");o.innerHTML="Save",X.addClass(o,"button"),X.addClass(o,"save");var i=document.createElement("span");i.innerHTML="New",X.addClass(i,"button"),X.addClass(i,"save-as");var r=document.createElement("span");r.innerHTML="Revert",X.addClass(r,"button"),X.addClass(r,"revert");var s=e.__preset_select=document.createElement("select");if(e.load&&e.load.remembered?S.each(e.load.remembered,function(t,n){g(e,n,n===e.preset)}):g(e,se,!1),X.bind(s,"change",function(){for(var t=0;t<e.__preset_select.length;t++)e.__preset_select[t].innerHTML=e.__preset_select[t].value;e.preset=this.value}),t.appendChild(s),t.appendChild(n),t.appendChild(o),t.appendChild(i),t.appendChild(r),ae){var a=document.getElementById("dg-local-explain"),l=document.getElementById("dg-local-storage");document.getElementById("dg-save-locally").style.display="block","true"===localStorage.getItem(m(e,"isLocal"))&&l.setAttribute("checked","checked"),b(e,a),X.bind(l,"change",function(){e.useLocalStorage=!e.useLocalStorage,b(e,a)})}var d=document.getElementById("dg-new-constructor");X.bind(d,"keydown",function(e){!e.metaKey||67!==e.which&&67!==e.keyCode||le.hide()}),X.bind(n,"click",function(){d.innerHTML=JSON.stringify(e.getSaveObject(),void 0,2),le.show(),d.focus(),d.select()}),X.bind(o,"click",function(){e.save()}),X.bind(i,"click",function(){var t=prompt("Enter a new preset name.");t&&e.saveAs(t)}),X.bind(r,"click",function(){e.revert()})}function y(e){function t(t){return t.preventDefault(),e.width+=i-t.clientX,e.onResize(),i=t.clientX,!1}function n(){X.removeClass(e.__closeButton,he.CLASS_DRAG),X.unbind(window,"mousemove",t),X.unbind(window,"mouseup",n)}function o(o){return o.preventDefault(),i=o.clientX,X.addClass(e.__closeButton,he.CLASS_DRAG),X.bind(window,"mousemove",t),X.bind(window,"mouseup",n),!1}var i=void 0;e.__resize_handle=document.createElement("div"),S.extend(e.__resize_handle.style,{width:"6px",marginLeft:"-3px",height:"200px",cursor:"ew-resize",position:"absolute"}),X.bind(e.__resize_handle,"mousedown",o),X.bind(e.__closeButton,"mousedown",o),e.domElement.insertBefore(e.__resize_handle,e.domElement.firstElementChild)}function w(e,t){e.domElement.style.width=t+"px",e.__save_row&&e.autoPlace&&(e.__save_row.style.width=t+"px"),e.__closeButton&&(e.__closeButton.style.width=t+"px")}function x(e,t){var n={};return S.each(e.__rememberedObjects,function(o,i){var r={},s=e.__rememberedObjectIndecesToControllers[i];S.each(s,function(e,n){r[n]=t?e.initialValue:e.getValue()}),n[i]=r}),n}function E(e){for(var t=0;t<e.__preset_select.length;t++)e.__preset_select[t].value===e.preset&&(e.__preset_select.selectedIndex=t)}function C(e){0!==e.length&&oe.call(window,function(){C(e)}),S.each(e,function(e){e.updateDisplay()})}var A=Array.prototype.forEach,k=Array.prototype.slice,S={BREAK:{},extend:function(e){return this.each(k.call(arguments,1),function(t){(this.isObject(t)?Object.keys(t):[]).forEach(function(n){this.isUndefined(t[n])||(e[n]=t[n])}.bind(this))},this),e},defaults:function(e){return this.each(k.call(arguments,1),function(t){(this.isObject(t)?Object.keys(t):[]).forEach(function(n){this.isUndefined(e[n])&&(e[n]=t[n])}.bind(this))},this),e},compose:function(){var e=k.call(arguments);return function(){for(var t=k.call(arguments),n=e.length-1;n>=0;n--)t=[e[n].apply(this,t)];return t[0]}},each:function(e,t,n){if(e)if(A&&e.forEach&&e.forEach===A)e.forEach(t,n);else if(e.length===e.length+0){var o=void 0,i=void 0;for(o=0,i=e.length;o<i;o++)if(o in e&&t.call(n,e[o],o)===this.BREAK)return}else for(var r in e)if(t.call(n,e[r],r)===this.BREAK)return},defer:function(e){setTimeout(e,0)},debounce:function(e,t,n){var o=void 0;return function(){var i=this,r=arguments,s=n||!o;clearTimeout(o),o=setTimeout(function(){o=null,n||e.apply(i,r)},t),s&&e.apply(i,r)}},toArray:function(e){return e.toArray?e.toArray():k.call(e)},isUndefined:function(e){return void 0===e},isNull:function(e){return null===e},isNaN:function(e){function t(t){return e.apply(this,arguments)}return t.toString=function(){return e.toString()},t}(function(e){return isNaN(e)}),isArray:Array.isArray||function(e){return e.constructor===Array},isObject:function(e){return e===Object(e)},isNumber:function(e){return e===e+0},isString:function(e){return e===e+""},isBoolean:function(e){return!1===e||!0===e},isFunction:function(e){return e instanceof Function}},O=[{litmus:S.isString,conversions:{THREE_CHAR_HEX:{read:function(e){var t=e.match(/^#([A-F0-9])([A-F0-9])([A-F0-9])$/i);return null!==t&&{space:"HEX",hex:parseInt("0x"+t[1].toString()+t[1].toString()+t[2].toString()+t[2].toString()+t[3].toString()+t[3].toString(),0)}},write:t},SIX_CHAR_HEX:{read:function(e){var t=e.match(/^#([A-F0-9]{6})$/i);return null!==t&&{space:"HEX",hex:parseInt("0x"+t[1].toString(),0)}},write:t},CSS_RGB:{read:function(e){var t=e.match(/^rgb\(\s*(\S+)\s*,\s*(\S+)\s*,\s*(\S+)\s*\)/);return null!==t&&{space:"RGB",r:parseFloat(t[1]),g:parseFloat(t[2]),b:parseFloat(t[3])}},write:t},CSS_RGBA:{read:function(e){var t=e.match(/^rgba\(\s*(\S+)\s*,\s*(\S+)\s*,\s*(\S+)\s*,\s*(\S+)\s*\)/);return null!==t&&{space:"RGB",r:parseFloat(t[1]),g:parseFloat(t[2]),b:parseFloat(t[3]),a:parseFloat(t[4])}},write:t}}},{litmus:S.isNumber,conversions:{HEX:{read:function(e){return{space:"HEX",hex:e,conversionName:"HEX"}},write:function(e){return e.hex}}}},{litmus:S.isArray,conversions:{RGB_ARRAY:{read:function(e){return 3===e.length&&{space:"RGB",r:e[0],g:e[1],b:e[2]}},write:function(e){return[e.r,e.g,e.b]}},RGBA_ARRAY:{read:function(e){return 4===e.length&&{space:"RGB",r:e[0],g:e[1],b:e[2],a:e[3]}},write:function(e){return[e.r,e.g,e.b,e.a]}}}},{litmus:S.isObject,conversions:{RGBA_OBJ:{read:function(e){return!!(S.isNumber(e.r)&&S.isNumber(e.g)&&S.isNumber(e.b)&&S.isNumber(e.a))&&{space:"RGB",r:e.r,g:e.g,b:e.b,a:e.a}},write:function(e){return{r:e.r,g:e.g,b:e.b,a:e.a}}},RGB_OBJ:{read:function(e){return!!(S.isNumber(e.r)&&S.isNumber(e.g)&&S.isNumber(e.b))&&{space:"RGB",r:e.r,g:e.g,b:e.b}},write:function(e){return{r:e.r,g:e.g,b:e.b}}},HSVA_OBJ:{read:function(e){return!!(S.isNumber(e.h)&&S.isNumber(e.s)&&S.isNumber(e.v)&&S.isNumber(e.a))&&{space:"HSV",h:e.h,s:e.s,v:e.v,a:e.a}},write:function(e){return{h:e.h,s:e.s,v:e.v,a:e.a}}},HSV_OBJ:{read:function(e){return!!(S.isNumber(e.h)&&S.isNumber(e.s)&&S.isNumber(e.v))&&{space:"HSV",h:e.h,s:e.s,v:e.v}},write:function(e){return{h:e.h,s:e.s,v:e.v}}}}}],T=void 0,L=void 0,R=function(){L=!1;var e=arguments.length>1?S.toArray(arguments):arguments[0];return S.each(O,function(t){if(t.litmus(e))return S.each(t.conversions,function(t,n){if(T=t.read(e),!1===L&&!1!==T)return L=T,T.conversionName=n,T.conversion=t,S.BREAK}),S.BREAK}),L},B=void 0,N={hsv_to_rgb:function(e,t,n){var o=Math.floor(e/60)%6,i=e/60-Math.floor(e/60),r=n*(1-t),s=n*(1-i*t),a=n*(1-(1-i)*t),l=[[n,a,r],[s,n,r],[r,n,a],[r,s,n],[a,r,n],[n,r,s]][o];return{r:255*l[0],g:255*l[1],b:255*l[2]}},rgb_to_hsv:function(e,t,n){var o=Math.min(e,t,n),i=Math.max(e,t,n),r=i-o,s=void 0,a=void 0;return 0===i?{h:NaN,s:0,v:0}:(a=r/i,s=e===i?(t-n)/r:t===i?2+(n-e)/r:4+(e-t)/r,(s/=6)<0&&(s+=1),{h:360*s,s:a,v:i/255})},rgb_to_hex:function(e,t,n){var o=this.hex_with_component(0,2,e);return o=this.hex_with_component(o,1,t),o=this.hex_with_component(o,0,n)},component_from_hex:function(e,t){return e>>8*t&255},hex_with_component:function(e,t,n){return n<<(B=8*t)|e&~(255<<B)}},H="function"==typeof Symbol&&"symbol"==typeof Symbol.iterator?function(e){return typeof e}:function(e){return e&&"function"==typeof Symbol&&e.constructor===Symbol&&e!==Symbol.prototype?"symbol":typeof e},F=function(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")},P=function(){function e(e,t){for(var n=0;n<t.length;n++){var o=t[n];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(e,o.key,o)}}return function(t,n,o){return n&&e(t.prototype,n),o&&e(t,o),t}}(),D=function e(t,n,o){null===t&&(t=Function.prototype);var i=Object.getOwnPropertyDescriptor(t,n);if(void 0===i){var r=Object.getPrototypeOf(t);return null===r?void 0:e(r,n,o)}if("value"in i)return i.value;var s=i.get;if(void 0!==s)return s.call(o)},j=function(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)},V=function(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t},I=function(){function e(){if(F(this,e),this.__state=R.apply(this,arguments),!1===this.__state)throw new Error("Failed to interpret color arguments");this.__state.a=this.__state.a||1}return P(e,[{key:"toString",value:function(){return t(this)}},{key:"toHexString",value:function(){return t(this,!0)}},{key:"toOriginal",value:function(){return this.__state.conversion.write(this)}}]),e}();I.recalculateRGB=function(e,t,n){if("HEX"===e.__state.space)e.__state[t]=N.component_from_hex(e.__state.hex,n);else{if("HSV"!==e.__state.space)throw new Error("Corrupted color state");S.extend(e.__state,N.hsv_to_rgb(e.__state.h,e.__state.s,e.__state.v))}},I.recalculateHSV=function(e){var t=N.rgb_to_hsv(e.r,e.g,e.b);S.extend(e.__state,{s:t.s,v:t.v}),S.isNaN(t.h)?S.isUndefined(e.__state.h)&&(e.__state.h=0):e.__state.h=t.h},I.COMPONENTS=["r","g","b","h","s","v","hex","a"],n(I.prototype,"r",2),n(I.prototype,"g",1),n(I.prototype,"b",0),o(I.prototype,"h"),o(I.prototype,"s"),o(I.prototype,"v"),Object.defineProperty(I.prototype,"a",{get:function(){return this.__state.a},set:function(e){this.__state.a=e}}),Object.defineProperty(I.prototype,"hex",{get:function(){return"HEX"!==this.__state.space&&(this.__state.hex=N.rgb_to_hex(this.r,this.g,this.b),this.__state.space="HEX"),this.__state.hex},set:function(e){this.__state.space="HEX",this.__state.hex=e}});var z=function(){function e(t,n){F(this,e),this.initialValue=t[n],this.domElement=document.createElement("div"),this.object=t,this.property=n,this.__onChange=void 0,this.__onFinishChange=void 0}return P(e,[{key:"onChange",value:function(e){return this.__onChange=e,this}},{key:"onFinishChange",value:function(e){return this.__onFinishChange=e,this}},{key:"setValue",value:function(e){return this.object[this.property]=e,this.__onChange&&this.__onChange.call(this,e),this.updateDisplay(),this}},{key:"getValue",value:function(){return this.object[this.property]}},{key:"updateDisplay",value:function(){return this}},{key:"isModified",value:function(){return this.initialValue!==this.getValue()}}]),e}(),M={HTMLEvents:["change"],MouseEvents:["click","mousemove","mousedown","mouseup","mouseover"],KeyboardEvents:["keydown"]},G={};S.each(M,function(e,t){S.each(e,function(e){G[e]=t})});var U=/(\d+(\.\d+)?)px/,X={makeSelectable:function(e,t){void 0!==e&&void 0!==e.style&&(e.onselectstart=t?function(){return!1}:function(){},e.style.MozUserSelect=t?"auto":"none",e.style.KhtmlUserSelect=t?"auto":"none",e.unselectable=t?"on":"off")},makeFullscreen:function(e,t,n){var o=n,i=t;S.isUndefined(i)&&(i=!0),S.isUndefined(o)&&(o=!0),e.style.position="absolute",i&&(e.style.left=0,e.style.right=0),o&&(e.style.top=0,e.style.bottom=0)},fakeEvent:function(e,t,n,o){var i=n||{},r=G[t];if(!r)throw new Error("Event type "+t+" not supported.");var s=document.createEvent(r);switch(r){case"MouseEvents":var a=i.x||i.clientX||0,l=i.y||i.clientY||0;s.initMouseEvent(t,i.bubbles||!1,i.cancelable||!0,window,i.clickCount||1,0,0,a,l,!1,!1,!1,!1,0,null);break;case"KeyboardEvents":var d=s.initKeyboardEvent||s.initKeyEvent;S.defaults(i,{cancelable:!0,ctrlKey:!1,altKey:!1,shiftKey:!1,metaKey:!1,keyCode:void 0,charCode:void 0}),d(t,i.bubbles||!1,i.cancelable,window,i.ctrlKey,i.altKey,i.shiftKey,i.metaKey,i.keyCode,i.charCode);break;default:s.initEvent(t,i.bubbles||!1,i.cancelable||!0)}S.defaults(s,o),e.dispatchEvent(s)},bind:function(e,t,n,o){var i=o||!1;return e.addEventListener?e.addEventListener(t,n,i):e.attachEvent&&e.attachEvent("on"+t,n),X},unbind:function(e,t,n,o){var i=o||!1;return e.removeEventListener?e.removeEventListener(t,n,i):e.detachEvent&&e.detachEvent("on"+t,n),X},addClass:function(e,t){if(void 0===e.className)e.className=t;else if(e.className!==t){var n=e.className.split(/ +/);-1===n.indexOf(t)&&(n.push(t),e.className=n.join(" ").replace(/^\s+/,"").replace(/\s+$/,""))}return X},removeClass:function(e,t){if(t)if(e.className===t)e.removeAttribute("class");else{var n=e.className.split(/ +/),o=n.indexOf(t);-1!==o&&(n.splice(o,1),e.className=n.join(" "))}else e.className=void 0;return X},hasClass:function(e,t){return new RegExp("(?:^|\\s+)"+t+"(?:\\s+|$)").test(e.className)||!1},getWidth:function(e){var t=getComputedStyle(e);return i(t["border-left-width"])+i(t["border-right-width"])+i(t["padding-left"])+i(t["padding-right"])+i(t.width)},getHeight:function(e){var t=getComputedStyle(e);return i(t["border-top-width"])+i(t["border-bottom-width"])+i(t["padding-top"])+i(t["padding-bottom"])+i(t.height)},getOffset:function(e){var t=e,n={left:0,top:0};if(t.offsetParent)do{n.left+=t.offsetLeft,n.top+=t.offsetTop,t=t.offsetParent}while(t);return n},isActive:function(e){return e===document.activeElement&&(e.type||e.href)}},K=function(e){function t(e,n){F(this,t);var o=V(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,n)),i=o;return o.__prev=o.getValue(),o.__checkbox=document.createElement("input"),o.__checkbox.setAttribute("type","checkbox"),X.bind(o.__checkbox,"change",function(){i.setValue(!i.__prev)},!1),o.domElement.appendChild(o.__checkbox),o.updateDisplay(),o}return j(t,z),P(t,[{key:"setValue",value:function(e){var n=D(t.prototype.__proto__||Object.getPrototypeOf(t.prototype),"setValue",this).call(this,e);return this.__onFinishChange&&this.__onFinishChange.call(this,this.getValue()),this.__prev=this.getValue(),n}},{key:"updateDisplay",value:function(){return!0===this.getValue()?(this.__checkbox.setAttribute("checked","checked"),this.__checkbox.checked=!0,this.__prev=!0):(this.__checkbox.checked=!1,this.__prev=!1),D(t.prototype.__proto__||Object.getPrototypeOf(t.prototype),"updateDisplay",this).call(this)}}]),t}(),Y=function(e){function t(e,n,o){F(this,t);var i=V(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,n)),r=o,s=i;if(i.__select=document.createElement("select"),S.isArray(r)){var a={};S.each(r,function(e){a[e]=e}),r=a}return S.each(r,function(e,t){var n=document.createElement("option");n.innerHTML=t,n.setAttribute("value",e),s.__select.appendChild(n)}),i.updateDisplay(),X.bind(i.__select,"change",function(){var e=this.options[this.selectedIndex].value;s.setValue(e)}),i.domElement.appendChild(i.__select),i}return j(t,z),P(t,[{key:"setValue",value:function(e){var n=D(t.prototype.__proto__||Object.getPrototypeOf(t.prototype),"setValue",this).call(this,e);return this.__onFinishChange&&this.__onFinishChange.call(this,this.getValue()),n}},{key:"updateDisplay",value:function(){return X.isActive(this.__select)?this:(this.__select.value=this.getValue(),D(t.prototype.__proto__||Object.getPrototypeOf(t.prototype),"updateDisplay",this).call(this))}}]),t}(),J=function(e){function t(e,n){function o(){r.setValue(r.__input.value)}F(this,t);var i=V(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,n)),r=i;return i.__input=document.createElement("input"),i.__input.setAttribute("type","text"),X.bind(i.__input,"keyup",o),X.bind(i.__input,"change",o),X.bind(i.__input,"blur",function(){r.__onFinishChange&&r.__onFinishChange.call(r,r.getValue())}),X.bind(i.__input,"keydown",function(e){13===e.keyCode&&this.blur()}),i.updateDisplay(),i.domElement.appendChild(i.__input),i}return j(t,z),P(t,[{key:"updateDisplay",value:function(){return X.isActive(this.__input)||(this.__input.value=this.getValue()),D(t.prototype.__proto__||Object.getPrototypeOf(t.prototype),"updateDisplay",this).call(this)}}]),t}(),W=function(e){function t(e,n,o){F(this,t);var i=V(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,n)),s=o||{};return i.__min=s.min,i.__max=s.max,i.__step=s.step,S.isUndefined(i.__step)?0===i.initialValue?i.__impliedStep=1:i.__impliedStep=Math.pow(10,Math.floor(Math.log(Math.abs(i.initialValue))/Math.LN10))/10:i.__impliedStep=i.__step,i.__precision=r(i.__impliedStep),i}return j(t,z),P(t,[{key:"setValue",value:function(e){var n=e;return void 0!==this.__min&&n<this.__min?n=this.__min:void 0!==this.__max&&n>this.__max&&(n=this.__max),void 0!==this.__step&&n%this.__step!=0&&(n=Math.round(n/this.__step)*this.__step),D(t.prototype.__proto__||Object.getPrototypeOf(t.prototype),"setValue",this).call(this,n)}},{key:"min",value:function(e){return this.__min=e,this}},{key:"max",value:function(e){return this.__max=e,this}},{key:"step",value:function(e){return this.__step=e,this.__impliedStep=e,this.__precision=r(e),this}}]),t}(),Q=function(e){function t(e,n,o){function i(){l.__onFinishChange&&l.__onFinishChange.call(l,l.getValue())}function r(e){var t=d-e.clientY;l.setValue(l.getValue()+t*l.__impliedStep),d=e.clientY}function s(){X.unbind(window,"mousemove",r),X.unbind(window,"mouseup",s),i()}F(this,t);var a=V(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,n,o));a.__truncationSuspended=!1;var l=a,d=void 0;return a.__input=document.createElement("input"),a.__input.setAttribute("type","text"),X.bind(a.__input,"change",function(){var e=parseFloat(l.__input.value);S.isNaN(e)||l.setValue(e)}),X.bind(a.__input,"blur",function(){i()}),X.bind(a.__input,"mousedown",function(e){X.bind(window,"mousemove",r),X.bind(window,"mouseup",s),d=e.clientY}),X.bind(a.__input,"keydown",function(e){13===e.keyCode&&(l.__truncationSuspended=!0,this.blur(),l.__truncationSuspended=!1,i())}),a.updateDisplay(),a.domElement.appendChild(a.__input),a}return j(t,W),P(t,[{key:"updateDisplay",value:function(){return this.__input.value=this.__truncationSuspended?this.getValue():s(this.getValue(),this.__precision),D(t.prototype.__proto__||Object.getPrototypeOf(t.prototype),"updateDisplay",this).call(this)}}]),t}(),q=function(e){function t(e,n,o,i,r){function s(e){e.preventDefault();var t=_.__background.getBoundingClientRect();return _.setValue(a(e.clientX,t.left,t.right,_.__min,_.__max)),!1}function l(){X.unbind(window,"mousemove",s),X.unbind(window,"mouseup",l),_.__onFinishChange&&_.__onFinishChange.call(_,_.getValue())}function d(e){var t=e.touches[0].clientX,n=_.__background.getBoundingClientRect();_.setValue(a(t,n.left,n.right,_.__min,_.__max))}function c(){X.unbind(window,"touchmove",d),X.unbind(window,"touchend",c),_.__onFinishChange&&_.__onFinishChange.call(_,_.getValue())}F(this,t);var u=V(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,n,{min:o,max:i,step:r})),_=u;return u.__background=document.createElement("div"),u.__foreground=document.createElement("div"),X.bind(u.__background,"mousedown",function(e){document.activeElement.blur(),X.bind(window,"mousemove",s),X.bind(window,"mouseup",l),s(e)}),X.bind(u.__background,"touchstart",function(e){1===e.touches.length&&(X.bind(window,"touchmove",d),X.bind(window,"touchend",c),d(e))}),X.addClass(u.__background,"slider"),X.addClass(u.__foreground,"slider-fg"),u.updateDisplay(),u.__background.appendChild(u.__foreground),u.domElement.appendChild(u.__background),u}return j(t,W),P(t,[{key:"updateDisplay",value:function(){var e=(this.getValue()-this.__min)/(this.__max-this.__min);return this.__foreground.style.width=100*e+"%",D(t.prototype.__proto__||Object.getPrototypeOf(t.prototype),"updateDisplay",this).call(this)}}]),t}(),Z=function(e){function t(e,n,o){F(this,t);var i=V(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,n)),r=i;return i.__button=document.createElement("div"),i.__button.innerHTML=void 0===o?"Fire":o,X.bind(i.__button,"click",function(e){return e.preventDefault(),r.fire(),!1}),X.addClass(i.__button,"button"),i.domElement.appendChild(i.__button),i}return j(t,z),P(t,[{key:"fire",value:function(){this.__onChange&&this.__onChange.call(this),this.getValue().call(this.object),this.__onFinishChange&&this.__onFinishChange.call(this,this.getValue())}}]),t}(),$=function(e){function t(e,n){function o(e){u(e),X.bind(window,"mousemove",u),X.bind(window,"touchmove",u),X.bind(window,"mouseup",r),X.bind(window,"touchend",r)}function i(e){_(e),X.bind(window,"mousemove",_),X.bind(window,"touchmove",_),X.bind(window,"mouseup",s),X.bind(window,"touchend",s)}function r(){X.unbind(window,"mousemove",u),X.unbind(window,"touchmove",u),X.unbind(window,"mouseup",r),X.unbind(window,"touchend",r),c()}function s(){X.unbind(window,"mousemove",_),X.unbind(window,"touchmove",_),X.unbind(window,"mouseup",s),X.unbind(window,"touchend",s),c()}function a(){var e=R(this.value);!1!==e?(p.__color.__state=e,p.setValue(p.__color.toOriginal())):this.value=p.__color.toString()}function c(){p.__onFinishChange&&p.__onFinishChange.call(p,p.__color.toOriginal())}function u(e){-1===e.type.indexOf("touch")&&e.preventDefault();var t=p.__saturation_field.getBoundingClientRect(),n=e.touches&&e.touches[0]||e,o=n.clientX,i=n.clientY,r=(o-t.left)/(t.right-t.left),s=1-(i-t.top)/(t.bottom-t.top);return s>1?s=1:s<0&&(s=0),r>1?r=1:r<0&&(r=0),p.__color.v=s,p.__color.s=r,p.setValue(p.__color.toOriginal()),!1}function _(e){-1===e.type.indexOf("touch")&&e.preventDefault();var t=p.__hue_field.getBoundingClientRect(),n=1-((e.touches&&e.touches[0]||e).clientY-t.top)/(t.bottom-t.top);return n>1?n=1:n<0&&(n=0),p.__color.h=360*n,p.setValue(p.__color.toOriginal()),!1}F(this,t);var h=V(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,n));h.__color=new I(h.getValue()),h.__temp=new I(0);var p=h;h.domElement=document.createElement("div"),X.makeSelectable(h.domElement,!1),h.__selector=document.createElement("div"),h.__selector.className="selector",h.__saturation_field=document.createElement("div"),h.__saturation_field.className="saturation-field",h.__field_knob=document.createElement("div"),h.__field_knob.className="field-knob",h.__field_knob_border="2px solid ",h.__hue_knob=document.createElement("div"),h.__hue_knob.className="hue-knob",h.__hue_field=document.createElement("div"),h.__hue_field.className="hue-field",h.__input=document.createElement("input"),h.__input.type="text",h.__input_textShadow="0 1px 1px ",X.bind(h.__input,"keydown",function(e){13===e.keyCode&&a.call(this)}),X.bind(h.__input,"blur",a),X.bind(h.__selector,"mousedown",function(){X.addClass(this,"drag").bind(window,"mouseup",function(){X.removeClass(p.__selector,"drag")})}),X.bind(h.__selector,"touchstart",function(){X.addClass(this,"drag").bind(window,"touchend",function(){X.removeClass(p.__selector,"drag")})});var f=document.createElement("div");return S.extend(h.__selector.style,{width:"122px",height:"102px",padding:"3px",backgroundColor:"#222",boxShadow:"0px 1px 3px rgba(0,0,0,0.3)"}),S.extend(h.__field_knob.style,{position:"absolute",width:"12px",height:"12px",border:h.__field_knob_border+(h.__color.v<.5?"#fff":"#000"),boxShadow:"0px 1px 3px rgba(0,0,0,0.5)",borderRadius:"12px",zIndex:1}),S.extend(h.__hue_knob.style,{position:"absolute",width:"15px",height:"2px",borderRight:"4px solid #fff",zIndex:1}),S.extend(h.__saturation_field.style,{width:"100px",height:"100px",border:"1px solid #555",marginRight:"3px",display:"inline-block",cursor:"pointer"}),S.extend(f.style,{width:"100%",height:"100%",background:"none"}),l(f,"top","rgba(0,0,0,0)","#000"),S.extend(h.__hue_field.style,{width:"15px",height:"100px",border:"1px solid #555",cursor:"ns-resize",position:"absolute",top:"3px",right:"3px"}),d(h.__hue_field),S.extend(h.__input.style,{outline:"none",textAlign:"center",color:"#fff",border:0,fontWeight:"bold",textShadow:h.__input_textShadow+"rgba(0,0,0,0.7)"}),X.bind(h.__saturation_field,"mousedown",o),X.bind(h.__saturation_field,"touchstart",o),X.bind(h.__field_knob,"mousedown",o),X.bind(h.__field_knob,"touchstart",o),X.bind(h.__hue_field,"mousedown",i),X.bind(h.__hue_field,"touchstart",i),h.__saturation_field.appendChild(f),h.__selector.appendChild(h.__field_knob),h.__selector.appendChild(h.__saturation_field),h.__selector.appendChild(h.__hue_field),h.__hue_field.appendChild(h.__hue_knob),h.domElement.appendChild(h.__input),h.domElement.appendChild(h.__selector),h.updateDisplay(),h}return j(t,z),P(t,[{key:"updateDisplay",value:function(){var e=R(this.getValue());if(!1!==e){var t=!1;S.each(I.COMPONENTS,function(n){if(!S.isUndefined(e[n])&&!S.isUndefined(this.__color.__state[n])&&e[n]!==this.__color.__state[n])return t=!0,{}},this),t&&S.extend(this.__color.__state,e)}S.extend(this.__temp.__state,this.__color.__state),this.__temp.a=1;var n=this.__color.v<.5||this.__color.s>.5?255:0,o=255-n;S.extend(this.__field_knob.style,{marginLeft:100*this.__color.s-7+"px",marginTop:100*(1-this.__color.v)-7+"px",backgroundColor:this.__temp.toHexString(),border:this.__field_knob_border+"rgb("+n+","+n+","+n+")"}),this.__hue_knob.style.marginTop=100*(1-this.__color.h/360)+"px",this.__temp.s=1,this.__temp.v=1,l(this.__saturation_field,"left","#fff",this.__temp.toHexString()),this.__input.value=this.__color.toString(),S.extend(this.__input.style,{backgroundColor:this.__color.toHexString(),color:"rgb("+n+","+n+","+n+")",textShadow:this.__input_textShadow+"rgba("+o+","+o+","+o+",.7)"})}}]),t}(),ee=["-moz-","-o-","-webkit-","-ms-",""],te={load:function(e,t){var n=t||document,o=n.createElement("link");o.type="text/css",o.rel="stylesheet",o.href=e,n.getElementsByTagName("head")[0].appendChild(o)},inject:function(e,t){var n=t||document,o=document.createElement("style");o.type="text/css",o.innerHTML=e;var i=n.getElementsByTagName("head")[0];try{i.appendChild(o)}catch(e){}}},ne=function(e,t){var n=e[t];return S.isArray(arguments[2])||S.isObject(arguments[2])?new Y(e,t,arguments[2]):S.isNumber(n)?S.isNumber(arguments[2])&&S.isNumber(arguments[3])?S.isNumber(arguments[4])?new q(e,t,arguments[2],arguments[3],arguments[4]):new q(e,t,arguments[2],arguments[3]):S.isNumber(arguments[4])?new Q(e,t,{min:arguments[2],max:arguments[3],step:arguments[4]}):new Q(e,t,{min:arguments[2],max:arguments[3]}):S.isString(n)?new J(e,t):S.isFunction(n)?new Z(e,t,""):S.isBoolean(n)?new K(e,t):null},oe=window.requestAnimationFrame||window.webkitRequestAnimationFrame||window.mozRequestAnimationFrame||window.oRequestAnimationFrame||window.msRequestAnimationFrame||function(e){setTimeout(e,1e3/60)},ie=function(){function e(){F(this,e),this.backgroundElement=document.createElement("div"),S.extend(this.backgroundElement.style,{backgroundColor:"rgba(0,0,0,0.8)",top:0,left:0,display:"none",zIndex:"1000",opacity:0,WebkitTransition:"opacity 0.2s linear",transition:"opacity 0.2s linear"}),X.makeFullscreen(this.backgroundElement),this.backgroundElement.style.position="fixed",this.domElement=document.createElement("div"),S.extend(this.domElement.style,{position:"fixed",display:"none",zIndex:"1001",opacity:0,WebkitTransition:"-webkit-transform 0.2s ease-out, opacity 0.2s linear",transition:"transform 0.2s ease-out, opacity 0.2s linear"}),document.body.appendChild(this.backgroundElement),document.body.appendChild(this.domElement);var t=this;X.bind(this.backgroundElement,"click",function(){t.hide()})}return P(e,[{key:"show",value:function(){var e=this;this.backgroundElement.style.display="block",this.domElement.style.display="block",this.domElement.style.opacity=0,this.domElement.style.webkitTransform="scale(1.1)",this.layout(),S.defer(function(){e.backgroundElement.style.opacity=1,e.domElement.style.opacity=1,e.domElement.style.webkitTransform="scale(1)"})}},{key:"hide",value:function(){var e=this,t=function t(){e.domElement.style.display="none",e.backgroundElement.style.display="none",X.unbind(e.domElement,"webkitTransitionEnd",t),X.unbind(e.domElement,"transitionend",t),X.unbind(e.domElement,"oTransitionEnd",t)};X.bind(this.domElement,"webkitTransitionEnd",t),X.bind(this.domElement,"transitionend",t),X.bind(this.domElement,"oTransitionEnd",t),this.backgroundElement.style.opacity=0,this.domElement.style.opacity=0,this.domElement.style.webkitTransform="scale(1.1)"}},{key:"layout",value:function(){this.domElement.style.left=window.innerWidth/2-X.getWidth(this.domElement)/2+"px",this.domElement.style.top=window.innerHeight/2-X.getHeight(this.domElement)/2+"px"}}]),e}(),re=function(e){if(e&&"undefined"!=typeof window){var t=document.createElement("style");return t.setAttribute("type","text/css"),t.innerHTML=e,document.head.appendChild(t),e}}(".dg ul{list-style:none;margin:0;padding:0;width:100%;clear:both}.dg.ac{position:fixed;top:0;left:0;right:0;height:0;z-index:0}.dg:not(.ac) .main{overflow:hidden}.dg.main{-webkit-transition:opacity .1s linear;-o-transition:opacity .1s linear;-moz-transition:opacity .1s linear;transition:opacity .1s linear}.dg.main.taller-than-window{overflow-y:auto}.dg.main.taller-than-window .close-button{opacity:1;margin-top:-1px;border-top:1px solid #2c2c2c}.dg.main ul.closed .close-button{opacity:1 !important}.dg.main:hover .close-button,.dg.main .close-button.drag{opacity:1}.dg.main .close-button{-webkit-transition:opacity .1s linear;-o-transition:opacity .1s linear;-moz-transition:opacity .1s linear;transition:opacity .1s linear;border:0;line-height:19px;height:20px;cursor:pointer;text-align:center;background-color:#000}.dg.main .close-button.close-top{position:relative}.dg.main .close-button.close-bottom{position:absolute}.dg.main .close-button:hover{background-color:#111}.dg.a{float:right;margin-right:15px;overflow-y:visible}.dg.a.has-save>ul.close-top{margin-top:0}.dg.a.has-save>ul.close-bottom{margin-top:27px}.dg.a.has-save>ul.closed{margin-top:0}.dg.a .save-row{top:0;z-index:1002}.dg.a .save-row.close-top{position:relative}.dg.a .save-row.close-bottom{position:fixed}.dg li{-webkit-transition:height .1s ease-out;-o-transition:height .1s ease-out;-moz-transition:height .1s ease-out;transition:height .1s ease-out;-webkit-transition:overflow .1s linear;-o-transition:overflow .1s linear;-moz-transition:overflow .1s linear;transition:overflow .1s linear}.dg li:not(.folder){cursor:auto;height:27px;line-height:27px;padding:0 4px 0 5px}.dg li.folder{padding:0;border-left:4px solid rgba(0,0,0,0)}.dg li.title{cursor:pointer;margin-left:-4px}.dg .closed li:not(.title),.dg .closed ul li,.dg .closed ul li>*{height:0;overflow:hidden;border:0}.dg .cr{clear:both;padding-left:3px;height:27px;overflow:hidden}.dg .property-name{cursor:default;float:left;clear:left;width:40%;overflow:hidden;text-overflow:ellipsis}.dg .cr.function .property-name{width:100%}.dg .c{float:left;width:60%;position:relative}.dg .c input[type=text]{border:0;margin-top:4px;padding:3px;width:100%;float:right}.dg .has-slider input[type=text]{width:30%;margin-left:0}.dg .slider{float:left;width:66%;margin-left:-5px;margin-right:0;height:19px;margin-top:4px}.dg .slider-fg{height:100%}.dg .c input[type=checkbox]{margin-top:7px}.dg .c select{margin-top:5px}.dg .cr.function,.dg .cr.function .property-name,.dg .cr.function *,.dg .cr.boolean,.dg .cr.boolean *{cursor:pointer}.dg .cr.color{overflow:visible}.dg .selector{display:none;position:absolute;margin-left:-9px;margin-top:23px;z-index:10}.dg .c:hover .selector,.dg .selector.drag{display:block}.dg li.save-row{padding:0}.dg li.save-row .button{display:inline-block;padding:0px 6px}.dg.dialogue{background-color:#222;width:460px;padding:15px;font-size:13px;line-height:15px}#dg-new-constructor{padding:10px;color:#222;font-family:Monaco, monospace;font-size:10px;border:0;resize:none;box-shadow:inset 1px 1px 1px #888;word-wrap:break-word;margin:12px 0;display:block;width:440px;overflow-y:scroll;height:100px;position:relative}#dg-local-explain{display:none;font-size:11px;line-height:17px;border-radius:3px;background-color:#333;padding:8px;margin-top:10px}#dg-local-explain code{font-size:10px}#dat-gui-save-locally{display:none}.dg{color:#eee;font:11px 'Lucida Grande', sans-serif;text-shadow:0 -1px 0 #111}.dg.main::-webkit-scrollbar{width:5px;background:#1a1a1a}.dg.main::-webkit-scrollbar-corner{height:0;display:none}.dg.main::-webkit-scrollbar-thumb{border-radius:5px;background:#676767}.dg li:not(.folder){background:#1a1a1a;border-bottom:1px solid #2c2c2c}.dg li.save-row{line-height:25px;background:#dad5cb;border:0}.dg li.save-row select{margin-left:5px;width:108px}.dg li.save-row .button{margin-left:5px;margin-top:1px;border-radius:2px;font-size:9px;line-height:7px;padding:4px 4px 5px 4px;background:#c5bdad;color:#fff;text-shadow:0 1px 0 #b0a58f;box-shadow:0 -1px 0 #b0a58f;cursor:pointer}.dg li.save-row .button.gears{background:#c5bdad url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAsAAAANCAYAAAB/9ZQ7AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAQJJREFUeNpiYKAU/P//PwGIC/ApCABiBSAW+I8AClAcgKxQ4T9hoMAEUrxx2QSGN6+egDX+/vWT4e7N82AMYoPAx/evwWoYoSYbACX2s7KxCxzcsezDh3evFoDEBYTEEqycggWAzA9AuUSQQgeYPa9fPv6/YWm/Acx5IPb7ty/fw+QZblw67vDs8R0YHyQhgObx+yAJkBqmG5dPPDh1aPOGR/eugW0G4vlIoTIfyFcA+QekhhHJhPdQxbiAIguMBTQZrPD7108M6roWYDFQiIAAv6Aow/1bFwXgis+f2LUAynwoIaNcz8XNx3Dl7MEJUDGQpx9gtQ8YCueB+D26OECAAQDadt7e46D42QAAAABJRU5ErkJggg==) 2px 1px no-repeat;height:7px;width:8px}.dg li.save-row .button:hover{background-color:#bab19e;box-shadow:0 -1px 0 #b0a58f}.dg li.folder{border-bottom:0}.dg li.title{padding-left:16px;background:#000 url(data:image/gif;base64,R0lGODlhBQAFAJEAAP////Pz8////////yH5BAEAAAIALAAAAAAFAAUAAAIIlI+hKgFxoCgAOw==) 6px 10px no-repeat;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.2)}.dg .closed li.title{background-image:url(data:image/gif;base64,R0lGODlhBQAFAJEAAP////Pz8////////yH5BAEAAAIALAAAAAAFAAUAAAIIlGIWqMCbWAEAOw==)}.dg .cr.boolean{border-left:3px solid #806787}.dg .cr.color{border-left:3px solid}.dg .cr.function{border-left:3px solid #e61d5f}.dg .cr.number{border-left:3px solid #2FA1D6}.dg .cr.number input[type=text]{color:#2FA1D6}.dg .cr.string{border-left:3px solid #1ed36f}.dg .cr.string input[type=text]{color:#1ed36f}.dg .cr.function:hover,.dg .cr.boolean:hover{background:#111}.dg .c input[type=text]{background:#303030;outline:none}.dg .c input[type=text]:hover{background:#3c3c3c}.dg .c input[type=text]:focus{background:#494949;color:#fff}.dg .c .slider{background:#303030;cursor:ew-resize}.dg .c .slider-fg{background:#2FA1D6;max-width:100%}.dg .c .slider:hover{background:#3c3c3c}.dg .c .slider:hover .slider-fg{background:#44abda}\n");te.inject(re);var se="Default",ae=function(){try{return!!window.localStorage}catch(e){return!1}}(),le=void 0,de=!0,ce=void 0,ue=!1,_e=[],he=function e(t){var n=this,o=t||{};this.domElement=document.createElement("div"),this.__ul=document.createElement("ul"),this.domElement.appendChild(this.__ul),X.addClass(this.domElement,"dg"),this.__folders={},this.__controllers=[],this.__rememberedObjects=[],this.__rememberedObjectIndecesToControllers=[],this.__listening=[],o=S.defaults(o,{closeOnTop:!1,autoPlace:!0,width:e.DEFAULT_WIDTH}),o=S.defaults(o,{resizable:o.autoPlace,hideable:o.autoPlace}),S.isUndefined(o.load)?o.load={preset:se}:o.preset&&(o.load.preset=o.preset),S.isUndefined(o.parent)&&o.hideable&&_e.push(this),o.resizable=S.isUndefined(o.parent)&&o.resizable,o.autoPlace&&S.isUndefined(o.scrollable)&&(o.scrollable=!0);var i=ae&&"true"===localStorage.getItem(m(this,"isLocal")),r=void 0,s=void 0;if(Object.defineProperties(this,{parent:{get:function(){return o.parent}},scrollable:{get:function(){return o.scrollable}},autoPlace:{get:function(){return o.autoPlace}},closeOnTop:{get:function(){return o.closeOnTop}},preset:{get:function(){return n.parent?n.getRoot().preset:o.load.preset},set:function(e){n.parent?n.getRoot().preset=e:o.load.preset=e,E(this),n.revert()}},width:{get:function(){return o.width},set:function(e){o.width=e,w(n,e)}},name:{get:function(){return o.name},set:function(e){o.name=e,s&&(s.innerHTML=o.name)}},closed:{get:function(){return o.closed},set:function(t){o.closed=t,o.closed?X.addClass(n.__ul,e.CLASS_CLOSED):X.removeClass(n.__ul,e.CLASS_CLOSED),this.onResize(),n.__closeButton&&(n.__closeButton.innerHTML=t?e.TEXT_OPEN:e.TEXT_CLOSED)}},load:{get:function(){return o.load}},useLocalStorage:{get:function(){return i},set:function(e){ae&&(i=e,e?X.bind(window,"unload",r):X.unbind(window,"unload",r),localStorage.setItem(m(n,"isLocal"),e))}}}),S.isUndefined(o.parent)){if(this.closed=o.closed||!1,X.addClass(this.domElement,e.CLASS_MAIN),X.makeSelectable(this.domElement,!1),ae&&i){n.useLocalStorage=!0;var a=localStorage.getItem(m(this,"gui"));a&&(o.load=JSON.parse(a))}this.__closeButton=document.createElement("div"),this.__closeButton.innerHTML=e.TEXT_CLOSED,X.addClass(this.__closeButton,e.CLASS_CLOSE_BUTTON),o.closeOnTop?(X.addClass(this.__closeButton,e.CLASS_CLOSE_TOP),this.domElement.insertBefore(this.__closeButton,this.domElement.childNodes[0])):(X.addClass(this.__closeButton,e.CLASS_CLOSE_BOTTOM),this.domElement.appendChild(this.__closeButton)),X.bind(this.__closeButton,"click",function(){n.closed=!n.closed})}else{void 0===o.closed&&(o.closed=!0);var l=document.createTextNode(o.name);X.addClass(l,"controller-name"),s=c(n,l);X.addClass(this.__ul,e.CLASS_CLOSED),X.addClass(s,"title"),X.bind(s,"click",function(e){return e.preventDefault(),n.closed=!n.closed,!1}),o.closed||(this.closed=!1)}o.autoPlace&&(S.isUndefined(o.parent)&&(de&&(ce=document.createElement("div"),X.addClass(ce,"dg"),X.addClass(ce,e.CLASS_AUTO_PLACE_CONTAINER),document.body.appendChild(ce),de=!1),ce.appendChild(this.domElement),X.addClass(this.domElement,e.CLASS_AUTO_PLACE)),this.parent||w(n,o.width)),this.__resizeHandler=function(){n.onResizeDebounced()},X.bind(window,"resize",this.__resizeHandler),X.bind(this.__ul,"webkitTransitionEnd",this.__resizeHandler),X.bind(this.__ul,"transitionend",this.__resizeHandler),X.bind(this.__ul,"oTransitionEnd",this.__resizeHandler),this.onResize(),o.resizable&&y(this),r=function(){ae&&"true"===localStorage.getItem(m(n,"isLocal"))&&localStorage.setItem(m(n,"gui"),JSON.stringify(n.getSaveObject()))},this.saveToLocalStorageIfPossible=r,o.parent||function(){var e=n.getRoot();e.width+=1,S.defer(function(){e.width-=1})}()};he.toggleHide=function(){ue=!ue,S.each(_e,function(e){e.domElement.style.display=ue?"none":""})},he.CLASS_AUTO_PLACE="a",he.CLASS_AUTO_PLACE_CONTAINER="ac",he.CLASS_MAIN="main",he.CLASS_CONTROLLER_ROW="cr",he.CLASS_TOO_TALL="taller-than-window",he.CLASS_CLOSED="closed",he.CLASS_CLOSE_BUTTON="close-button",he.CLASS_CLOSE_TOP="close-top",he.CLASS_CLOSE_BOTTOM="close-bottom",he.CLASS_DRAG="drag",he.DEFAULT_WIDTH=245,he.TEXT_CLOSED="Close Controls",he.TEXT_OPEN="Open Controls",he._keydownHandler=function(e){"text"===document.activeElement.type||72!==e.which&&72!==e.keyCode||he.toggleHide()},X.bind(window,"keydown",he._keydownHandler,!1),S.extend(he.prototype,{add:function(e,t){return f(this,e,t,{factoryArgs:Array.prototype.slice.call(arguments,2)})},addColor:function(e,t){return f(this,e,t,{color:!0})},remove:function(e){this.__ul.removeChild(e.__li),this.__controllers.splice(this.__controllers.indexOf(e),1);var t=this;S.defer(function(){t.onResize()})},destroy:function(){if(this.parent)throw new Error("Only the root GUI should be removed with .destroy(). For subfolders, use gui.removeFolder(folder) instead.");this.autoPlace&&ce.removeChild(this.domElement);var e=this;S.each(this.__folders,function(t){e.removeFolder(t)}),X.unbind(window,"keydown",he._keydownHandler,!1),u(this)},addFolder:function(e){if(void 0!==this.__folders[e])throw new Error('You already have a folder in this GUI by the name "'+e+'"');var t={name:e,parent:this};t.autoPlace=this.autoPlace,this.load&&this.load.folders&&this.load.folders[e]&&(t.closed=this.load.folders[e].closed,t.load=this.load.folders[e]);var n=new he(t);this.__folders[e]=n;var o=c(this,n.domElement);return X.addClass(o,"folder"),n},removeFolder:function(e){this.__ul.removeChild(e.domElement.parentElement),delete this.__folders[e.name],this.load&&this.load.folders&&this.load.folders[e.name]&&delete this.load.folders[e.name],u(e);var t=this;S.each(e.__folders,function(t){e.removeFolder(t)}),S.defer(function(){t.onResize()})},open:function(){this.closed=!1},close:function(){this.closed=!0},hide:function(){this.domElement.style.display="none"},show:function(){this.domElement.style.display=""},onResize:function(){var e=this.getRoot();if(e.scrollable){var t=X.getOffset(e.__ul).top,n=0;S.each(e.__ul.childNodes,function(t){e.autoPlace&&t===e.__save_row||(n+=X.getHeight(t))}),window.innerHeight-t-20<n?(X.addClass(e.domElement,he.CLASS_TOO_TALL),e.__ul.style.height=window.innerHeight-t-20+"px"):(X.removeClass(e.domElement,he.CLASS_TOO_TALL),e.__ul.style.height="auto")}e.__resize_handle&&S.defer(function(){e.__resize_handle.style.height=e.__ul.offsetHeight+"px"}),e.__closeButton&&(e.__closeButton.style.width=e.width+"px")},onResizeDebounced:S.debounce(function(){this.onResize()},50),remember:function(){if(S.isUndefined(le)&&((le=new ie).domElement.innerHTML='<div id="dg-save" class="dg dialogue">\n\n  Here\'s the new load parameter for your <code>GUI</code>\'s constructor:\n\n  <textarea id="dg-new-constructor"></textarea>\n\n  <div id="dg-save-locally">\n\n    <input id="dg-local-storage" type="checkbox"/> Automatically save\n    values to <code>localStorage</code> on exit.\n\n    <div id="dg-local-explain">The values saved to <code>localStorage</code> will\n      override those passed to <code>dat.GUI</code>\'s constructor. This makes it\n      easier to work incrementally, but <code>localStorage</code> is fragile,\n      and your friends may not see the same values you do.\n\n    </div>\n\n  </div>\n\n</div>'),this.parent)throw new Error("You can only call remember on a top level GUI.");var e=this;S.each(Array.prototype.slice.call(arguments),function(t){0===e.__rememberedObjects.length&&v(e),-1===e.__rememberedObjects.indexOf(t)&&e.__rememberedObjects.push(t)}),this.autoPlace&&w(this,this.width)},getRoot:function(){for(var e=this;e.parent;)e=e.parent;return e},getSaveObject:function(){var e=this.load;return e.closed=this.closed,this.__rememberedObjects.length>0&&(e.preset=this.preset,e.remembered||(e.remembered={}),e.remembered[this.preset]=x(this)),e.folders={},S.each(this.__folders,function(t,n){e.folders[n]=t.getSaveObject()}),e},save:function(){this.load.remembered||(this.load.remembered={}),this.load.remembered[this.preset]=x(this),_(this,!1),this.saveToLocalStorageIfPossible()},saveAs:function(e){this.load.remembered||(this.load.remembered={},this.load.remembered[se]=x(this,!0)),this.load.remembered[e]=x(this),this.preset=e,g(this,e,!0),this.saveToLocalStorageIfPossible()},revert:function(e){S.each(this.__controllers,function(t){this.getRoot().load.remembered?p(e||this.getRoot(),t):t.setValue(t.initialValue),t.__onFinishChange&&t.__onFinishChange.call(t,t.getValue())},this),S.each(this.__folders,function(e){e.revert(e)}),e||_(this.getRoot(),!1)},listen:function(e){var t=0===this.__listening.length;this.__listening.push(e),t&&C(this.__listening)},updateDisplay:function(){S.each(this.__controllers,function(e){e.updateDisplay()}),S.each(this.__folders,function(e){e.updateDisplay()})}});var pe={Color:I,math:N,interpret:R},fe={Controller:z,BooleanController:K,OptionController:Y,StringController:J,NumberController:W,NumberControllerBox:Q,NumberControllerSlider:q,FunctionController:Z,ColorController:$},me={dom:X},ge={GUI:he},be=he,ve={color:pe,controllers:fe,dom:me,gui:ge,GUI:be};e.color=pe,e.controllers=fe,e.dom=me,e.gui=ge,e.GUI=be,e.default=ve,Object.defineProperty(e,"__esModule",{value:!0})});
+/*! Tweakpane 3.1.10 (c) 2016 cocopon, licensed under the MIT license. */
+!function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"function"==typeof define&&define.amd?define(["exports"],e):e((t="undefined"!=typeof globalThis?globalThis:t||self).Tweakpane={})}(this,(function(t){"use strict";class e{constructor(t){this.controller_=t}get element(){return this.controller_.view.element}get disabled(){return this.controller_.viewProps.get("disabled")}set disabled(t){this.controller_.viewProps.set("disabled",t)}get hidden(){return this.controller_.viewProps.get("hidden")}set hidden(t){this.controller_.viewProps.set("hidden",t)}dispose(){this.controller_.viewProps.set("disposed",!0)}}class n{constructor(t){this.target=t}}class i extends n{constructor(t,e,n,i){super(t),this.value=e,this.presetKey=n,this.last=null==i||i}}class s extends n{constructor(t,e,n){super(t),this.value=e,this.presetKey=n}}class o extends n{constructor(t,e){super(t),this.expanded=e}}class r extends n{constructor(t,e){super(t),this.index=e}}function a(t){return null==t}function l(t,e){if(t.length!==e.length)return!1;for(let n=0;n<t.length;n++)if(t[n]!==e[n])return!1;return!0}function p(t,e){let n=t;do{const t=Object.getOwnPropertyDescriptor(n,e);if(t&&(void 0!==t.set||!0===t.writable))return!0;n=Object.getPrototypeOf(n)}while(null!==n);return!1}const d={alreadydisposed:()=>"View has been already disposed",invalidparams:t=>`Invalid parameters for '${t.name}'`,nomatchingcontroller:t=>`No matching controller for '${t.key}'`,nomatchingview:t=>`No matching view for '${JSON.stringify(t.params)}'`,notbindable:()=>"Value is not bindable",propertynotfound:t=>`Property '${t.name}' not found`,shouldneverhappen:()=>"This error should never happen"};class c{static alreadyDisposed(){return new c({type:"alreadydisposed"})}static notBindable(){return new c({type:"notbindable"})}static propertyNotFound(t){return new c({type:"propertynotfound",context:{name:t}})}static shouldNeverHappen(){return new c({type:"shouldneverhappen"})}constructor(t){var e;this.message=null!==(e=d[t.type](t.context))&&void 0!==e?e:"Unexpected error",this.name=this.constructor.name,this.stack=new Error(this.message).stack,this.type=t.type}}class h{constructor(t,e,n){this.obj_=t,this.key_=e,this.presetKey_=null!=n?n:e}static isBindable(t){return null!==t&&("object"==typeof t||"function"==typeof t)}get key(){return this.key_}get presetKey(){return this.presetKey_}read(){return this.obj_[this.key_]}write(t){this.obj_[this.key_]=t}writeProperty(t,e){const n=this.read();if(!h.isBindable(n))throw c.notBindable();if(!(t in n))throw c.propertyNotFound(t);n[t]=e}}class u extends e{get label(){return this.controller_.props.get("label")}set label(t){this.controller_.props.set("label",t)}get title(){var t;return null!==(t=this.controller_.valueController.props.get("title"))&&void 0!==t?t:""}set title(t){this.controller_.valueController.props.set("title",t)}on(t,e){const i=e.bind(this);return this.controller_.valueController.emitter.on(t,(()=>{i(new n(this))})),this}}class v{constructor(){this.observers_={}}on(t,e){let n=this.observers_[t];return n||(n=this.observers_[t]=[]),n.push({handler:e}),this}off(t,e){const n=this.observers_[t];return n&&(this.observers_[t]=n.filter((t=>t.handler!==e))),this}emit(t,e){const n=this.observers_[t];n&&n.forEach((t=>{t.handler(e)}))}}const m="tp";function b(t){return(e,n)=>[m,"-",t,"v",e?`_${e}`:"",n?`-${n}`:""].join("")}function _(t){return t.rawValue}function g(t,e){var n,i;t.emitter.on("change",(n=_,i=e,t=>i(n(t)))),e(t.rawValue)}function f(t,e,n){g(t.value(e),n)}function w(t,e){return n=>{!function(t,e,n){n?t.classList.add(e):t.classList.remove(e)}(t,e,n)}}function x(t,e){g(t,(t=>{e.textContent=null!=t?t:""}))}const C=b("btn");class y{constructor(t,e){this.element=t.createElement("div"),this.element.classList.add(C()),e.viewProps.bindClassModifiers(this.element);const n=t.createElement("button");n.classList.add(C("b")),e.viewProps.bindDisabled(n),this.element.appendChild(n),this.buttonElement=n;const i=t.createElement("div");i.classList.add(C("t")),x(e.props.value("title"),i),this.buttonElement.appendChild(i)}}class P{constructor(t,e){this.emitter=new v,this.onClick_=this.onClick_.bind(this),this.props=e.props,this.viewProps=e.viewProps,this.view=new y(t,{props:this.props,viewProps:this.viewProps}),this.view.buttonElement.addEventListener("click",this.onClick_)}onClick_(){this.emitter.emit("click",{sender:this})}}class k{constructor(t,e){var n;this.constraint_=null==e?void 0:e.constraint,this.equals_=null!==(n=null==e?void 0:e.equals)&&void 0!==n?n:(t,e)=>t===e,this.emitter=new v,this.rawValue_=t}get constraint(){return this.constraint_}get rawValue(){return this.rawValue_}set rawValue(t){this.setRawValue(t,{forceEmit:!1,last:!0})}setRawValue(t,e){const n=null!=e?e:{forceEmit:!1,last:!0},i=this.constraint_?this.constraint_.constrain(t):t,s=this.rawValue_;(!this.equals_(s,i)||n.forceEmit)&&(this.emitter.emit("beforechange",{sender:this}),this.rawValue_=i,this.emitter.emit("change",{options:n,previousRawValue:s,rawValue:i,sender:this}))}}class E{constructor(t){this.emitter=new v,this.value_=t}get rawValue(){return this.value_}set rawValue(t){this.setRawValue(t,{forceEmit:!1,last:!0})}setRawValue(t,e){const n=null!=e?e:{forceEmit:!1,last:!0},i=this.value_;(i!==t||n.forceEmit)&&(this.emitter.emit("beforechange",{sender:this}),this.value_=t,this.emitter.emit("change",{options:n,previousRawValue:i,rawValue:this.value_,sender:this}))}}function V(t,e){const n=null==e?void 0:e.constraint,i=null==e?void 0:e.equals;return n||i?new k(t,e):new E(t)}class L{constructor(t){this.emitter=new v,this.valMap_=t;for(const t in this.valMap_){this.valMap_[t].emitter.on("change",(()=>{this.emitter.emit("change",{key:t,sender:this})}))}}static createCore(t){return Object.keys(t).reduce(((e,n)=>Object.assign(e,{[n]:V(t[n])})),{})}static fromObject(t){const e=this.createCore(t);return new L(e)}get(t){return this.valMap_[t].rawValue}set(t,e){this.valMap_[t].rawValue=e}value(t){return this.valMap_[t]}}function M(t){return e=>n=>{if(!e&&void 0===n)return{succeeded:!1,value:void 0};if(e&&void 0===n)return{succeeded:!0,value:void 0};const i=t(n);return void 0!==i?{succeeded:!0,value:i}:{succeeded:!1,value:void 0}}}function S(t){return{custom:e=>M(e)(t),boolean:M((t=>"boolean"==typeof t?t:void 0))(t),number:M((t=>"number"==typeof t?t:void 0))(t),string:M((t=>"string"==typeof t?t:void 0))(t),function:M((t=>"function"==typeof t?t:void 0))(t),constant:e=>M((t=>t===e?e:void 0))(t),raw:M((t=>t))(t),object:e=>M((t=>{var n;if(null!==(n=t)&&"object"==typeof n)return function(t,e){return Object.keys(e).reduce(((n,i)=>{if(void 0===n)return;const s=(0,e[i])(t[i]);return s.succeeded?Object.assign(Object.assign({},n),{[i]:s.value}):void 0}),{})}(t,e)}))(t),array:e=>M((t=>{var n;if(Array.isArray(t))return n=e,t.reduce(((t,e)=>{if(void 0===t)return;const i=n(e);return i.succeeded&&void 0!==i.value?[...t,i.value]:void 0}),[])}))(t)}}const A={optional:S(!0),required:S(!1)};function D(t,e){const n=A.required.object(e)(t);return n.succeeded?n.value:void 0}function j(t){console.warn([`Missing '${t.key}' of ${t.target} in ${t.place}.`,"Please rebuild plugins with the latest core package."].join(" "))}class R{constructor(t){this.value_=t}static create(t){return[new R(t),(e,n)=>{t.setRawValue(e,n)}]}get emitter(){return this.value_.emitter}get rawValue(){return this.value_.rawValue}}const O=b("");function I(t,e){return w(t,O(void 0,e))}class K extends L{constructor(t){var e;super(t),this.onDisabledChange_=this.onDisabledChange_.bind(this),this.onParentChange_=this.onParentChange_.bind(this),this.onParentGlobalDisabledChange_=this.onParentGlobalDisabledChange_.bind(this),[this.globalDisabled_,this.setGlobalDisabled_]=R.create(V(this.getGlobalDisabled_())),this.value("disabled").emitter.on("change",this.onDisabledChange_),this.value("parent").emitter.on("change",this.onParentChange_),null===(e=this.get("parent"))||void 0===e||e.globalDisabled.emitter.on("change",this.onParentGlobalDisabledChange_)}static create(t){var e,n,i;const s=null!=t?t:{};return new K(L.createCore({disabled:null!==(e=s.disabled)&&void 0!==e&&e,disposed:!1,hidden:null!==(n=s.hidden)&&void 0!==n&&n,parent:null!==(i=s.parent)&&void 0!==i?i:null}))}get globalDisabled(){return this.globalDisabled_}bindClassModifiers(t){g(this.globalDisabled_,I(t,"disabled")),f(this,"hidden",I(t,"hidden"))}bindDisabled(t){g(this.globalDisabled_,(e=>{t.disabled=e}))}bindTabIndex(t){g(this.globalDisabled_,(e=>{t.tabIndex=e?-1:0}))}handleDispose(t){this.value("disposed").emitter.on("change",(e=>{e&&t()}))}getGlobalDisabled_(){const t=this.get("parent");return!!t&&t.globalDisabled.rawValue||this.get("disabled")}updateGlobalDisabled_(){this.setGlobalDisabled_(this.getGlobalDisabled_())}onDisabledChange_(){this.updateGlobalDisabled_()}onParentGlobalDisabledChange_(){this.updateGlobalDisabled_()}onParentChange_(t){var e;const n=t.previousRawValue;null==n||n.globalDisabled.emitter.off("change",this.onParentGlobalDisabledChange_),null===(e=this.get("parent"))||void 0===e||e.globalDisabled.emitter.on("change",this.onParentGlobalDisabledChange_),this.updateGlobalDisabled_()}}const N=b(""),U={veryfirst:"vfst",first:"fst",last:"lst",verylast:"vlst"};class B{constructor(t){this.parent_=null,this.blade=t.blade,this.view=t.view,this.viewProps=t.viewProps;const e=this.view.element;this.blade.value("positions").emitter.on("change",(()=>{["veryfirst","first","last","verylast"].forEach((t=>{e.classList.remove(N(void 0,U[t]))})),this.blade.get("positions").forEach((t=>{e.classList.add(N(void 0,U[t]))}))})),this.viewProps.handleDispose((()=>{!function(t){t&&t.parentElement&&t.parentElement.removeChild(t)}(e)}))}get parent(){return this.parent_}set parent(t){this.parent_=t,"parent"in this.viewProps.valMap_?this.viewProps.set("parent",this.parent_?this.parent_.viewProps:null):j({key:"parent",target:K.name,place:"BladeController.parent"})}}const T="http://www.w3.org/2000/svg";function F(t){t.offsetHeight}function $(t){return void 0!==t.ontouchstart}function H(){return globalThis.document}const z={check:'<path d="M2 8l4 4l8 -8"/>',dropdown:'<path d="M5 7h6l-3 3 z"/>',p2dpad:'<path d="M8 4v8"/><path d="M4 8h8"/><circle cx="12" cy="12" r="1.2"/>'};function q(t,e){const n=t.createElementNS(T,"svg");return n.innerHTML=z[e],n}function G(t,e,n){t.insertBefore(e,t.children[n])}function Y(t){t.parentElement&&t.parentElement.removeChild(t)}function X(t){for(;t.children.length>0;)t.removeChild(t.children[0])}function Q(t){return t.relatedTarget?t.relatedTarget:"explicitOriginalTarget"in t?t.explicitOriginalTarget:null}const J=b("lbl");class W{constructor(t,e){this.element=t.createElement("div"),this.element.classList.add(J()),e.viewProps.bindClassModifiers(this.element);const n=t.createElement("div");n.classList.add(J("l")),f(e.props,"label",(e=>{a(e)?this.element.classList.add(J(void 0,"nol")):(this.element.classList.remove(J(void 0,"nol")),function(t){for(;t.childNodes.length>0;)t.removeChild(t.childNodes[0])}(n),n.appendChild(function(t,e){const n=t.createDocumentFragment();return e.split("\n").map((e=>t.createTextNode(e))).forEach(((e,i)=>{i>0&&n.appendChild(t.createElement("br")),n.appendChild(e)})),n}(t,e)))})),this.element.appendChild(n),this.labelElement=n;const i=t.createElement("div");i.classList.add(J("v")),this.element.appendChild(i),this.valueElement=i}}class Z extends B{constructor(t,e){const n=e.valueController.viewProps;super(Object.assign(Object.assign({},e),{view:new W(t,{props:e.props,viewProps:n}),viewProps:n})),this.props=e.props,this.valueController=e.valueController,this.view.valueElement.appendChild(this.valueController.view.element)}}const tt={id:"button",type:"blade",accept(t){const e=A,n=D(t,{title:e.required.string,view:e.required.constant("button"),label:e.optional.string});return n?{params:n}:null},controller:t=>new Z(t.document,{blade:t.blade,props:L.fromObject({label:t.params.label}),valueController:new P(t.document,{props:L.fromObject({title:t.params.title}),viewProps:t.viewProps})}),api:t=>t.controller instanceof Z&&t.controller.valueController instanceof P?new u(t.controller):null};class et extends B{constructor(t){super(t),this.value=t.value}}function nt(){return new L({positions:V([],{equals:l})})}class it extends L{constructor(t){super(t)}static create(t){const e={completed:!0,expanded:t,expandedHeight:null,shouldFixHeight:!1,temporaryExpanded:null},n=L.createCore(e);return new it(n)}get styleExpanded(){var t;return null!==(t=this.get("temporaryExpanded"))&&void 0!==t?t:this.get("expanded")}get styleHeight(){if(!this.styleExpanded)return"0";const t=this.get("expandedHeight");return this.get("shouldFixHeight")&&!a(t)?`${t}px`:"auto"}bindExpandedClass(t,e){const n=()=>{this.styleExpanded?t.classList.add(e):t.classList.remove(e)};f(this,"expanded",n),f(this,"temporaryExpanded",n)}cleanUpTransition(){this.set("shouldFixHeight",!1),this.set("expandedHeight",null),this.set("completed",!0)}}function st(t,e){e.style.height=t.styleHeight}function ot(t,e){t.value("expanded").emitter.on("beforechange",(()=>{if(t.set("completed",!1),a(t.get("expandedHeight"))){const n=function(t,e){let n=0;return function(t,e){const n=t.style.transition;t.style.transition="none",e(),t.style.transition=n}(e,(()=>{t.set("expandedHeight",null),t.set("temporaryExpanded",!0),F(e),n=e.clientHeight,t.set("temporaryExpanded",null),F(e)})),n}(t,e);n>0&&t.set("expandedHeight",n)}t.set("shouldFixHeight",!0),F(e)})),t.emitter.on("change",(()=>{st(t,e)})),st(t,e),e.addEventListener("transitionend",(e=>{"height"===e.propertyName&&t.cleanUpTransition()}))}class rt extends e{constructor(t,e){super(t),this.rackApi_=e}}class at{constructor(t){this.emitter=new v,this.items_=[],this.cache_=new Set,this.onSubListAdd_=this.onSubListAdd_.bind(this),this.onSubListRemove_=this.onSubListRemove_.bind(this),this.extract_=t}get items(){return this.items_}allItems(){return Array.from(this.cache_)}find(t){for(const e of this.allItems())if(t(e))return e;return null}includes(t){return this.cache_.has(t)}add(t,e){if(this.includes(t))throw c.shouldNeverHappen();const n=void 0!==e?e:this.items_.length;this.items_.splice(n,0,t),this.cache_.add(t);const i=this.extract_(t);i&&(i.emitter.on("add",this.onSubListAdd_),i.emitter.on("remove",this.onSubListRemove_),i.allItems().forEach((t=>{this.cache_.add(t)}))),this.emitter.emit("add",{index:n,item:t,root:this,target:this})}remove(t){const e=this.items_.indexOf(t);if(e<0)return;this.items_.splice(e,1),this.cache_.delete(t);const n=this.extract_(t);n&&(n.emitter.off("add",this.onSubListAdd_),n.emitter.off("remove",this.onSubListRemove_)),this.emitter.emit("remove",{index:e,item:t,root:this,target:this})}onSubListAdd_(t){this.cache_.add(t.item),this.emitter.emit("add",{index:t.index,item:t.item,root:this,target:t.target})}onSubListRemove_(t){this.cache_.delete(t.item),this.emitter.emit("remove",{index:t.index,item:t.item,root:this,target:t.target})}}class lt extends e{constructor(t){super(t),this.onBindingChange_=this.onBindingChange_.bind(this),this.emitter_=new v,this.controller_.binding.emitter.on("change",this.onBindingChange_)}get label(){return this.controller_.props.get("label")}set label(t){this.controller_.props.set("label",t)}on(t,e){const n=e.bind(this);return this.emitter_.on(t,(t=>{n(t.event)})),this}refresh(){this.controller_.binding.read()}onBindingChange_(t){const e=t.sender.target.read();this.emitter_.emit("change",{event:new i(this,e,this.controller_.binding.target.presetKey,t.options.last)})}}class pt extends Z{constructor(t,e){super(t,e),this.binding=e.binding}}class dt extends e{constructor(t){super(t),this.onBindingUpdate_=this.onBindingUpdate_.bind(this),this.emitter_=new v,this.controller_.binding.emitter.on("update",this.onBindingUpdate_)}get label(){return this.controller_.props.get("label")}set label(t){this.controller_.props.set("label",t)}on(t,e){const n=e.bind(this);return this.emitter_.on(t,(t=>{n(t.event)})),this}refresh(){this.controller_.binding.read()}onBindingUpdate_(t){const e=t.sender.target.read();this.emitter_.emit("update",{event:new s(this,e,this.controller_.binding.target.presetKey)})}}class ct extends Z{constructor(t,e){super(t,e),this.binding=e.binding,this.viewProps.bindDisabled(this.binding.ticker),this.viewProps.handleDispose((()=>{this.binding.dispose()}))}}function ht(t){return t instanceof mt?t.apiSet_:t instanceof rt?t.rackApi_.apiSet_:null}function ut(t,e){const n=t.find((t=>t.controller_===e));if(!n)throw c.shouldNeverHappen();return n}function vt(t,e,n){if(!h.isBindable(t))throw c.notBindable();return new h(t,e,n)}class mt extends e{constructor(t,e){super(t),this.onRackAdd_=this.onRackAdd_.bind(this),this.onRackRemove_=this.onRackRemove_.bind(this),this.onRackInputChange_=this.onRackInputChange_.bind(this),this.onRackMonitorUpdate_=this.onRackMonitorUpdate_.bind(this),this.emitter_=new v,this.apiSet_=new at(ht),this.pool_=e;const n=this.controller_.rack;n.emitter.on("add",this.onRackAdd_),n.emitter.on("remove",this.onRackRemove_),n.emitter.on("inputchange",this.onRackInputChange_),n.emitter.on("monitorupdate",this.onRackMonitorUpdate_),n.children.forEach((t=>{this.setUpApi_(t)}))}get children(){return this.controller_.rack.children.map((t=>ut(this.apiSet_,t)))}addInput(t,e,n){const i=null!=n?n:{},s=this.controller_.view.element.ownerDocument,o=this.pool_.createInput(s,vt(t,e,i.presetKey),i),r=new lt(o);return this.add(r,i.index)}addMonitor(t,e,n){const i=null!=n?n:{},s=this.controller_.view.element.ownerDocument,o=this.pool_.createMonitor(s,vt(t,e),i),r=new dt(o);return this.add(r,i.index)}addFolder(t){return function(t,e){return t.addBlade(Object.assign(Object.assign({},e),{view:"folder"}))}(this,t)}addButton(t){return function(t,e){return t.addBlade(Object.assign(Object.assign({},e),{view:"button"}))}(this,t)}addSeparator(t){return function(t,e){const n=null!=e?e:{};return t.addBlade(Object.assign(Object.assign({},n),{view:"separator"}))}(this,t)}addTab(t){return function(t,e){return t.addBlade(Object.assign(Object.assign({},e),{view:"tab"}))}(this,t)}add(t,e){this.controller_.rack.add(t.controller_,e);const n=this.apiSet_.find((e=>e.controller_===t.controller_));return n&&this.apiSet_.remove(n),this.apiSet_.add(t),t}remove(t){this.controller_.rack.remove(t.controller_)}addBlade(t){const e=this.controller_.view.element.ownerDocument,n=this.pool_.createBlade(e,t),i=this.pool_.createBladeApi(n);return this.add(i,t.index)}on(t,e){const n=e.bind(this);return this.emitter_.on(t,(t=>{n(t.event)})),this}setUpApi_(t){this.apiSet_.find((e=>e.controller_===t))||this.apiSet_.add(this.pool_.createBladeApi(t))}onRackAdd_(t){this.setUpApi_(t.bladeController)}onRackRemove_(t){if(t.isRoot){const e=ut(this.apiSet_,t.bladeController);this.apiSet_.remove(e)}}onRackInputChange_(t){const e=t.bladeController;if(e instanceof pt){const n=ut(this.apiSet_,e),s=e.binding;this.emitter_.emit("change",{event:new i(n,s.target.read(),s.target.presetKey,t.options.last)})}else if(e instanceof et){const n=ut(this.apiSet_,e);this.emitter_.emit("change",{event:new i(n,e.value.rawValue,void 0,t.options.last)})}}onRackMonitorUpdate_(t){if(!(t.bladeController instanceof ct))throw c.shouldNeverHappen();const e=ut(this.apiSet_,t.bladeController),n=t.bladeController.binding;this.emitter_.emit("update",{event:new s(e,n.target.read(),n.target.presetKey)})}}class bt extends rt{constructor(t,e){super(t,new mt(t.rackController,e)),this.emitter_=new v,this.controller_.foldable.value("expanded").emitter.on("change",(t=>{this.emitter_.emit("fold",{event:new o(this,t.sender.rawValue)})})),this.rackApi_.on("change",(t=>{this.emitter_.emit("change",{event:t})})),this.rackApi_.on("update",(t=>{this.emitter_.emit("update",{event:t})}))}get expanded(){return this.controller_.foldable.get("expanded")}set expanded(t){this.controller_.foldable.set("expanded",t)}get title(){return this.controller_.props.get("title")}set title(t){this.controller_.props.set("title",t)}get children(){return this.rackApi_.children}addInput(t,e,n){return this.rackApi_.addInput(t,e,n)}addMonitor(t,e,n){return this.rackApi_.addMonitor(t,e,n)}addFolder(t){return this.rackApi_.addFolder(t)}addButton(t){return this.rackApi_.addButton(t)}addSeparator(t){return this.rackApi_.addSeparator(t)}addTab(t){return this.rackApi_.addTab(t)}add(t,e){return this.rackApi_.add(t,e)}remove(t){this.rackApi_.remove(t)}addBlade(t){return this.rackApi_.addBlade(t)}on(t,e){const n=e.bind(this);return this.emitter_.on(t,(t=>{n(t.event)})),this}}class _t extends B{constructor(t){super({blade:t.blade,view:t.view,viewProps:t.rackController.viewProps}),this.rackController=t.rackController}}class gt{constructor(t,e){const n=b(e.viewName);this.element=t.createElement("div"),this.element.classList.add(n()),e.viewProps.bindClassModifiers(this.element)}}function ft(t){return t instanceof Ct?t.rack:t instanceof _t?t.rackController.rack:null}function wt(t){const e=ft(t);return e?e.bcSet_:null}class xt{constructor(t){var e,n;this.onBladePositionsChange_=this.onBladePositionsChange_.bind(this),this.onSetAdd_=this.onSetAdd_.bind(this),this.onSetRemove_=this.onSetRemove_.bind(this),this.onChildDispose_=this.onChildDispose_.bind(this),this.onChildPositionsChange_=this.onChildPositionsChange_.bind(this),this.onChildInputChange_=this.onChildInputChange_.bind(this),this.onChildMonitorUpdate_=this.onChildMonitorUpdate_.bind(this),this.onChildValueChange_=this.onChildValueChange_.bind(this),this.onChildViewPropsChange_=this.onChildViewPropsChange_.bind(this),this.onDescendantLayout_=this.onDescendantLayout_.bind(this),this.onDescendantInputChange_=this.onDescendantInputChange_.bind(this),this.onDescendantMonitorUpdate_=this.onDescendantMonitorUpdate_.bind(this),this.emitter=new v,this.blade_=null!==(e=t.blade)&&void 0!==e?e:null,null===(n=this.blade_)||void 0===n||n.value("positions").emitter.on("change",this.onBladePositionsChange_),this.viewProps=t.viewProps,this.bcSet_=new at(wt),this.bcSet_.emitter.on("add",this.onSetAdd_),this.bcSet_.emitter.on("remove",this.onSetRemove_)}get children(){return this.bcSet_.items}add(t,e){var n;null===(n=t.parent)||void 0===n||n.remove(t),p(t,"parent")?t.parent=this:(t.parent_=this,j({key:"parent",target:"BladeController",place:"BladeRack.add"})),this.bcSet_.add(t,e)}remove(t){p(t,"parent")?t.parent=null:(t.parent_=null,j({key:"parent",target:"BladeController",place:"BladeRack.remove"})),this.bcSet_.remove(t)}find(t){return this.bcSet_.allItems().filter((e=>e instanceof t))}onSetAdd_(t){this.updatePositions_();const e=t.target===t.root;if(this.emitter.emit("add",{bladeController:t.item,index:t.index,isRoot:e,sender:this}),!e)return;const n=t.item;if(n.viewProps.emitter.on("change",this.onChildViewPropsChange_),n.blade.value("positions").emitter.on("change",this.onChildPositionsChange_),n.viewProps.handleDispose(this.onChildDispose_),n instanceof pt)n.binding.emitter.on("change",this.onChildInputChange_);else if(n instanceof ct)n.binding.emitter.on("update",this.onChildMonitorUpdate_);else if(n instanceof et)n.value.emitter.on("change",this.onChildValueChange_);else{const t=ft(n);if(t){const e=t.emitter;e.on("layout",this.onDescendantLayout_),e.on("inputchange",this.onDescendantInputChange_),e.on("monitorupdate",this.onDescendantMonitorUpdate_)}}}onSetRemove_(t){this.updatePositions_();const e=t.target===t.root;if(this.emitter.emit("remove",{bladeController:t.item,isRoot:e,sender:this}),!e)return;const n=t.item;if(n instanceof pt)n.binding.emitter.off("change",this.onChildInputChange_);else if(n instanceof ct)n.binding.emitter.off("update",this.onChildMonitorUpdate_);else if(n instanceof et)n.value.emitter.off("change",this.onChildValueChange_);else{const t=ft(n);if(t){const e=t.emitter;e.off("layout",this.onDescendantLayout_),e.off("inputchange",this.onDescendantInputChange_),e.off("monitorupdate",this.onDescendantMonitorUpdate_)}}}updatePositions_(){const t=this.bcSet_.items.filter((t=>!t.viewProps.get("hidden"))),e=t[0],n=t[t.length-1];this.bcSet_.items.forEach((t=>{const i=[];t===e&&(i.push("first"),this.blade_&&!this.blade_.get("positions").includes("veryfirst")||i.push("veryfirst")),t===n&&(i.push("last"),this.blade_&&!this.blade_.get("positions").includes("verylast")||i.push("verylast")),t.blade.set("positions",i)}))}onChildPositionsChange_(){this.updatePositions_(),this.emitter.emit("layout",{sender:this})}onChildViewPropsChange_(t){this.updatePositions_(),this.emitter.emit("layout",{sender:this})}onChildDispose_(){this.bcSet_.items.filter((t=>t.viewProps.get("disposed"))).forEach((t=>{this.bcSet_.remove(t)}))}onChildInputChange_(t){const e=function(t,e){for(let n=0;n<t.length;n++){const i=t[n];if(i instanceof pt&&i.binding===e)return i}return null}(this.find(pt),t.sender);if(!e)throw c.alreadyDisposed();this.emitter.emit("inputchange",{bladeController:e,options:t.options,sender:this})}onChildMonitorUpdate_(t){const e=function(t,e){for(let n=0;n<t.length;n++){const i=t[n];if(i instanceof ct&&i.binding===e)return i}return null}(this.find(ct),t.sender);if(!e)throw c.alreadyDisposed();this.emitter.emit("monitorupdate",{bladeController:e,sender:this})}onChildValueChange_(t){const e=function(t,e){for(let n=0;n<t.length;n++){const i=t[n];if(i instanceof et&&i.value===e)return i}return null}(this.find(et),t.sender);if(!e)throw c.alreadyDisposed();this.emitter.emit("inputchange",{bladeController:e,options:t.options,sender:this})}onDescendantLayout_(t){this.updatePositions_(),this.emitter.emit("layout",{sender:this})}onDescendantInputChange_(t){this.emitter.emit("inputchange",{bladeController:t.bladeController,options:t.options,sender:this})}onDescendantMonitorUpdate_(t){this.emitter.emit("monitorupdate",{bladeController:t.bladeController,sender:this})}onBladePositionsChange_(){this.updatePositions_()}}class Ct extends B{constructor(t,e){super(Object.assign(Object.assign({},e),{view:new gt(t,{viewName:"brk",viewProps:e.viewProps})})),this.onRackAdd_=this.onRackAdd_.bind(this),this.onRackRemove_=this.onRackRemove_.bind(this);const n=new xt({blade:e.root?void 0:e.blade,viewProps:e.viewProps});n.emitter.on("add",this.onRackAdd_),n.emitter.on("remove",this.onRackRemove_),this.rack=n,this.viewProps.handleDispose((()=>{for(let t=this.rack.children.length-1;t>=0;t--){this.rack.children[t].viewProps.set("disposed",!0)}}))}onRackAdd_(t){t.isRoot&&G(this.view.element,t.bladeController.view.element,t.index)}onRackRemove_(t){t.isRoot&&Y(t.bladeController.view.element)}}const yt=b("cnt");class Pt{constructor(t,e){var n;this.className_=b(null!==(n=e.viewName)&&void 0!==n?n:"fld"),this.element=t.createElement("div"),this.element.classList.add(this.className_(),yt()),e.viewProps.bindClassModifiers(this.element),this.foldable_=e.foldable,this.foldable_.bindExpandedClass(this.element,this.className_(void 0,"expanded")),f(this.foldable_,"completed",w(this.element,this.className_(void 0,"cpl")));const i=t.createElement("button");i.classList.add(this.className_("b")),f(e.props,"title",(t=>{a(t)?this.element.classList.add(this.className_(void 0,"not")):this.element.classList.remove(this.className_(void 0,"not"))})),e.viewProps.bindDisabled(i),this.element.appendChild(i),this.buttonElement=i;const s=t.createElement("div");s.classList.add(this.className_("i")),this.element.appendChild(s);const o=t.createElement("div");o.classList.add(this.className_("t")),x(e.props.value("title"),o),this.buttonElement.appendChild(o),this.titleElement=o;const r=t.createElement("div");r.classList.add(this.className_("m")),this.buttonElement.appendChild(r);const l=e.containerElement;l.classList.add(this.className_("c")),this.element.appendChild(l),this.containerElement=l}}class kt extends _t{constructor(t,e){var n;const i=it.create(null===(n=e.expanded)||void 0===n||n),s=new Ct(t,{blade:e.blade,root:e.root,viewProps:e.viewProps});super(Object.assign(Object.assign({},e),{rackController:s,view:new Pt(t,{containerElement:s.view.element,foldable:i,props:e.props,viewName:e.root?"rot":void 0,viewProps:e.viewProps})})),this.onTitleClick_=this.onTitleClick_.bind(this),this.props=e.props,this.foldable=i,ot(this.foldable,this.view.containerElement),this.rackController.rack.emitter.on("add",(()=>{this.foldable.cleanUpTransition()})),this.rackController.rack.emitter.on("remove",(()=>{this.foldable.cleanUpTransition()})),this.view.buttonElement.addEventListener("click",this.onTitleClick_)}get document(){return this.view.element.ownerDocument}onTitleClick_(){this.foldable.set("expanded",!this.foldable.get("expanded"))}}const Et={id:"folder",type:"blade",accept(t){const e=A,n=D(t,{title:e.required.string,view:e.required.constant("folder"),expanded:e.optional.boolean});return n?{params:n}:null},controller:t=>new kt(t.document,{blade:t.blade,expanded:t.params.expanded,props:L.fromObject({title:t.params.title}),viewProps:t.viewProps}),api:t=>t.controller instanceof kt?new bt(t.controller,t.pool):null};class Vt extends et{constructor(t,e){const n=e.valueController.viewProps;super(Object.assign(Object.assign({},e),{value:e.valueController.value,view:new W(t,{props:e.props,viewProps:n}),viewProps:n})),this.props=e.props,this.valueController=e.valueController,this.view.valueElement.appendChild(this.valueController.view.element)}}class Lt extends e{}const Mt=b("spr");class St{constructor(t,e){this.element=t.createElement("div"),this.element.classList.add(Mt()),e.viewProps.bindClassModifiers(this.element);const n=t.createElement("hr");n.classList.add(Mt("r")),this.element.appendChild(n)}}class At extends B{constructor(t,e){super(Object.assign(Object.assign({},e),{view:new St(t,{viewProps:e.viewProps})}))}}const Dt={id:"separator",type:"blade",accept(t){const e=D(t,{view:A.required.constant("separator")});return e?{params:e}:null},controller:t=>new At(t.document,{blade:t.blade,viewProps:t.viewProps}),api:t=>t.controller instanceof At?new Lt(t.controller):null},jt=b("tbi");class Rt{constructor(t,e){this.element=t.createElement("div"),this.element.classList.add(jt()),e.viewProps.bindClassModifiers(this.element),f(e.props,"selected",(t=>{t?this.element.classList.add(jt(void 0,"sel")):this.element.classList.remove(jt(void 0,"sel"))}));const n=t.createElement("button");n.classList.add(jt("b")),e.viewProps.bindDisabled(n),this.element.appendChild(n),this.buttonElement=n;const i=t.createElement("div");i.classList.add(jt("t")),x(e.props.value("title"),i),this.buttonElement.appendChild(i),this.titleElement=i}}class Ot{constructor(t,e){this.emitter=new v,this.onClick_=this.onClick_.bind(this),this.props=e.props,this.viewProps=e.viewProps,this.view=new Rt(t,{props:e.props,viewProps:e.viewProps}),this.view.buttonElement.addEventListener("click",this.onClick_)}onClick_(){this.emitter.emit("click",{sender:this})}}class It{constructor(t,e){this.onItemClick_=this.onItemClick_.bind(this),this.ic_=new Ot(t,{props:e.itemProps,viewProps:K.create()}),this.ic_.emitter.on("click",this.onItemClick_),this.cc_=new Ct(t,{blade:nt(),viewProps:K.create()}),this.props=e.props,f(this.props,"selected",(t=>{this.itemController.props.set("selected",t),this.contentController.viewProps.set("hidden",!t)}))}get itemController(){return this.ic_}get contentController(){return this.cc_}onItemClick_(){this.props.set("selected",!0)}}class Kt{constructor(t,e){this.controller_=t,this.rackApi_=e}get title(){var t;return null!==(t=this.controller_.itemController.props.get("title"))&&void 0!==t?t:""}set title(t){this.controller_.itemController.props.set("title",t)}get selected(){return this.controller_.props.get("selected")}set selected(t){this.controller_.props.set("selected",t)}get children(){return this.rackApi_.children}addButton(t){return this.rackApi_.addButton(t)}addFolder(t){return this.rackApi_.addFolder(t)}addSeparator(t){return this.rackApi_.addSeparator(t)}addTab(t){return this.rackApi_.addTab(t)}add(t,e){this.rackApi_.add(t,e)}remove(t){this.rackApi_.remove(t)}addInput(t,e,n){return this.rackApi_.addInput(t,e,n)}addMonitor(t,e,n){return this.rackApi_.addMonitor(t,e,n)}addBlade(t){return this.rackApi_.addBlade(t)}}class Nt extends rt{constructor(t,e){super(t,new mt(t.rackController,e)),this.onPageAdd_=this.onPageAdd_.bind(this),this.onPageRemove_=this.onPageRemove_.bind(this),this.onSelect_=this.onSelect_.bind(this),this.emitter_=new v,this.pageApiMap_=new Map,this.rackApi_.on("change",(t=>{this.emitter_.emit("change",{event:t})})),this.rackApi_.on("update",(t=>{this.emitter_.emit("update",{event:t})})),this.controller_.tab.selectedIndex.emitter.on("change",this.onSelect_),this.controller_.pageSet.emitter.on("add",this.onPageAdd_),this.controller_.pageSet.emitter.on("remove",this.onPageRemove_),this.controller_.pageSet.items.forEach((t=>{this.setUpPageApi_(t)}))}get pages(){return this.controller_.pageSet.items.map((t=>{const e=this.pageApiMap_.get(t);if(!e)throw c.shouldNeverHappen();return e}))}addPage(t){const e=this.controller_.view.element.ownerDocument,n=new It(e,{itemProps:L.fromObject({selected:!1,title:t.title}),props:L.fromObject({selected:!1})});this.controller_.add(n,t.index);const i=this.pageApiMap_.get(n);if(!i)throw c.shouldNeverHappen();return i}removePage(t){this.controller_.remove(t)}on(t,e){const n=e.bind(this);return this.emitter_.on(t,(t=>{n(t.event)})),this}setUpPageApi_(t){const e=this.rackApi_.apiSet_.find((e=>e.controller_===t.contentController));if(!e)throw c.shouldNeverHappen();const n=new Kt(t,e);this.pageApiMap_.set(t,n)}onPageAdd_(t){this.setUpPageApi_(t.item)}onPageRemove_(t){if(!this.pageApiMap_.get(t.item))throw c.shouldNeverHappen();this.pageApiMap_.delete(t.item)}onSelect_(t){this.emitter_.emit("select",{event:new r(this,t.rawValue)})}}class Ut{constructor(){this.onItemSelectedChange_=this.onItemSelectedChange_.bind(this),this.empty=V(!0),this.selectedIndex=V(-1),this.items_=[]}add(t,e){const n=null!=e?e:this.items_.length;this.items_.splice(n,0,t),t.emitter.on("change",this.onItemSelectedChange_),this.keepSelection_()}remove(t){const e=this.items_.indexOf(t);e<0||(this.items_.splice(e,1),t.emitter.off("change",this.onItemSelectedChange_),this.keepSelection_())}keepSelection_(){if(0===this.items_.length)return this.selectedIndex.rawValue=-1,void(this.empty.rawValue=!0);const t=this.items_.findIndex((t=>t.rawValue));t<0?(this.items_.forEach(((t,e)=>{t.rawValue=0===e})),this.selectedIndex.rawValue=0):(this.items_.forEach(((e,n)=>{e.rawValue=n===t})),this.selectedIndex.rawValue=t),this.empty.rawValue=!1}onItemSelectedChange_(t){if(t.rawValue){const e=this.items_.findIndex((e=>e===t.sender));this.items_.forEach(((t,n)=>{t.rawValue=n===e})),this.selectedIndex.rawValue=e}else this.keepSelection_()}}const Bt=b("tab");class Tt{constructor(t,e){this.element=t.createElement("div"),this.element.classList.add(Bt(),yt()),e.viewProps.bindClassModifiers(this.element),g(e.empty,w(this.element,Bt(void 0,"nop")));const n=t.createElement("div");n.classList.add(Bt("t")),this.element.appendChild(n),this.itemsElement=n;const i=t.createElement("div");i.classList.add(Bt("i")),this.element.appendChild(i);const s=e.contentsElement;s.classList.add(Bt("c")),this.element.appendChild(s),this.contentsElement=s}}class Ft extends _t{constructor(t,e){const n=new Ct(t,{blade:e.blade,viewProps:e.viewProps}),i=new Ut;super({blade:e.blade,rackController:n,view:new Tt(t,{contentsElement:n.view.element,empty:i.empty,viewProps:e.viewProps})}),this.onPageAdd_=this.onPageAdd_.bind(this),this.onPageRemove_=this.onPageRemove_.bind(this),this.pageSet_=new at((()=>null)),this.pageSet_.emitter.on("add",this.onPageAdd_),this.pageSet_.emitter.on("remove",this.onPageRemove_),this.tab=i}get pageSet(){return this.pageSet_}add(t,e){this.pageSet_.add(t,e)}remove(t){this.pageSet_.remove(this.pageSet_.items[t])}onPageAdd_(t){const e=t.item;G(this.view.itemsElement,e.itemController.view.element,t.index),e.itemController.viewProps.set("parent",this.viewProps),this.rackController.rack.add(e.contentController,t.index),this.tab.add(e.props.value("selected"))}onPageRemove_(t){const e=t.item;Y(e.itemController.view.element),e.itemController.viewProps.set("parent",null),this.rackController.rack.remove(e.contentController),this.tab.remove(e.props.value("selected"))}}const $t={id:"tab",type:"blade",accept(t){const e=A,n=D(t,{pages:e.required.array(e.required.object({title:e.required.string})),view:e.required.constant("tab")});return n&&0!==n.pages.length?{params:n}:null},controller(t){const e=new Ft(t.document,{blade:t.blade,viewProps:t.viewProps});return t.params.pages.forEach((n=>{const i=new It(t.document,{itemProps:L.fromObject({selected:!1,title:n.title}),props:L.fromObject({selected:!1})});e.add(i)})),e},api:t=>t.controller instanceof Ft?new Nt(t.controller,t.pool):null};class Ht{constructor(){this.disabled=!1,this.emitter=new v}dispose(){}tick(){this.disabled||this.emitter.emit("tick",{sender:this})}}class zt{constructor(t,e){this.disabled_=!1,this.timerId_=null,this.onTick_=this.onTick_.bind(this),this.doc_=t,this.emitter=new v,this.interval_=e,this.setTimer_()}get disabled(){return this.disabled_}set disabled(t){this.disabled_=t,this.disabled_?this.clearTimer_():this.setTimer_()}dispose(){this.clearTimer_()}clearTimer_(){if(null===this.timerId_)return;const t=this.doc_.defaultView;t&&t.clearInterval(this.timerId_),this.timerId_=null}setTimer_(){if(this.clearTimer_(),this.interval_<=0)return;const t=this.doc_.defaultView;t&&(this.timerId_=t.setInterval(this.onTick_,this.interval_))}onTick_(){this.disabled_||this.emitter.emit("tick",{sender:this})}}class qt{constructor(t){this.onValueChange_=this.onValueChange_.bind(this),this.reader=t.reader,this.writer=t.writer,this.emitter=new v,this.value=t.value,this.value.emitter.on("change",this.onValueChange_),this.target=t.target,this.read()}read(){const t=this.target.read();void 0!==t&&(this.value.rawValue=this.reader(t))}write_(t){this.writer(this.target,t)}onValueChange_(t){this.write_(t.rawValue),this.emitter.emit("change",{options:t.options,rawValue:t.rawValue,sender:this})}}function Gt(t,e){for(;t.length<e;)t.push(void 0)}function Yt(t){const e=[];return Gt(e,t),V(e)}function Xt(t){const e=t.indexOf(void 0);return e<0?t:t.slice(0,e)}class Qt{constructor(t){this.onTick_=this.onTick_.bind(this),this.reader_=t.reader,this.target=t.target,this.emitter=new v,this.value=t.value,this.ticker=t.ticker,this.ticker.emitter.on("tick",this.onTick_),this.read()}dispose(){this.ticker.dispose()}read(){const t=this.target.read();if(void 0===t)return;const e=this.value.rawValue,n=this.reader_(t);this.value.rawValue=function(t,e){const n=[...Xt(t),e];return n.length>t.length?n.splice(0,n.length-t.length):Gt(n,t.length),n}(e,n),this.emitter.emit("update",{rawValue:n,sender:this})}onTick_(t){this.read()}}class Jt{constructor(t){this.constraints=t}constrain(t){return this.constraints.reduce(((t,e)=>e.constrain(t)),t)}}function Wt(t,e){if(t instanceof e)return t;if(t instanceof Jt){const n=t.constraints.reduce(((t,n)=>t||(n instanceof e?n:null)),null);if(n)return n}return null}class Zt{constructor(t){this.values=L.fromObject({max:t.max,min:t.min})}constrain(t){const e=this.values.get("max"),n=this.values.get("min");return Math.min(Math.max(t,n),e)}}class te{constructor(t){this.values=L.fromObject({options:t})}get options(){return this.values.get("options")}constrain(t){const e=this.values.get("options");if(0===e.length)return t;return e.filter((e=>e.value===t)).length>0?t:e[0].value}}class ee{constructor(t){this.values=L.fromObject({max:t.max,min:t.min})}get maxValue(){return this.values.get("max")}get minValue(){return this.values.get("min")}constrain(t){const e=this.values.get("max"),n=this.values.get("min");let i=t;return a(n)||(i=Math.max(i,n)),a(e)||(i=Math.min(i,e)),i}}class ne{constructor(t,e=0){this.step=t,this.origin=e}constrain(t){const e=this.origin%this.step;return e+Math.round((t-e)/this.step)*this.step}}const ie=b("lst");class se{constructor(t,e){this.onValueChange_=this.onValueChange_.bind(this),this.props_=e.props,this.element=t.createElement("div"),this.element.classList.add(ie()),e.viewProps.bindClassModifiers(this.element);const n=t.createElement("select");n.classList.add(ie("s")),e.viewProps.bindDisabled(n),this.element.appendChild(n),this.selectElement=n;const i=t.createElement("div");i.classList.add(ie("m")),i.appendChild(q(t,"dropdown")),this.element.appendChild(i),e.value.emitter.on("change",this.onValueChange_),this.value_=e.value,f(this.props_,"options",(e=>{X(this.selectElement),e.forEach((e=>{const n=t.createElement("option");n.textContent=e.text,this.selectElement.appendChild(n)})),this.update_()}))}update_(){const t=this.props_.get("options").map((t=>t.value));this.selectElement.selectedIndex=t.indexOf(this.value_.rawValue)}onValueChange_(){this.update_()}}class oe{constructor(t,e){this.onSelectChange_=this.onSelectChange_.bind(this),this.props=e.props,this.value=e.value,this.viewProps=e.viewProps,this.view=new se(t,{props:this.props,value:this.value,viewProps:this.viewProps}),this.view.selectElement.addEventListener("change",this.onSelectChange_)}onSelectChange_(t){const e=t.currentTarget;this.value.rawValue=this.props.get("options")[e.selectedIndex].value}}const re=b("pop");class ae{constructor(t,e){this.element=t.createElement("div"),this.element.classList.add(re()),e.viewProps.bindClassModifiers(this.element),g(e.shows,w(this.element,re(void 0,"v")))}}class le{constructor(t,e){this.shows=V(!1),this.viewProps=e.viewProps,this.view=new ae(t,{shows:this.shows,viewProps:this.viewProps})}}const pe=b("txt");class de{constructor(t,e){this.onChange_=this.onChange_.bind(this),this.element=t.createElement("div"),this.element.classList.add(pe()),e.viewProps.bindClassModifiers(this.element),this.props_=e.props,this.props_.emitter.on("change",this.onChange_);const n=t.createElement("input");n.classList.add(pe("i")),n.type="text",e.viewProps.bindDisabled(n),this.element.appendChild(n),this.inputElement=n,e.value.emitter.on("change",this.onChange_),this.value_=e.value,this.refresh()}refresh(){const t=this.props_.get("formatter");this.inputElement.value=t(this.value_.rawValue)}onChange_(){this.refresh()}}class ce{constructor(t,e){this.onInputChange_=this.onInputChange_.bind(this),this.parser_=e.parser,this.props=e.props,this.value=e.value,this.viewProps=e.viewProps,this.view=new de(t,{props:e.props,value:this.value,viewProps:this.viewProps}),this.view.inputElement.addEventListener("change",this.onInputChange_)}onInputChange_(t){const e=t.currentTarget.value,n=this.parser_(e);a(n)||(this.value.rawValue=n),this.view.refresh()}}function he(t){return"false"!==t&&!!t}function ue(t){return function(t){return String(t)}(t)}class ve{constructor(t){this.text=t}evaluate(){return Number(this.text)}toString(){return this.text}}const me={"**":(t,e)=>Math.pow(t,e),"*":(t,e)=>t*e,"/":(t,e)=>t/e,"%":(t,e)=>t%e,"+":(t,e)=>t+e,"-":(t,e)=>t-e,"<<":(t,e)=>t<<e,">>":(t,e)=>t>>e,">>>":(t,e)=>t>>>e,"&":(t,e)=>t&e,"^":(t,e)=>t^e,"|":(t,e)=>t|e};class be{constructor(t,e,n){this.left=e,this.operator=t,this.right=n}evaluate(){const t=me[this.operator];if(!t)throw new Error(`unexpected binary operator: '${this.operator}`);return t(this.left.evaluate(),this.right.evaluate())}toString(){return["b(",this.left.toString(),this.operator,this.right.toString(),")"].join(" ")}}const _e={"+":t=>t,"-":t=>-t,"~":t=>~t};class ge{constructor(t,e){this.operator=t,this.expression=e}evaluate(){const t=_e[this.operator];if(!t)throw new Error(`unexpected unary operator: '${this.operator}`);return t(this.expression.evaluate())}toString(){return["u(",this.operator,this.expression.toString(),")"].join(" ")}}function fe(t){return(e,n)=>{for(let i=0;i<t.length;i++){const s=t[i](e,n);if(""!==s)return s}return""}}function we(t,e){var n;const i=t.substr(e).match(/^\s+/);return null!==(n=i&&i[0])&&void 0!==n?n:""}function xe(t,e){var n;const i=t.substr(e).match(/^[0-9]+/);return null!==(n=i&&i[0])&&void 0!==n?n:""}function Ce(t,e){const n=t.substr(e,1);if(e+=1,"e"!==n.toLowerCase())return"";const i=function(t,e){const n=xe(t,e);if(""!==n)return n;const i=t.substr(e,1);if("-"!==i&&"+"!==i)return"";const s=xe(t,e+=1);return""===s?"":i+s}(t,e);return""===i?"":n+i}function ye(t,e){const n=t.substr(e,1);if("0"===n)return n;const i=function(t,e){const n=t.substr(e,1);return n.match(/^[1-9]$/)?n:""}(t,e);return e+=i.length,""===i?"":i+xe(t,e)}const Pe=fe([function(t,e){const n=ye(t,e);if(e+=n.length,""===n)return"";const i=t.substr(e,1);if(e+=i.length,"."!==i)return"";const s=xe(t,e);return n+i+s+Ce(t,e+=s.length)},function(t,e){const n=t.substr(e,1);if(e+=n.length,"."!==n)return"";const i=xe(t,e);return e+=i.length,""===i?"":n+i+Ce(t,e)},function(t,e){const n=ye(t,e);return e+=n.length,""===n?"":n+Ce(t,e)}]);const ke=fe([function(t,e){const n=t.substr(e,2);if(e+=n.length,"0b"!==n.toLowerCase())return"";const i=function(t,e){var n;const i=t.substr(e).match(/^[01]+/);return null!==(n=i&&i[0])&&void 0!==n?n:""}(t,e);return""===i?"":n+i},function(t,e){const n=t.substr(e,2);if(e+=n.length,"0o"!==n.toLowerCase())return"";const i=function(t,e){var n;const i=t.substr(e).match(/^[0-7]+/);return null!==(n=i&&i[0])&&void 0!==n?n:""}(t,e);return""===i?"":n+i},function(t,e){const n=t.substr(e,2);if(e+=n.length,"0x"!==n.toLowerCase())return"";const i=function(t,e){var n;const i=t.substr(e).match(/^[0-9a-f]+/i);return null!==(n=i&&i[0])&&void 0!==n?n:""}(t,e);return""===i?"":n+i}]),Ee=fe([ke,Pe]);function Ve(t,e){var n;return null!==(n=function(t,e){const n=Ee(t,e);return e+=n.length,""===n?null:{evaluable:new ve(n),cursor:e}}(t,e))&&void 0!==n?n:function(t,e){const n=t.substr(e,1);if(e+=n.length,"("!==n)return null;const i=Se(t,e);if(!i)return null;e=i.cursor,e+=we(t,e).length;const s=t.substr(e,1);return e+=s.length,")"!==s?null:{evaluable:i.evaluable,cursor:e}}(t,e)}function Le(t,e,n){n+=we(e,n).length;const i=t.filter((t=>e.startsWith(t,n)))[0];return i?(n+=i.length,{cursor:n+=we(e,n).length,operator:i}):null}const Me=[["**"],["*","/","%"],["+","-"],["<<",">>>",">>"],["&"],["^"],["|"]].reduce(((t,e)=>function(t,e){return(n,i)=>{const s=t(n,i);if(!s)return null;i=s.cursor;let o=s.evaluable;for(;;){const s=Le(e,n,i);if(!s)break;i=s.cursor;const r=t(n,i);if(!r)return null;i=r.cursor,o=new be(s.operator,o,r.evaluable)}return o?{cursor:i,evaluable:o}:null}}(t,e)),(function t(e,n){const i=Ve(e,n);if(i)return i;const s=e.substr(n,1);if(n+=s.length,"+"!==s&&"-"!==s&&"~"!==s)return null;const o=t(e,n);return o?{cursor:n=o.cursor,evaluable:new ge(s,o.evaluable)}:null}));function Se(t,e){return e+=we(t,e).length,Me(t,e)}function Ae(t){var e;const n=function(t){const e=Se(t,0);return e?e.cursor+we(t,e.cursor).length!==t.length?null:e.evaluable:null}(t);return null!==(e=null==n?void 0:n.evaluate())&&void 0!==e?e:null}function De(t){if("number"==typeof t)return t;if("string"==typeof t){const e=Ae(t);if(!a(e))return e}return 0}function je(t){return String(t)}function Re(t){return e=>e.toFixed(Math.max(Math.min(t,20),0))}const Oe=Re(0);function Ie(t){return Oe(t)+"%"}function Ke(t){return String(t)}function Ne(t){return t}function Ue({primary:t,secondary:e,forward:n,backward:i}){let s=!1;function o(t){s||(s=!0,t(),s=!1)}t.emitter.on("change",(i=>{o((()=>{e.setRawValue(n(t,e),i.options)}))})),e.emitter.on("change",(s=>{o((()=>{t.setRawValue(i(t,e),s.options)})),o((()=>{e.setRawValue(n(t,e),s.options)}))})),o((()=>{e.setRawValue(n(t,e),{forceEmit:!1,last:!0})}))}function Be(t,e){const n=t*(e.altKey?.1:1)*(e.shiftKey?10:1);return e.upKey?+n:e.downKey?-n:0}function Te(t){return{altKey:t.altKey,downKey:"ArrowDown"===t.key,shiftKey:t.shiftKey,upKey:"ArrowUp"===t.key}}function Fe(t){return{altKey:t.altKey,downKey:"ArrowLeft"===t.key,shiftKey:t.shiftKey,upKey:"ArrowRight"===t.key}}function $e(t){return function(t){return"ArrowUp"===t||"ArrowDown"===t}(t)||"ArrowLeft"===t||"ArrowRight"===t}function He(t,e){var n,i;const s=e.ownerDocument.defaultView,o=e.getBoundingClientRect();return{x:t.pageX-((null!==(n=s&&s.scrollX)&&void 0!==n?n:0)+o.left),y:t.pageY-((null!==(i=s&&s.scrollY)&&void 0!==i?i:0)+o.top)}}class ze{constructor(t){this.lastTouch_=null,this.onDocumentMouseMove_=this.onDocumentMouseMove_.bind(this),this.onDocumentMouseUp_=this.onDocumentMouseUp_.bind(this),this.onMouseDown_=this.onMouseDown_.bind(this),this.onTouchEnd_=this.onTouchEnd_.bind(this),this.onTouchMove_=this.onTouchMove_.bind(this),this.onTouchStart_=this.onTouchStart_.bind(this),this.elem_=t,this.emitter=new v,t.addEventListener("touchstart",this.onTouchStart_,{passive:!1}),t.addEventListener("touchmove",this.onTouchMove_,{passive:!0}),t.addEventListener("touchend",this.onTouchEnd_),t.addEventListener("mousedown",this.onMouseDown_)}computePosition_(t){const e=this.elem_.getBoundingClientRect();return{bounds:{width:e.width,height:e.height},point:t?{x:t.x,y:t.y}:null}}onMouseDown_(t){var e;t.preventDefault(),null===(e=t.currentTarget)||void 0===e||e.focus();const n=this.elem_.ownerDocument;n.addEventListener("mousemove",this.onDocumentMouseMove_),n.addEventListener("mouseup",this.onDocumentMouseUp_),this.emitter.emit("down",{altKey:t.altKey,data:this.computePosition_(He(t,this.elem_)),sender:this,shiftKey:t.shiftKey})}onDocumentMouseMove_(t){this.emitter.emit("move",{altKey:t.altKey,data:this.computePosition_(He(t,this.elem_)),sender:this,shiftKey:t.shiftKey})}onDocumentMouseUp_(t){const e=this.elem_.ownerDocument;e.removeEventListener("mousemove",this.onDocumentMouseMove_),e.removeEventListener("mouseup",this.onDocumentMouseUp_),this.emitter.emit("up",{altKey:t.altKey,data:this.computePosition_(He(t,this.elem_)),sender:this,shiftKey:t.shiftKey})}onTouchStart_(t){t.preventDefault();const e=t.targetTouches.item(0),n=this.elem_.getBoundingClientRect();this.emitter.emit("down",{altKey:t.altKey,data:this.computePosition_(e?{x:e.clientX-n.left,y:e.clientY-n.top}:void 0),sender:this,shiftKey:t.shiftKey}),this.lastTouch_=e}onTouchMove_(t){const e=t.targetTouches.item(0),n=this.elem_.getBoundingClientRect();this.emitter.emit("move",{altKey:t.altKey,data:this.computePosition_(e?{x:e.clientX-n.left,y:e.clientY-n.top}:void 0),sender:this,shiftKey:t.shiftKey}),this.lastTouch_=e}onTouchEnd_(t){var e;const n=null!==(e=t.targetTouches.item(0))&&void 0!==e?e:this.lastTouch_,i=this.elem_.getBoundingClientRect();this.emitter.emit("up",{altKey:t.altKey,data:this.computePosition_(n?{x:n.clientX-i.left,y:n.clientY-i.top}:void 0),sender:this,shiftKey:t.shiftKey})}}function qe(t,e,n,i,s){return i+(t-e)/(n-e)*(s-i)}function Ge(t){return String(t.toFixed(10)).split(".")[1].replace(/0+$/,"").length}function Ye(t,e,n){return Math.min(Math.max(t,e),n)}function Xe(t,e){return(t%e+e)%e}const Qe=b("txt");class Je{constructor(t,e){this.onChange_=this.onChange_.bind(this),this.props_=e.props,this.props_.emitter.on("change",this.onChange_),this.element=t.createElement("div"),this.element.classList.add(Qe(),Qe(void 0,"num")),e.arrayPosition&&this.element.classList.add(Qe(void 0,e.arrayPosition)),e.viewProps.bindClassModifiers(this.element);const n=t.createElement("input");n.classList.add(Qe("i")),n.type="text",e.viewProps.bindDisabled(n),this.element.appendChild(n),this.inputElement=n,this.onDraggingChange_=this.onDraggingChange_.bind(this),this.dragging_=e.dragging,this.dragging_.emitter.on("change",this.onDraggingChange_),this.element.classList.add(Qe()),this.inputElement.classList.add(Qe("i"));const i=t.createElement("div");i.classList.add(Qe("k")),this.element.appendChild(i),this.knobElement=i;const s=t.createElementNS(T,"svg");s.classList.add(Qe("g")),this.knobElement.appendChild(s);const o=t.createElementNS(T,"path");o.classList.add(Qe("gb")),s.appendChild(o),this.guideBodyElem_=o;const r=t.createElementNS(T,"path");r.classList.add(Qe("gh")),s.appendChild(r),this.guideHeadElem_=r;const a=t.createElement("div");a.classList.add(b("tt")()),this.knobElement.appendChild(a),this.tooltipElem_=a,e.value.emitter.on("change",this.onChange_),this.value=e.value,this.refresh()}onDraggingChange_(t){if(null===t.rawValue)return void this.element.classList.remove(Qe(void 0,"drg"));this.element.classList.add(Qe(void 0,"drg"));const e=t.rawValue/this.props_.get("draggingScale"),n=e+(e>0?-1:e<0?1:0),i=Ye(-n,-4,4);this.guideHeadElem_.setAttributeNS(null,"d",[`M ${n+i},0 L${n},4 L${n+i},8`,`M ${e},-1 L${e},9`].join(" ")),this.guideBodyElem_.setAttributeNS(null,"d",`M 0,4 L${e},4`);const s=this.props_.get("formatter");this.tooltipElem_.textContent=s(this.value.rawValue),this.tooltipElem_.style.left=`${e}px`}refresh(){const t=this.props_.get("formatter");this.inputElement.value=t(this.value.rawValue)}onChange_(){this.refresh()}}class We{constructor(t,e){var n;this.originRawValue_=0,this.onInputChange_=this.onInputChange_.bind(this),this.onInputKeyDown_=this.onInputKeyDown_.bind(this),this.onInputKeyUp_=this.onInputKeyUp_.bind(this),this.onPointerDown_=this.onPointerDown_.bind(this),this.onPointerMove_=this.onPointerMove_.bind(this),this.onPointerUp_=this.onPointerUp_.bind(this),this.baseStep_=e.baseStep,this.parser_=e.parser,this.props=e.props,this.sliderProps_=null!==(n=e.sliderProps)&&void 0!==n?n:null,this.value=e.value,this.viewProps=e.viewProps,this.dragging_=V(null),this.view=new Je(t,{arrayPosition:e.arrayPosition,dragging:this.dragging_,props:this.props,value:this.value,viewProps:this.viewProps}),this.view.inputElement.addEventListener("change",this.onInputChange_),this.view.inputElement.addEventListener("keydown",this.onInputKeyDown_),this.view.inputElement.addEventListener("keyup",this.onInputKeyUp_);const i=new ze(this.view.knobElement);i.emitter.on("down",this.onPointerDown_),i.emitter.on("move",this.onPointerMove_),i.emitter.on("up",this.onPointerUp_)}constrainValue_(t){var e,n;const i=null===(e=this.sliderProps_)||void 0===e?void 0:e.get("minValue"),s=null===(n=this.sliderProps_)||void 0===n?void 0:n.get("maxValue");let o=t;return void 0!==i&&(o=Math.max(o,i)),void 0!==s&&(o=Math.min(o,s)),o}onInputChange_(t){const e=t.currentTarget.value,n=this.parser_(e);a(n)||(this.value.rawValue=this.constrainValue_(n)),this.view.refresh()}onInputKeyDown_(t){const e=Be(this.baseStep_,Te(t));0!==e&&this.value.setRawValue(this.constrainValue_(this.value.rawValue+e),{forceEmit:!1,last:!1})}onInputKeyUp_(t){0!==Be(this.baseStep_,Te(t))&&this.value.setRawValue(this.value.rawValue,{forceEmit:!0,last:!0})}onPointerDown_(){this.originRawValue_=this.value.rawValue,this.dragging_.rawValue=0}computeDraggingValue_(t){if(!t.point)return null;const e=t.point.x-t.bounds.width/2;return this.constrainValue_(this.originRawValue_+e*this.props.get("draggingScale"))}onPointerMove_(t){const e=this.computeDraggingValue_(t.data);null!==e&&(this.value.setRawValue(e,{forceEmit:!1,last:!1}),this.dragging_.rawValue=this.value.rawValue-this.originRawValue_)}onPointerUp_(t){const e=this.computeDraggingValue_(t.data);null!==e&&(this.value.setRawValue(e,{forceEmit:!0,last:!0}),this.dragging_.rawValue=null)}}const Ze=b("sld");class tn{constructor(t,e){this.onChange_=this.onChange_.bind(this),this.props_=e.props,this.props_.emitter.on("change",this.onChange_),this.element=t.createElement("div"),this.element.classList.add(Ze()),e.viewProps.bindClassModifiers(this.element);const n=t.createElement("div");n.classList.add(Ze("t")),e.viewProps.bindTabIndex(n),this.element.appendChild(n),this.trackElement=n;const i=t.createElement("div");i.classList.add(Ze("k")),this.trackElement.appendChild(i),this.knobElement=i,e.value.emitter.on("change",this.onChange_),this.value=e.value,this.update_()}update_(){const t=Ye(qe(this.value.rawValue,this.props_.get("minValue"),this.props_.get("maxValue"),0,100),0,100);this.knobElement.style.width=`${t}%`}onChange_(){this.update_()}}class en{constructor(t,e){this.onKeyDown_=this.onKeyDown_.bind(this),this.onKeyUp_=this.onKeyUp_.bind(this),this.onPointerDownOrMove_=this.onPointerDownOrMove_.bind(this),this.onPointerUp_=this.onPointerUp_.bind(this),this.baseStep_=e.baseStep,this.value=e.value,this.viewProps=e.viewProps,this.props=e.props,this.view=new tn(t,{props:this.props,value:this.value,viewProps:this.viewProps}),this.ptHandler_=new ze(this.view.trackElement),this.ptHandler_.emitter.on("down",this.onPointerDownOrMove_),this.ptHandler_.emitter.on("move",this.onPointerDownOrMove_),this.ptHandler_.emitter.on("up",this.onPointerUp_),this.view.trackElement.addEventListener("keydown",this.onKeyDown_),this.view.trackElement.addEventListener("keyup",this.onKeyUp_)}handlePointerEvent_(t,e){t.point&&this.value.setRawValue(qe(Ye(t.point.x,0,t.bounds.width),0,t.bounds.width,this.props.get("minValue"),this.props.get("maxValue")),e)}onPointerDownOrMove_(t){this.handlePointerEvent_(t.data,{forceEmit:!1,last:!1})}onPointerUp_(t){this.handlePointerEvent_(t.data,{forceEmit:!0,last:!0})}onKeyDown_(t){const e=Be(this.baseStep_,Fe(t));0!==e&&this.value.setRawValue(this.value.rawValue+e,{forceEmit:!1,last:!1})}onKeyUp_(t){0!==Be(this.baseStep_,Fe(t))&&this.value.setRawValue(this.value.rawValue,{forceEmit:!0,last:!0})}}const nn=b("sldtxt");class sn{constructor(t,e){this.element=t.createElement("div"),this.element.classList.add(nn());const n=t.createElement("div");n.classList.add(nn("s")),this.sliderView_=e.sliderView,n.appendChild(this.sliderView_.element),this.element.appendChild(n);const i=t.createElement("div");i.classList.add(nn("t")),this.textView_=e.textView,i.appendChild(this.textView_.element),this.element.appendChild(i)}}class on{constructor(t,e){this.value=e.value,this.viewProps=e.viewProps,this.sliderC_=new en(t,{baseStep:e.baseStep,props:e.sliderProps,value:e.value,viewProps:this.viewProps}),this.textC_=new We(t,{baseStep:e.baseStep,parser:e.parser,props:e.textProps,sliderProps:e.sliderProps,value:e.value,viewProps:e.viewProps}),this.view=new sn(t,{sliderView:this.sliderC_.view,textView:this.textC_.view})}get sliderController(){return this.sliderC_}get textController(){return this.textC_}}function rn(t,e){t.write(e)}function an(t){const e=A;return Array.isArray(t)?e.required.array(e.required.object({text:e.required.string,value:e.required.raw}))(t).value:"object"==typeof t?e.required.raw(t).value:void 0}function ln(t){if("inline"===t||"popup"===t)return t}function pn(t){const e=A;return e.required.object({max:e.optional.number,min:e.optional.number,step:e.optional.number})(t).value}function dn(t){if(Array.isArray(t))return t;const e=[];return Object.keys(t).forEach((n=>{e.push({text:n,value:t[n]})})),e}function cn(t){return a(t)?null:new te(dn(t))}function hn(t,e){const n=t&&Wt(t,ne);return n?Ge(n.step):Math.max(Ge(e),2)}function un(t){const e=function(t){const e=t?Wt(t,ne):null;return e?e.step:null}(t);return null!=e?e:1}function vn(t,e){var n;const i=t&&Wt(t,ne),s=Math.abs(null!==(n=null==i?void 0:i.step)&&void 0!==n?n:e);return 0===s?.1:Math.pow(10,Math.floor(Math.log10(s))-1)}const mn=b("ckb");class bn{constructor(t,e){this.onValueChange_=this.onValueChange_.bind(this),this.element=t.createElement("div"),this.element.classList.add(mn()),e.viewProps.bindClassModifiers(this.element);const n=t.createElement("label");n.classList.add(mn("l")),this.element.appendChild(n);const i=t.createElement("input");i.classList.add(mn("i")),i.type="checkbox",n.appendChild(i),this.inputElement=i,e.viewProps.bindDisabled(this.inputElement);const s=t.createElement("div");s.classList.add(mn("w")),n.appendChild(s);const o=q(t,"check");s.appendChild(o),e.value.emitter.on("change",this.onValueChange_),this.value=e.value,this.update_()}update_(){this.inputElement.checked=this.value.rawValue}onValueChange_(){this.update_()}}class _n{constructor(t,e){this.onInputChange_=this.onInputChange_.bind(this),this.value=e.value,this.viewProps=e.viewProps,this.view=new bn(t,{value:this.value,viewProps:this.viewProps}),this.view.inputElement.addEventListener("change",this.onInputChange_)}onInputChange_(t){const e=t.currentTarget;this.value.rawValue=e.checked}}const gn={id:"input-bool",type:"input",accept:(t,e)=>{if("boolean"!=typeof t)return null;const n=D(e,{options:A.optional.custom(an)});return n?{initialValue:t,params:n}:null},binding:{reader:t=>he,constraint:t=>function(t){const e=[],n=cn(t.options);return n&&e.push(n),new Jt(e)}(t.params),writer:t=>rn},controller:t=>{const e=t.document,n=t.value,i=t.constraint,s=i&&Wt(i,te);return s?new oe(e,{props:new L({options:s.values.value("options")}),value:n,viewProps:t.viewProps}):new _n(e,{value:n,viewProps:t.viewProps})}},fn=b("col");class wn{constructor(t,e){this.element=t.createElement("div"),this.element.classList.add(fn()),e.foldable.bindExpandedClass(this.element,fn(void 0,"expanded")),f(e.foldable,"completed",w(this.element,fn(void 0,"cpl")));const n=t.createElement("div");n.classList.add(fn("h")),this.element.appendChild(n);const i=t.createElement("div");i.classList.add(fn("s")),n.appendChild(i),this.swatchElement=i;const s=t.createElement("div");if(s.classList.add(fn("t")),n.appendChild(s),this.textElement=s,"inline"===e.pickerLayout){const e=t.createElement("div");e.classList.add(fn("p")),this.element.appendChild(e),this.pickerElement=e}else this.pickerElement=null}}function xn(t,e,n){const i=Xe(t,360),s=Ye(e/100,0,1),o=Ye(n/100,0,1),r=o*s,a=r*(1-Math.abs(i/60%2-1)),l=o-r;let p,d,c;return[p,d,c]=i>=0&&i<60?[r,a,0]:i>=60&&i<120?[a,r,0]:i>=120&&i<180?[0,r,a]:i>=180&&i<240?[0,a,r]:i>=240&&i<300?[a,0,r]:[r,0,a],[255*(p+l),255*(d+l),255*(c+l)]}function Cn(t){return[t[0],t[1],t[2]]}function yn(t,e){return[t[0],t[1],t[2],e]}const Pn={hsl:{hsl:(t,e,n)=>[t,e,n],hsv:function(t,e,n){const i=n+e*(100-Math.abs(2*n-100))/200;return[t,0!==i?e*(100-Math.abs(2*n-100))/i:0,n+e*(100-Math.abs(2*n-100))/200]},rgb:function(t,e,n){const i=(t%360+360)%360,s=Ye(e/100,0,1),o=Ye(n/100,0,1),r=(1-Math.abs(2*o-1))*s,a=r*(1-Math.abs(i/60%2-1)),l=o-r/2;let p,d,c;return[p,d,c]=i>=0&&i<60?[r,a,0]:i>=60&&i<120?[a,r,0]:i>=120&&i<180?[0,r,a]:i>=180&&i<240?[0,a,r]:i>=240&&i<300?[a,0,r]:[r,0,a],[255*(p+l),255*(d+l),255*(c+l)]}},hsv:{hsl:function(t,e,n){const i=100-Math.abs(n*(200-e)/100-100);return[t,0!==i?e*n/i:0,n*(200-e)/200]},hsv:(t,e,n)=>[t,e,n],rgb:xn},rgb:{hsl:function(t,e,n){const i=Ye(t/255,0,1),s=Ye(e/255,0,1),o=Ye(n/255,0,1),r=Math.max(i,s,o),a=Math.min(i,s,o),l=r-a;let p=0,d=0;const c=(a+r)/2;return 0!==l&&(d=l/(1-Math.abs(r+a-1)),p=i===r?(s-o)/l:s===r?2+(o-i)/l:4+(i-s)/l,p=p/6+(p<0?1:0)),[360*p,100*d,100*c]},hsv:function(t,e,n){const i=Ye(t/255,0,1),s=Ye(e/255,0,1),o=Ye(n/255,0,1),r=Math.max(i,s,o),a=r-Math.min(i,s,o);let l;return l=0===a?0:r===i?((s-o)/a%6+6)%6*60:r===s?60*((o-i)/a+2):60*((i-s)/a+4),[l,100*(0===r?0:a/r),100*r]},rgb:(t,e,n)=>[t,e,n]}};function kn(t,e){return["float"===e?1:"rgb"===t?255:360,"float"===e?1:"rgb"===t?255:100,"float"===e?1:"rgb"===t?255:100]}function En(t,e,n,i){const s=kn(e,n),o=kn(e,i);return t.map(((t,e)=>t/s[e]*o[e]))}function Vn(t,e){return"object"==typeof t&&!a(t)&&(e in t&&"number"==typeof t[e])}class Ln{static black(t="int"){return new Ln([0,0,0],"rgb",t)}static fromObject(t,e="int"){const n="a"in t?[t.r,t.g,t.b,t.a]:[t.r,t.g,t.b];return new Ln(n,"rgb",e)}static toRgbaObject(t,e="int"){return t.toRgbaObject(e)}static isRgbColorObject(t){return Vn(t,"r")&&Vn(t,"g")&&Vn(t,"b")}static isRgbaColorObject(t){return this.isRgbColorObject(t)&&Vn(t,"a")}static isColorObject(t){return this.isRgbColorObject(t)}static equals(t,e){if(t.mode!==e.mode)return!1;const n=t.comps_,i=e.comps_;for(let t=0;t<n.length;t++)if(n[t]!==i[t])return!1;return!0}constructor(t,e,n="int"){this.mode=e,this.type=n,this.comps_=function(t,e,n){var i;const s=kn(e,n);return["rgb"===e?Ye(t[0],0,s[0]):(o=t[0],r=s[0],o===r?r:Xe(o,r)),Ye(t[1],0,s[1]),Ye(t[2],0,s[2]),Ye(null!==(i=t[3])&&void 0!==i?i:1,0,1)];var o,r}(t,e,n)}getComponents(t,e="int"){return yn(function(t,e,n){const i=En(t,e.mode,e.type,"int");return En(Pn[e.mode][n.mode](...i),n.mode,"int",n.type)}(Cn(this.comps_),{mode:this.mode,type:this.type},{mode:null!=t?t:this.mode,type:e}),this.comps_[3])}toRgbaObject(t="int"){const e=this.getComponents("rgb",t);return{r:e[0],g:e[1],b:e[2],a:e[3]}}}const Mn=b("colp");class Sn{constructor(t,e){this.alphaViews_=null,this.element=t.createElement("div"),this.element.classList.add(Mn()),e.viewProps.bindClassModifiers(this.element);const n=t.createElement("div");n.classList.add(Mn("hsv"));const i=t.createElement("div");i.classList.add(Mn("sv")),this.svPaletteView_=e.svPaletteView,i.appendChild(this.svPaletteView_.element),n.appendChild(i);const s=t.createElement("div");s.classList.add(Mn("h")),this.hPaletteView_=e.hPaletteView,s.appendChild(this.hPaletteView_.element),n.appendChild(s),this.element.appendChild(n);const o=t.createElement("div");if(o.classList.add(Mn("rgb")),this.textView_=e.textView,o.appendChild(this.textView_.element),this.element.appendChild(o),e.alphaViews){this.alphaViews_={palette:e.alphaViews.palette,text:e.alphaViews.text};const n=t.createElement("div");n.classList.add(Mn("a"));const i=t.createElement("div");i.classList.add(Mn("ap")),i.appendChild(this.alphaViews_.palette.element),n.appendChild(i);const s=t.createElement("div");s.classList.add(Mn("at")),s.appendChild(this.alphaViews_.text.element),n.appendChild(s),this.element.appendChild(n)}}get allFocusableElements(){const t=[this.svPaletteView_.element,this.hPaletteView_.element,this.textView_.modeSelectElement,...this.textView_.textViews.map((t=>t.inputElement))];return this.alphaViews_&&t.push(this.alphaViews_.palette.element,this.alphaViews_.text.inputElement),t}}function An(t){return"int"===t?"int":"float"===t?"float":void 0}function Dn(t){const e=A;return D(t,{alpha:e.optional.boolean,color:e.optional.object({alpha:e.optional.boolean,type:e.optional.custom(An)}),expanded:e.optional.boolean,picker:e.optional.custom(ln)})}function jn(t){return t?.1:1}function Rn(t){var e;return null===(e=t.color)||void 0===e?void 0:e.type}function On(t,e){const n=t.match(/^(.+)%$/);return n?Math.min(.01*parseFloat(n[1])*e,e):Math.min(parseFloat(t),e)}const In={deg:t=>t,grad:t=>360*t/400,rad:t=>360*t/(2*Math.PI),turn:t=>360*t};function Kn(t){const e=t.match(/^([0-9.]+?)(deg|grad|rad|turn)$/);if(!e)return parseFloat(t);const n=parseFloat(e[1]),i=e[2];return In[i](n)}function Nn(t){const e=t.match(/^rgb\(\s*([0-9A-Fa-f.]+%?)\s*,\s*([0-9A-Fa-f.]+%?)\s*,\s*([0-9A-Fa-f.]+%?)\s*\)$/);if(!e)return null;const n=[On(e[1],255),On(e[2],255),On(e[3],255)];return isNaN(n[0])||isNaN(n[1])||isNaN(n[2])?null:n}function Un(t){return e=>{const n=Nn(e);return n?new Ln(n,"rgb",t):null}}function Bn(t){const e=t.match(/^rgba\(\s*([0-9A-Fa-f.]+%?)\s*,\s*([0-9A-Fa-f.]+%?)\s*,\s*([0-9A-Fa-f.]+%?)\s*,\s*([0-9A-Fa-f.]+%?)\s*\)$/);if(!e)return null;const n=[On(e[1],255),On(e[2],255),On(e[3],255),On(e[4],1)];return isNaN(n[0])||isNaN(n[1])||isNaN(n[2])||isNaN(n[3])?null:n}function Tn(t){return e=>{const n=Bn(e);return n?new Ln(n,"rgb",t):null}}function Fn(t){const e=t.match(/^hsl\(\s*([0-9A-Fa-f.]+(?:deg|grad|rad|turn)?)\s*,\s*([0-9A-Fa-f.]+%?)\s*,\s*([0-9A-Fa-f.]+%?)\s*\)$/);if(!e)return null;const n=[Kn(e[1]),On(e[2],100),On(e[3],100)];return isNaN(n[0])||isNaN(n[1])||isNaN(n[2])?null:n}function $n(t){return e=>{const n=Fn(e);return n?new Ln(n,"hsl",t):null}}function Hn(t){const e=t.match(/^hsla\(\s*([0-9A-Fa-f.]+(?:deg|grad|rad|turn)?)\s*,\s*([0-9A-Fa-f.]+%?)\s*,\s*([0-9A-Fa-f.]+%?)\s*,\s*([0-9A-Fa-f.]+%?)\s*\)$/);if(!e)return null;const n=[Kn(e[1]),On(e[2],100),On(e[3],100),On(e[4],1)];return isNaN(n[0])||isNaN(n[1])||isNaN(n[2])||isNaN(n[3])?null:n}function zn(t){return e=>{const n=Hn(e);return n?new Ln(n,"hsl",t):null}}function qn(t){const e=t.match(/^#([0-9A-Fa-f])([0-9A-Fa-f])([0-9A-Fa-f])$/);if(e)return[parseInt(e[1]+e[1],16),parseInt(e[2]+e[2],16),parseInt(e[3]+e[3],16)];const n=t.match(/^(?:#|0x)([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})$/);return n?[parseInt(n[1],16),parseInt(n[2],16),parseInt(n[3],16)]:null}function Gn(t){const e=t.match(/^#?([0-9A-Fa-f])([0-9A-Fa-f])([0-9A-Fa-f])([0-9A-Fa-f])$/);if(e)return[parseInt(e[1]+e[1],16),parseInt(e[2]+e[2],16),parseInt(e[3]+e[3],16),qe(parseInt(e[4]+e[4],16),0,255,0,1)];const n=t.match(/^(?:#|0x)?([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})$/);return n?[parseInt(n[1],16),parseInt(n[2],16),parseInt(n[3],16),qe(parseInt(n[4],16),0,255,0,1)]:null}function Yn(t){const e=t.match(/^\{\s*r\s*:\s*([0-9A-Fa-f.]+%?)\s*,\s*g\s*:\s*([0-9A-Fa-f.]+%?)\s*,\s*b\s*:\s*([0-9A-Fa-f.]+%?)\s*\}$/);if(!e)return null;const n=[parseFloat(e[1]),parseFloat(e[2]),parseFloat(e[3])];return isNaN(n[0])||isNaN(n[1])||isNaN(n[2])?null:n}function Xn(t){return e=>{const n=Yn(e);return n?new Ln(n,"rgb",t):null}}function Qn(t){const e=t.match(/^\{\s*r\s*:\s*([0-9A-Fa-f.]+%?)\s*,\s*g\s*:\s*([0-9A-Fa-f.]+%?)\s*,\s*b\s*:\s*([0-9A-Fa-f.]+%?)\s*,\s*a\s*:\s*([0-9A-Fa-f.]+%?)\s*\}$/);if(!e)return null;const n=[parseFloat(e[1]),parseFloat(e[2]),parseFloat(e[3]),parseFloat(e[4])];return isNaN(n[0])||isNaN(n[1])||isNaN(n[2])||isNaN(n[3])?null:n}function Jn(t){return e=>{const n=Qn(e);return n?new Ln(n,"rgb",t):null}}const Wn=[{parser:qn,result:{alpha:!1,mode:"rgb",notation:"hex"}},{parser:Gn,result:{alpha:!0,mode:"rgb",notation:"hex"}},{parser:Nn,result:{alpha:!1,mode:"rgb",notation:"func"}},{parser:Bn,result:{alpha:!0,mode:"rgb",notation:"func"}},{parser:Fn,result:{alpha:!1,mode:"hsl",notation:"func"}},{parser:Hn,result:{alpha:!0,mode:"hsl",notation:"func"}},{parser:Yn,result:{alpha:!1,mode:"rgb",notation:"object"}},{parser:Qn,result:{alpha:!0,mode:"rgb",notation:"object"}}];function Zn(t,e="int"){const n=function(t){return Wn.reduce(((e,{parser:n,result:i})=>e||(n(t)?i:null)),null)}(t);return n?"hex"===n.notation&&"float"!==e?Object.assign(Object.assign({},n),{type:"int"}):"func"===n.notation?Object.assign(Object.assign({},n),{type:e}):null:null}const ti={int:[function(t){const e=qn(t);return e?new Ln(e,"rgb","int"):null},function(t){const e=Gn(t);return e?new Ln(e,"rgb","int"):null},Un("int"),Tn("int"),$n("int"),zn("int"),Xn("int"),Jn("int")],float:[Un("float"),Tn("float"),$n("float"),zn("float"),Xn("float"),Jn("float")]};function ei(t){const e=ti[t];return t=>e.reduce(((e,n)=>e||n(t)),null)}function ni(t){const e=Ye(Math.floor(t),0,255).toString(16);return 1===e.length?`0${e}`:e}function ii(t,e="#"){return`${e}${Cn(t.getComponents("rgb")).map(ni).join("")}`}function si(t,e="#"){const n=t.getComponents("rgb");return`${e}${[n[0],n[1],n[2],255*n[3]].map(ni).join("")}`}function oi(t,e){const n=Re("float"===e?2:0);return`rgb(${Cn(t.getComponents("rgb",e)).map((t=>n(t))).join(", ")})`}function ri(t){return e=>oi(e,t)}function ai(t,e){const n=Re(2),i=Re("float"===e?2:0);return`rgba(${t.getComponents("rgb",e).map(((t,e)=>(3===e?n:i)(t))).join(", ")})`}function li(t){return e=>ai(e,t)}function pi(t,e){const n=Re("float"===e?2:0),i=["r","g","b"];return`{${Cn(t.getComponents("rgb",e)).map(((t,e)=>`${i[e]}: ${n(t)}`)).join(", ")}}`}function di(t){return e=>pi(e,t)}function ci(t,e){const n=Re(2),i=Re("float"===e?2:0),s=["r","g","b","a"];return`{${t.getComponents("rgb",e).map(((t,e)=>`${s[e]}: ${(3===e?n:i)(t)}`)).join(", ")}}`}function hi(t){return e=>ci(e,t)}const ui=[{format:{alpha:!1,mode:"rgb",notation:"hex",type:"int"},stringifier:ii},{format:{alpha:!0,mode:"rgb",notation:"hex",type:"int"},stringifier:si},{format:{alpha:!1,mode:"hsl",notation:"func",type:"int"},stringifier:function(t){const e=[Re(0),Ie,Ie];return`hsl(${Cn(t.getComponents("hsl")).map(((t,n)=>e[n](t))).join(", ")})`}},{format:{alpha:!0,mode:"hsl",notation:"func",type:"int"},stringifier:function(t){const e=[Re(0),Ie,Ie,Re(2)];return`hsla(${t.getComponents("hsl").map(((t,n)=>e[n](t))).join(", ")})`}},...["int","float"].reduce(((t,e)=>[...t,{format:{alpha:!1,mode:"rgb",notation:"func",type:e},stringifier:ri(e)},{format:{alpha:!0,mode:"rgb",notation:"func",type:e},stringifier:li(e)},{format:{alpha:!1,mode:"rgb",notation:"object",type:e},stringifier:di(e)},{format:{alpha:!0,mode:"rgb",notation:"object",type:e},stringifier:hi(e)}]),[])];function vi(t){return ui.reduce(((e,n)=>{return e||(i=n.format,s=t,i.alpha===s.alpha&&i.mode===s.mode&&i.notation===s.notation&&i.type===s.type?n.stringifier:null);var i,s}),null)}const mi=b("apl");class bi{constructor(t,e){this.onValueChange_=this.onValueChange_.bind(this),this.value=e.value,this.value.emitter.on("change",this.onValueChange_),this.element=t.createElement("div"),this.element.classList.add(mi()),e.viewProps.bindClassModifiers(this.element),e.viewProps.bindTabIndex(this.element);const n=t.createElement("div");n.classList.add(mi("b")),this.element.appendChild(n);const i=t.createElement("div");i.classList.add(mi("c")),n.appendChild(i),this.colorElem_=i;const s=t.createElement("div");s.classList.add(mi("m")),this.element.appendChild(s),this.markerElem_=s;const o=t.createElement("div");o.classList.add(mi("p")),this.markerElem_.appendChild(o),this.previewElem_=o,this.update_()}update_(){const t=this.value.rawValue,e=t.getComponents("rgb"),n=new Ln([e[0],e[1],e[2],0],"rgb"),i=new Ln([e[0],e[1],e[2],255],"rgb"),s=["to right",ai(n),ai(i)];this.colorElem_.style.background=`linear-gradient(${s.join(",")})`,this.previewElem_.style.backgroundColor=ai(t);const o=qe(e[3],0,1,0,100);this.markerElem_.style.left=`${o}%`}onValueChange_(){this.update_()}}class _i{constructor(t,e){this.onKeyDown_=this.onKeyDown_.bind(this),this.onKeyUp_=this.onKeyUp_.bind(this),this.onPointerDown_=this.onPointerDown_.bind(this),this.onPointerMove_=this.onPointerMove_.bind(this),this.onPointerUp_=this.onPointerUp_.bind(this),this.value=e.value,this.viewProps=e.viewProps,this.view=new bi(t,{value:this.value,viewProps:this.viewProps}),this.ptHandler_=new ze(this.view.element),this.ptHandler_.emitter.on("down",this.onPointerDown_),this.ptHandler_.emitter.on("move",this.onPointerMove_),this.ptHandler_.emitter.on("up",this.onPointerUp_),this.view.element.addEventListener("keydown",this.onKeyDown_),this.view.element.addEventListener("keyup",this.onKeyUp_)}handlePointerEvent_(t,e){if(!t.point)return;const n=t.point.x/t.bounds.width,i=this.value.rawValue,[s,o,r]=i.getComponents("hsv");this.value.setRawValue(new Ln([s,o,r,n],"hsv"),e)}onPointerDown_(t){this.handlePointerEvent_(t.data,{forceEmit:!1,last:!1})}onPointerMove_(t){this.handlePointerEvent_(t.data,{forceEmit:!1,last:!1})}onPointerUp_(t){this.handlePointerEvent_(t.data,{forceEmit:!0,last:!0})}onKeyDown_(t){const e=Be(jn(!0),Fe(t));if(0===e)return;const n=this.value.rawValue,[i,s,o,r]=n.getComponents("hsv");this.value.setRawValue(new Ln([i,s,o,r+e],"hsv"),{forceEmit:!1,last:!1})}onKeyUp_(t){0!==Be(jn(!0),Fe(t))&&this.value.setRawValue(this.value.rawValue,{forceEmit:!0,last:!0})}}const gi=b("coltxt");class fi{constructor(t,e){this.element=t.createElement("div"),this.element.classList.add(gi()),e.viewProps.bindClassModifiers(this.element);const n=t.createElement("div");n.classList.add(gi("m")),this.modeElem_=function(t){const e=t.createElement("select");return e.appendChild([{text:"RGB",value:"rgb"},{text:"HSL",value:"hsl"},{text:"HSV",value:"hsv"}].reduce(((e,n)=>{const i=t.createElement("option");return i.textContent=n.text,i.value=n.value,e.appendChild(i),e}),t.createDocumentFragment())),e}(t),this.modeElem_.classList.add(gi("ms")),n.appendChild(this.modeSelectElement),e.viewProps.bindDisabled(this.modeElem_);const i=t.createElement("div");i.classList.add(gi("mm")),i.appendChild(q(t,"dropdown")),n.appendChild(i),this.element.appendChild(n);const s=t.createElement("div");s.classList.add(gi("w")),this.element.appendChild(s),this.textsElem_=s,this.textViews_=e.textViews,this.applyTextViews_(),g(e.colorMode,(t=>{this.modeElem_.value=t}))}get modeSelectElement(){return this.modeElem_}get textViews(){return this.textViews_}set textViews(t){this.textViews_=t,this.applyTextViews_()}applyTextViews_(){X(this.textsElem_);const t=this.element.ownerDocument;this.textViews_.forEach((e=>{const n=t.createElement("div");n.classList.add(gi("c")),n.appendChild(e.element),this.textsElem_.appendChild(n)}))}}function wi(t,e,n){const i=kn(t,e)[n];return new Zt({min:0,max:i})}function xi(t,e,n){return new We(t,{arrayPosition:0===n?"fst":2===n?"lst":"mid",baseStep:jn(!1),parser:e.parser,props:L.fromObject({draggingScale:"float"===e.colorType?.01:1,formatter:(i=e.colorType,Re("float"===i?2:0))}),value:V(0,{constraint:wi(e.colorMode,e.colorType,n)}),viewProps:e.viewProps});var i}class Ci{constructor(t,e){this.onModeSelectChange_=this.onModeSelectChange_.bind(this),this.colorType_=e.colorType,this.parser_=e.parser,this.value=e.value,this.viewProps=e.viewProps,this.colorMode=V(this.value.rawValue.mode),this.ccs_=this.createComponentControllers_(t),this.view=new fi(t,{colorMode:this.colorMode,textViews:[this.ccs_[0].view,this.ccs_[1].view,this.ccs_[2].view],viewProps:this.viewProps}),this.view.modeSelectElement.addEventListener("change",this.onModeSelectChange_)}createComponentControllers_(t){const e={colorMode:this.colorMode.rawValue,colorType:this.colorType_,parser:this.parser_,viewProps:this.viewProps},n=[xi(t,e,0),xi(t,e,1),xi(t,e,2)];return n.forEach(((t,e)=>{Ue({primary:this.value,secondary:t.value,forward:t=>t.rawValue.getComponents(this.colorMode.rawValue,this.colorType_)[e],backward:(t,n)=>{const i=this.colorMode.rawValue,s=t.rawValue.getComponents(i,this.colorType_);return s[e]=n.rawValue,new Ln(yn(Cn(s),s[3]),i,this.colorType_)}})})),n}onModeSelectChange_(t){const e=t.currentTarget;this.colorMode.rawValue=e.value,this.ccs_=this.createComponentControllers_(this.view.element.ownerDocument),this.view.textViews=[this.ccs_[0].view,this.ccs_[1].view,this.ccs_[2].view]}}const yi=b("hpl");class Pi{constructor(t,e){this.onValueChange_=this.onValueChange_.bind(this),this.value=e.value,this.value.emitter.on("change",this.onValueChange_),this.element=t.createElement("div"),this.element.classList.add(yi()),e.viewProps.bindClassModifiers(this.element),e.viewProps.bindTabIndex(this.element);const n=t.createElement("div");n.classList.add(yi("c")),this.element.appendChild(n);const i=t.createElement("div");i.classList.add(yi("m")),this.element.appendChild(i),this.markerElem_=i,this.update_()}update_(){const t=this.value.rawValue,[e]=t.getComponents("hsv");this.markerElem_.style.backgroundColor=oi(new Ln([e,100,100],"hsv"));const n=qe(e,0,360,0,100);this.markerElem_.style.left=`${n}%`}onValueChange_(){this.update_()}}class ki{constructor(t,e){this.onKeyDown_=this.onKeyDown_.bind(this),this.onKeyUp_=this.onKeyUp_.bind(this),this.onPointerDown_=this.onPointerDown_.bind(this),this.onPointerMove_=this.onPointerMove_.bind(this),this.onPointerUp_=this.onPointerUp_.bind(this),this.value=e.value,this.viewProps=e.viewProps,this.view=new Pi(t,{value:this.value,viewProps:this.viewProps}),this.ptHandler_=new ze(this.view.element),this.ptHandler_.emitter.on("down",this.onPointerDown_),this.ptHandler_.emitter.on("move",this.onPointerMove_),this.ptHandler_.emitter.on("up",this.onPointerUp_),this.view.element.addEventListener("keydown",this.onKeyDown_),this.view.element.addEventListener("keyup",this.onKeyUp_)}handlePointerEvent_(t,e){if(!t.point)return;const n=qe(Ye(t.point.x,0,t.bounds.width),0,t.bounds.width,0,360),i=this.value.rawValue,[,s,o,r]=i.getComponents("hsv");this.value.setRawValue(new Ln([n,s,o,r],"hsv"),e)}onPointerDown_(t){this.handlePointerEvent_(t.data,{forceEmit:!1,last:!1})}onPointerMove_(t){this.handlePointerEvent_(t.data,{forceEmit:!1,last:!1})}onPointerUp_(t){this.handlePointerEvent_(t.data,{forceEmit:!0,last:!0})}onKeyDown_(t){const e=Be(jn(!1),Fe(t));if(0===e)return;const n=this.value.rawValue,[i,s,o,r]=n.getComponents("hsv");this.value.setRawValue(new Ln([i+e,s,o,r],"hsv"),{forceEmit:!1,last:!1})}onKeyUp_(t){0!==Be(jn(!1),Fe(t))&&this.value.setRawValue(this.value.rawValue,{forceEmit:!0,last:!0})}}const Ei=b("svp");class Vi{constructor(t,e){this.onValueChange_=this.onValueChange_.bind(this),this.value=e.value,this.value.emitter.on("change",this.onValueChange_),this.element=t.createElement("div"),this.element.classList.add(Ei()),e.viewProps.bindClassModifiers(this.element),e.viewProps.bindTabIndex(this.element);const n=t.createElement("canvas");n.height=64,n.width=64,n.classList.add(Ei("c")),this.element.appendChild(n),this.canvasElement=n;const i=t.createElement("div");i.classList.add(Ei("m")),this.element.appendChild(i),this.markerElem_=i,this.update_()}update_(){const t=function(t){const e=t.ownerDocument.defaultView;return e&&"document"in e?t.getContext("2d",{willReadFrequently:!0}):null}(this.canvasElement);if(!t)return;const e=this.value.rawValue.getComponents("hsv"),n=this.canvasElement.width,i=this.canvasElement.height,s=t.getImageData(0,0,n,i),o=s.data;for(let t=0;t<i;t++)for(let s=0;s<n;s++){const r=qe(s,0,n,0,100),a=qe(t,0,i,100,0),l=xn(e[0],r,a),p=4*(t*n+s);o[p]=l[0],o[p+1]=l[1],o[p+2]=l[2],o[p+3]=255}t.putImageData(s,0,0);const r=qe(e[1],0,100,0,100);this.markerElem_.style.left=`${r}%`;const a=qe(e[2],0,100,100,0);this.markerElem_.style.top=`${a}%`}onValueChange_(){this.update_()}}class Li{constructor(t,e){this.onKeyDown_=this.onKeyDown_.bind(this),this.onKeyUp_=this.onKeyUp_.bind(this),this.onPointerDown_=this.onPointerDown_.bind(this),this.onPointerMove_=this.onPointerMove_.bind(this),this.onPointerUp_=this.onPointerUp_.bind(this),this.value=e.value,this.viewProps=e.viewProps,this.view=new Vi(t,{value:this.value,viewProps:this.viewProps}),this.ptHandler_=new ze(this.view.element),this.ptHandler_.emitter.on("down",this.onPointerDown_),this.ptHandler_.emitter.on("move",this.onPointerMove_),this.ptHandler_.emitter.on("up",this.onPointerUp_),this.view.element.addEventListener("keydown",this.onKeyDown_),this.view.element.addEventListener("keyup",this.onKeyUp_)}handlePointerEvent_(t,e){if(!t.point)return;const n=qe(t.point.x,0,t.bounds.width,0,100),i=qe(t.point.y,0,t.bounds.height,100,0),[s,,,o]=this.value.rawValue.getComponents("hsv");this.value.setRawValue(new Ln([s,n,i,o],"hsv"),e)}onPointerDown_(t){this.handlePointerEvent_(t.data,{forceEmit:!1,last:!1})}onPointerMove_(t){this.handlePointerEvent_(t.data,{forceEmit:!1,last:!1})}onPointerUp_(t){this.handlePointerEvent_(t.data,{forceEmit:!0,last:!0})}onKeyDown_(t){$e(t.key)&&t.preventDefault();const[e,n,i,s]=this.value.rawValue.getComponents("hsv"),o=jn(!1),r=Be(o,Fe(t)),a=Be(o,Te(t));0===r&&0===a||this.value.setRawValue(new Ln([e,n+r,i+a,s],"hsv"),{forceEmit:!1,last:!1})}onKeyUp_(t){const e=jn(!1),n=Be(e,Fe(t)),i=Be(e,Te(t));0===n&&0===i||this.value.setRawValue(this.value.rawValue,{forceEmit:!0,last:!0})}}class Mi{constructor(t,e){this.value=e.value,this.viewProps=e.viewProps,this.hPaletteC_=new ki(t,{value:this.value,viewProps:this.viewProps}),this.svPaletteC_=new Li(t,{value:this.value,viewProps:this.viewProps}),this.alphaIcs_=e.supportsAlpha?{palette:new _i(t,{value:this.value,viewProps:this.viewProps}),text:new We(t,{parser:Ae,baseStep:.1,props:L.fromObject({draggingScale:.01,formatter:Re(2)}),value:V(0,{constraint:new Zt({min:0,max:1})}),viewProps:this.viewProps})}:null,this.alphaIcs_&&Ue({primary:this.value,secondary:this.alphaIcs_.text.value,forward:t=>t.rawValue.getComponents()[3],backward:(t,e)=>{const n=t.rawValue.getComponents();return n[3]=e.rawValue,new Ln(n,t.rawValue.mode)}}),this.textC_=new Ci(t,{colorType:e.colorType,parser:Ae,value:this.value,viewProps:this.viewProps}),this.view=new Sn(t,{alphaViews:this.alphaIcs_?{palette:this.alphaIcs_.palette.view,text:this.alphaIcs_.text.view}:null,hPaletteView:this.hPaletteC_.view,supportsAlpha:e.supportsAlpha,svPaletteView:this.svPaletteC_.view,textView:this.textC_.view,viewProps:this.viewProps})}get textController(){return this.textC_}}const Si=b("colsw");class Ai{constructor(t,e){this.onValueChange_=this.onValueChange_.bind(this),e.value.emitter.on("change",this.onValueChange_),this.value=e.value,this.element=t.createElement("div"),this.element.classList.add(Si()),e.viewProps.bindClassModifiers(this.element);const n=t.createElement("div");n.classList.add(Si("sw")),this.element.appendChild(n),this.swatchElem_=n;const i=t.createElement("button");i.classList.add(Si("b")),e.viewProps.bindDisabled(i),this.element.appendChild(i),this.buttonElement=i,this.update_()}update_(){const t=this.value.rawValue;this.swatchElem_.style.backgroundColor=si(t)}onValueChange_(){this.update_()}}class Di{constructor(t,e){this.value=e.value,this.viewProps=e.viewProps,this.view=new Ai(t,{value:this.value,viewProps:this.viewProps})}}class ji{constructor(t,e){this.onButtonBlur_=this.onButtonBlur_.bind(this),this.onButtonClick_=this.onButtonClick_.bind(this),this.onPopupChildBlur_=this.onPopupChildBlur_.bind(this),this.onPopupChildKeydown_=this.onPopupChildKeydown_.bind(this),this.value=e.value,this.viewProps=e.viewProps,this.foldable_=it.create(e.expanded),this.swatchC_=new Di(t,{value:this.value,viewProps:this.viewProps});const n=this.swatchC_.view.buttonElement;n.addEventListener("blur",this.onButtonBlur_),n.addEventListener("click",this.onButtonClick_),this.textC_=new ce(t,{parser:e.parser,props:L.fromObject({formatter:e.formatter}),value:this.value,viewProps:this.viewProps}),this.view=new wn(t,{foldable:this.foldable_,pickerLayout:e.pickerLayout}),this.view.swatchElement.appendChild(this.swatchC_.view.element),this.view.textElement.appendChild(this.textC_.view.element),this.popC_="popup"===e.pickerLayout?new le(t,{viewProps:this.viewProps}):null;const i=new Mi(t,{colorType:e.colorType,supportsAlpha:e.supportsAlpha,value:this.value,viewProps:this.viewProps});i.view.allFocusableElements.forEach((t=>{t.addEventListener("blur",this.onPopupChildBlur_),t.addEventListener("keydown",this.onPopupChildKeydown_)})),this.pickerC_=i,this.popC_?(this.view.element.appendChild(this.popC_.view.element),this.popC_.view.element.appendChild(i.view.element),Ue({primary:this.foldable_.value("expanded"),secondary:this.popC_.shows,forward:t=>t.rawValue,backward:(t,e)=>e.rawValue})):this.view.pickerElement&&(this.view.pickerElement.appendChild(this.pickerC_.view.element),ot(this.foldable_,this.view.pickerElement))}get textController(){return this.textC_}onButtonBlur_(t){if(!this.popC_)return;const e=this.view.element,n=t.relatedTarget;n&&e.contains(n)||(this.popC_.shows.rawValue=!1)}onButtonClick_(){this.foldable_.set("expanded",!this.foldable_.get("expanded")),this.foldable_.get("expanded")&&this.pickerC_.view.allFocusableElements[0].focus()}onPopupChildBlur_(t){if(!this.popC_)return;const e=this.popC_.view.element,n=Q(t);n&&e.contains(n)||n&&n===this.swatchC_.view.buttonElement&&!$(e.ownerDocument)||(this.popC_.shows.rawValue=!1)}onPopupChildKeydown_(t){this.popC_?"Escape"===t.key&&(this.popC_.shows.rawValue=!1):this.view.pickerElement&&"Escape"===t.key&&this.swatchC_.view.buttonElement.focus()}}function Ri(t){return Cn(t.getComponents("rgb")).reduce(((t,e)=>t<<8|255&Math.floor(e)),0)}function Oi(t){return t.getComponents("rgb").reduce(((t,e,n)=>t<<8|255&Math.floor(3===n?255*e:e)),0)>>>0}function Ii(t){return"number"!=typeof t?Ln.black():new Ln([(e=t)>>16&255,e>>8&255,255&e],"rgb");var e}function Ki(t){return"number"!=typeof t?Ln.black():new Ln([(e=t)>>24&255,e>>16&255,e>>8&255,qe(255&e,0,255,0,1)],"rgb");var e}function Ni(t){var e;return!(!(null==t?void 0:t.alpha)&&!(null===(e=null==t?void 0:t.color)||void 0===e?void 0:e.alpha))}function Ui(t){return t?t=>si(t,"0x"):t=>ii(t,"0x")}const Bi={id:"input-color-number",type:"input",accept:(t,e)=>{if("number"!=typeof t)return null;if(!function(t){return"color"in t||"view"in t&&"color"===t.view}(e))return null;const n=Dn(e);return n?{initialValue:t,params:n}:null},binding:{reader:t=>Ni(t.params)?Ki:Ii,equals:Ln.equals,writer:t=>function(t){const e=t?Oi:Ri;return(t,n)=>{rn(t,e(n))}}(Ni(t.params))},controller:t=>{const e=Ni(t.params),n="expanded"in t.params?t.params.expanded:void 0,i="picker"in t.params?t.params.picker:void 0;return new ji(t.document,{colorType:"int",expanded:null!=n&&n,formatter:Ui(e),parser:ei("int"),pickerLayout:null!=i?i:"popup",supportsAlpha:e,value:t.value,viewProps:t.viewProps})}};function Ti(t){return e=>function(t,e){return Ln.isColorObject(t)?Ln.fromObject(t,e):Ln.black(e)}(e,t)}function Fi(t,e){return n=>t?ci(n,e):pi(n,e)}const $i={id:"input-color-object",type:"input",accept:(t,e)=>{if(!Ln.isColorObject(t))return null;const n=Dn(e);return n?{initialValue:t,params:n}:null},binding:{reader:t=>Ti(Rn(t.params)),equals:Ln.equals,writer:t=>{return i=t.initialValue,e=Ln.isRgbaColorObject(i),n=Rn(t.params),(t,i)=>{e?function(t,e,n){const i=e.toRgbaObject(n);t.writeProperty("r",i.r),t.writeProperty("g",i.g),t.writeProperty("b",i.b),t.writeProperty("a",i.a)}(t,i,n):function(t,e,n){const i=e.toRgbaObject(n);t.writeProperty("r",i.r),t.writeProperty("g",i.g),t.writeProperty("b",i.b)}(t,i,n)};var e,n,i}},controller:t=>{var e;const n=Ln.isRgbaColorObject(t.initialValue),i="expanded"in t.params?t.params.expanded:void 0,s="picker"in t.params?t.params.picker:void 0,o=null!==(e=Rn(t.params))&&void 0!==e?e:"int";return new ji(t.document,{colorType:o,expanded:null!=i&&i,formatter:Fi(n,o),parser:ei(o),pickerLayout:null!=s?s:"popup",supportsAlpha:n,value:t.value,viewProps:t.viewProps})}},Hi={id:"input-color-string",type:"input",accept:(t,e)=>{if("string"!=typeof t)return null;if("view"in e&&"text"===e.view)return null;const n=Zn(t,Rn(e));if(!n)return null;if(!vi(n))return null;const i=Dn(e);return i?{initialValue:t,params:i}:null},binding:{reader:t=>{var e;return function(t){const e=ti[t];return n=>{if("string"!=typeof n)return Ln.black(t);const i=e.reduce(((t,e)=>t||e(n)),null);return null!=i?i:Ln.black(t)}}(null!==(e=Rn(t.params))&&void 0!==e?e:"int")},equals:Ln.equals,writer:t=>{const e=Zn(t.initialValue,Rn(t.params));if(!e)throw c.shouldNeverHappen();const n=function(t){const e=vi(t);return e?(t,n)=>{rn(t,e(n))}:null}(e);if(!n)throw c.notBindable();return n}},controller:t=>{const e=Zn(t.initialValue,Rn(t.params));if(!e)throw c.shouldNeverHappen();const n=vi(e);if(!n)throw c.shouldNeverHappen();const i="expanded"in t.params?t.params.expanded:void 0,s="picker"in t.params?t.params.picker:void 0;return new ji(t.document,{colorType:e.type,expanded:null!=i&&i,formatter:n,parser:ei(e.type),pickerLayout:null!=s?s:"popup",supportsAlpha:e.alpha,value:t.value,viewProps:t.viewProps})}};class zi{constructor(t){this.components=t.components,this.asm_=t.assembly}constrain(t){const e=this.asm_.toComponents(t).map(((t,e)=>{var n,i;return null!==(i=null===(n=this.components[e])||void 0===n?void 0:n.constrain(t))&&void 0!==i?i:t}));return this.asm_.fromComponents(e)}}const qi=b("pndtxt");class Gi{constructor(t,e){this.textViews=e.textViews,this.element=t.createElement("div"),this.element.classList.add(qi()),this.textViews.forEach((e=>{const n=t.createElement("div");n.classList.add(qi("a")),n.appendChild(e.element),this.element.appendChild(n)}))}}class Yi{constructor(t,e){this.value=e.value,this.viewProps=e.viewProps,this.acs_=e.axes.map(((n,i)=>function(t,e,n){return new We(t,{arrayPosition:0===n?"fst":n===e.axes.length-1?"lst":"mid",baseStep:e.axes[n].baseStep,parser:e.parser,props:e.axes[n].textProps,value:V(0,{constraint:e.axes[n].constraint}),viewProps:e.viewProps})}(t,e,i))),this.acs_.forEach(((t,n)=>{Ue({primary:this.value,secondary:t.value,forward:t=>e.assembly.toComponents(t.rawValue)[n],backward:(t,i)=>{const s=e.assembly.toComponents(t.rawValue);return s[n]=i.rawValue,e.assembly.fromComponents(s)}})})),this.view=new Gi(t,{textViews:this.acs_.map((t=>t.view))})}}function Xi(t,e){return"step"in t&&!a(t.step)?new ne(t.step,e):null}function Qi(t){return a(t.max)||a(t.min)?a(t.max)&&a(t.min)?null:new ee({max:t.max,min:t.min}):new Zt({max:t.max,min:t.min})}const Ji={id:"input-number",type:"input",accept:(t,e)=>{if("number"!=typeof t)return null;const n=A,i=D(e,{format:n.optional.function,max:n.optional.number,min:n.optional.number,options:n.optional.custom(an),step:n.optional.number});return i?{initialValue:t,params:i}:null},binding:{reader:t=>De,constraint:t=>function(t,e){const n=[],i=Xi(t,e);i&&n.push(i);const s=Qi(t);s&&n.push(s);const o=cn(t.options);return o&&n.push(o),new Jt(n)}(t.params,t.initialValue),writer:t=>rn},controller:t=>{var e;const n=t.value,i=t.constraint,s=i&&Wt(i,te);if(s)return new oe(t.document,{props:new L({options:s.values.value("options")}),value:n,viewProps:t.viewProps});const o=null!==(e="format"in t.params?t.params.format:void 0)&&void 0!==e?e:Re(hn(i,n.rawValue)),r=i&&Wt(i,Zt);return r?new on(t.document,{baseStep:un(i),parser:Ae,sliderProps:new L({maxValue:r.values.value("max"),minValue:r.values.value("min")}),textProps:L.fromObject({draggingScale:vn(i,n.rawValue),formatter:o}),value:n,viewProps:t.viewProps}):new We(t.document,{baseStep:un(i),parser:Ae,props:L.fromObject({draggingScale:vn(i,n.rawValue),formatter:o}),value:n,viewProps:t.viewProps})}};class Wi{constructor(t=0,e=0){this.x=t,this.y=e}getComponents(){return[this.x,this.y]}static isObject(t){if(a(t))return!1;const e=t.x,n=t.y;return"number"==typeof e&&"number"==typeof n}static equals(t,e){return t.x===e.x&&t.y===e.y}toObject(){return{x:this.x,y:this.y}}}const Zi={toComponents:t=>t.getComponents(),fromComponents:t=>new Wi(...t)},ts=b("p2d");class es{constructor(t,e){this.element=t.createElement("div"),this.element.classList.add(ts()),e.viewProps.bindClassModifiers(this.element),g(e.expanded,w(this.element,ts(void 0,"expanded")));const n=t.createElement("div");n.classList.add(ts("h")),this.element.appendChild(n);const i=t.createElement("button");i.classList.add(ts("b")),i.appendChild(q(t,"p2dpad")),e.viewProps.bindDisabled(i),n.appendChild(i),this.buttonElement=i;const s=t.createElement("div");if(s.classList.add(ts("t")),n.appendChild(s),this.textElement=s,"inline"===e.pickerLayout){const e=t.createElement("div");e.classList.add(ts("p")),this.element.appendChild(e),this.pickerElement=e}else this.pickerElement=null}}const ns=b("p2dp");class is{constructor(t,e){this.onFoldableChange_=this.onFoldableChange_.bind(this),this.onValueChange_=this.onValueChange_.bind(this),this.invertsY_=e.invertsY,this.maxValue_=e.maxValue,this.element=t.createElement("div"),this.element.classList.add(ns()),"popup"===e.layout&&this.element.classList.add(ns(void 0,"p")),e.viewProps.bindClassModifiers(this.element);const n=t.createElement("div");n.classList.add(ns("p")),e.viewProps.bindTabIndex(n),this.element.appendChild(n),this.padElement=n;const i=t.createElementNS(T,"svg");i.classList.add(ns("g")),this.padElement.appendChild(i),this.svgElem_=i;const s=t.createElementNS(T,"line");s.classList.add(ns("ax")),s.setAttributeNS(null,"x1","0"),s.setAttributeNS(null,"y1","50%"),s.setAttributeNS(null,"x2","100%"),s.setAttributeNS(null,"y2","50%"),this.svgElem_.appendChild(s);const o=t.createElementNS(T,"line");o.classList.add(ns("ax")),o.setAttributeNS(null,"x1","50%"),o.setAttributeNS(null,"y1","0"),o.setAttributeNS(null,"x2","50%"),o.setAttributeNS(null,"y2","100%"),this.svgElem_.appendChild(o);const r=t.createElementNS(T,"line");r.classList.add(ns("l")),r.setAttributeNS(null,"x1","50%"),r.setAttributeNS(null,"y1","50%"),this.svgElem_.appendChild(r),this.lineElem_=r;const a=t.createElement("div");a.classList.add(ns("m")),this.padElement.appendChild(a),this.markerElem_=a,e.value.emitter.on("change",this.onValueChange_),this.value=e.value,this.update_()}get allFocusableElements(){return[this.padElement]}update_(){const[t,e]=this.value.rawValue.getComponents(),n=this.maxValue_,i=qe(t,-n,+n,0,100),s=qe(e,-n,+n,0,100),o=this.invertsY_?100-s:s;this.lineElem_.setAttributeNS(null,"x2",`${i}%`),this.lineElem_.setAttributeNS(null,"y2",`${o}%`),this.markerElem_.style.left=`${i}%`,this.markerElem_.style.top=`${o}%`}onValueChange_(){this.update_()}onFoldableChange_(){this.update_()}}function ss(t,e,n){return[Be(e[0],Fe(t)),Be(e[1],Te(t))*(n?1:-1)]}class os{constructor(t,e){this.onPadKeyDown_=this.onPadKeyDown_.bind(this),this.onPadKeyUp_=this.onPadKeyUp_.bind(this),this.onPointerDown_=this.onPointerDown_.bind(this),this.onPointerMove_=this.onPointerMove_.bind(this),this.onPointerUp_=this.onPointerUp_.bind(this),this.value=e.value,this.viewProps=e.viewProps,this.baseSteps_=e.baseSteps,this.maxValue_=e.maxValue,this.invertsY_=e.invertsY,this.view=new is(t,{invertsY:this.invertsY_,layout:e.layout,maxValue:this.maxValue_,value:this.value,viewProps:this.viewProps}),this.ptHandler_=new ze(this.view.padElement),this.ptHandler_.emitter.on("down",this.onPointerDown_),this.ptHandler_.emitter.on("move",this.onPointerMove_),this.ptHandler_.emitter.on("up",this.onPointerUp_),this.view.padElement.addEventListener("keydown",this.onPadKeyDown_),this.view.padElement.addEventListener("keyup",this.onPadKeyUp_)}handlePointerEvent_(t,e){if(!t.point)return;const n=this.maxValue_,i=qe(t.point.x,0,t.bounds.width,-n,+n),s=qe(this.invertsY_?t.bounds.height-t.point.y:t.point.y,0,t.bounds.height,-n,+n);this.value.setRawValue(new Wi(i,s),e)}onPointerDown_(t){this.handlePointerEvent_(t.data,{forceEmit:!1,last:!1})}onPointerMove_(t){this.handlePointerEvent_(t.data,{forceEmit:!1,last:!1})}onPointerUp_(t){this.handlePointerEvent_(t.data,{forceEmit:!0,last:!0})}onPadKeyDown_(t){$e(t.key)&&t.preventDefault();const[e,n]=ss(t,this.baseSteps_,this.invertsY_);0===e&&0===n||this.value.setRawValue(new Wi(this.value.rawValue.x+e,this.value.rawValue.y+n),{forceEmit:!1,last:!1})}onPadKeyUp_(t){const[e,n]=ss(t,this.baseSteps_,this.invertsY_);0===e&&0===n||this.value.setRawValue(this.value.rawValue,{forceEmit:!0,last:!0})}}class rs{constructor(t,e){var n,i;this.onPopupChildBlur_=this.onPopupChildBlur_.bind(this),this.onPopupChildKeydown_=this.onPopupChildKeydown_.bind(this),this.onPadButtonBlur_=this.onPadButtonBlur_.bind(this),this.onPadButtonClick_=this.onPadButtonClick_.bind(this),this.value=e.value,this.viewProps=e.viewProps,this.foldable_=it.create(e.expanded),this.popC_="popup"===e.pickerLayout?new le(t,{viewProps:this.viewProps}):null;const s=new os(t,{baseSteps:[e.axes[0].baseStep,e.axes[1].baseStep],invertsY:e.invertsY,layout:e.pickerLayout,maxValue:e.maxValue,value:this.value,viewProps:this.viewProps});s.view.allFocusableElements.forEach((t=>{t.addEventListener("blur",this.onPopupChildBlur_),t.addEventListener("keydown",this.onPopupChildKeydown_)})),this.pickerC_=s,this.textC_=new Yi(t,{assembly:Zi,axes:e.axes,parser:e.parser,value:this.value,viewProps:this.viewProps}),this.view=new es(t,{expanded:this.foldable_.value("expanded"),pickerLayout:e.pickerLayout,viewProps:this.viewProps}),this.view.textElement.appendChild(this.textC_.view.element),null===(n=this.view.buttonElement)||void 0===n||n.addEventListener("blur",this.onPadButtonBlur_),null===(i=this.view.buttonElement)||void 0===i||i.addEventListener("click",this.onPadButtonClick_),this.popC_?(this.view.element.appendChild(this.popC_.view.element),this.popC_.view.element.appendChild(this.pickerC_.view.element),Ue({primary:this.foldable_.value("expanded"),secondary:this.popC_.shows,forward:t=>t.rawValue,backward:(t,e)=>e.rawValue})):this.view.pickerElement&&(this.view.pickerElement.appendChild(this.pickerC_.view.element),ot(this.foldable_,this.view.pickerElement))}onPadButtonBlur_(t){if(!this.popC_)return;const e=this.view.element,n=t.relatedTarget;n&&e.contains(n)||(this.popC_.shows.rawValue=!1)}onPadButtonClick_(){this.foldable_.set("expanded",!this.foldable_.get("expanded")),this.foldable_.get("expanded")&&this.pickerC_.view.allFocusableElements[0].focus()}onPopupChildBlur_(t){if(!this.popC_)return;const e=this.popC_.view.element,n=Q(t);n&&e.contains(n)||n&&n===this.view.buttonElement&&!$(e.ownerDocument)||(this.popC_.shows.rawValue=!1)}onPopupChildKeydown_(t){this.popC_?"Escape"===t.key&&(this.popC_.shows.rawValue=!1):this.view.pickerElement&&"Escape"===t.key&&this.view.buttonElement.focus()}}class as{constructor(t=0,e=0,n=0){this.x=t,this.y=e,this.z=n}getComponents(){return[this.x,this.y,this.z]}static isObject(t){if(a(t))return!1;const e=t.x,n=t.y,i=t.z;return"number"==typeof e&&"number"==typeof n&&"number"==typeof i}static equals(t,e){return t.x===e.x&&t.y===e.y&&t.z===e.z}toObject(){return{x:this.x,y:this.y,z:this.z}}}const ls={toComponents:t=>t.getComponents(),fromComponents:t=>new as(...t)};function ps(t){return as.isObject(t)?new as(t.x,t.y,t.z):new as}function ds(t,e){t.writeProperty("x",e.x),t.writeProperty("y",e.y),t.writeProperty("z",e.z)}function cs(t,e){return{baseStep:un(e),constraint:e,textProps:L.fromObject({draggingScale:vn(e,t),formatter:Re(hn(e,t))})}}const hs={id:"input-point3d",type:"input",accept:(t,e)=>{if(!as.isObject(t))return null;const n=A,i=D(e,{x:n.optional.custom(pn),y:n.optional.custom(pn),z:n.optional.custom(pn)});return i?{initialValue:t,params:i}:null},binding:{reader:t=>ps,constraint:t=>{return e=t.params,n=t.initialValue,new zi({assembly:ls,components:[Ns("x"in e?e.x:void 0,n.x),Ns("y"in e?e.y:void 0,n.y),Ns("z"in e?e.z:void 0,n.z)]});var e,n},equals:as.equals,writer:t=>ds},controller:t=>{const e=t.value,n=t.constraint;if(!(n instanceof zi))throw c.shouldNeverHappen();return new Yi(t.document,{assembly:ls,axes:[cs(e.rawValue.x,n.components[0]),cs(e.rawValue.y,n.components[1]),cs(e.rawValue.z,n.components[2])],parser:Ae,value:e,viewProps:t.viewProps})}};class us{constructor(t=0,e=0,n=0,i=0){this.x=t,this.y=e,this.z=n,this.w=i}getComponents(){return[this.x,this.y,this.z,this.w]}static isObject(t){if(a(t))return!1;const e=t.x,n=t.y,i=t.z,s=t.w;return"number"==typeof e&&"number"==typeof n&&"number"==typeof i&&"number"==typeof s}static equals(t,e){return t.x===e.x&&t.y===e.y&&t.z===e.z&&t.w===e.w}toObject(){return{x:this.x,y:this.y,z:this.z,w:this.w}}}const vs={toComponents:t=>t.getComponents(),fromComponents:t=>new us(...t)};function ms(t){return us.isObject(t)?new us(t.x,t.y,t.z,t.w):new us}function bs(t,e){t.writeProperty("x",e.x),t.writeProperty("y",e.y),t.writeProperty("z",e.z),t.writeProperty("w",e.w)}const _s={id:"input-point4d",type:"input",accept:(t,e)=>{if(!us.isObject(t))return null;const n=A,i=D(e,{x:n.optional.custom(pn),y:n.optional.custom(pn),z:n.optional.custom(pn),w:n.optional.custom(pn)});return i?{initialValue:t,params:i}:null},binding:{reader:t=>ms,constraint:t=>{return e=t.params,n=t.initialValue,new zi({assembly:vs,components:[Ns("x"in e?e.x:void 0,n.x),Ns("y"in e?e.y:void 0,n.y),Ns("z"in e?e.z:void 0,n.z),Ns("w"in e?e.w:void 0,n.w)]});var e,n},equals:us.equals,writer:t=>bs},controller:t=>{const e=t.value,n=t.constraint;if(!(n instanceof zi))throw c.shouldNeverHappen();return new Yi(t.document,{assembly:vs,axes:e.rawValue.getComponents().map(((t,e)=>{return i=t,{baseStep:un(s=n.components[e]),constraint:s,textProps:L.fromObject({draggingScale:vn(s,i),formatter:Re(hn(s,i))})};var i,s})),parser:Ae,value:e,viewProps:t.viewProps})}};const gs={id:"input-string",type:"input",accept:(t,e)=>{if("string"!=typeof t)return null;const n=D(e,{options:A.optional.custom(an)});return n?{initialValue:t,params:n}:null},binding:{reader:t=>Ke,constraint:t=>function(t){const e=[],n=cn(t.options);return n&&e.push(n),new Jt(e)}(t.params),writer:t=>rn},controller:t=>{const e=t.document,n=t.value,i=t.constraint,s=i&&Wt(i,te);return s?new oe(e,{props:new L({options:s.values.value("options")}),value:n,viewProps:t.viewProps}):new ce(e,{parser:t=>t,props:L.fromObject({formatter:Ne}),value:n,viewProps:t.viewProps})}},fs={monitor:{defaultInterval:200,defaultLineCount:3}},ws=b("mll");class xs{constructor(t,e){this.onValueUpdate_=this.onValueUpdate_.bind(this),this.formatter_=e.formatter,this.element=t.createElement("div"),this.element.classList.add(ws()),e.viewProps.bindClassModifiers(this.element);const n=t.createElement("textarea");n.classList.add(ws("i")),n.style.height=`calc(var(--bld-us) * ${e.lineCount})`,n.readOnly=!0,e.viewProps.bindDisabled(n),this.element.appendChild(n),this.textareaElem_=n,e.value.emitter.on("change",this.onValueUpdate_),this.value=e.value,this.update_()}update_(){const t=this.textareaElem_,e=t.scrollTop===t.scrollHeight-t.clientHeight,n=[];this.value.rawValue.forEach((t=>{void 0!==t&&n.push(this.formatter_(t))})),t.textContent=n.join("\n"),e&&(t.scrollTop=t.scrollHeight)}onValueUpdate_(){this.update_()}}class Cs{constructor(t,e){this.value=e.value,this.viewProps=e.viewProps,this.view=new xs(t,{formatter:e.formatter,lineCount:e.lineCount,value:this.value,viewProps:this.viewProps})}}const ys=b("sgl");class Ps{constructor(t,e){this.onValueUpdate_=this.onValueUpdate_.bind(this),this.formatter_=e.formatter,this.element=t.createElement("div"),this.element.classList.add(ys()),e.viewProps.bindClassModifiers(this.element);const n=t.createElement("input");n.classList.add(ys("i")),n.readOnly=!0,n.type="text",e.viewProps.bindDisabled(n),this.element.appendChild(n),this.inputElement=n,e.value.emitter.on("change",this.onValueUpdate_),this.value=e.value,this.update_()}update_(){const t=this.value.rawValue,e=t[t.length-1];this.inputElement.value=void 0!==e?this.formatter_(e):""}onValueUpdate_(){this.update_()}}class ks{constructor(t,e){this.value=e.value,this.viewProps=e.viewProps,this.view=new Ps(t,{formatter:e.formatter,value:this.value,viewProps:this.viewProps})}}const Es={id:"monitor-bool",type:"monitor",accept:(t,e)=>{if("boolean"!=typeof t)return null;const n=D(e,{lineCount:A.optional.number});return n?{initialValue:t,params:n}:null},binding:{reader:t=>he},controller:t=>{var e;return 1===t.value.rawValue.length?new ks(t.document,{formatter:ue,value:t.value,viewProps:t.viewProps}):new Cs(t.document,{formatter:ue,lineCount:null!==(e=t.params.lineCount)&&void 0!==e?e:fs.monitor.defaultLineCount,value:t.value,viewProps:t.viewProps})}},Vs=b("grl");class Ls{constructor(t,e){this.onCursorChange_=this.onCursorChange_.bind(this),this.onValueUpdate_=this.onValueUpdate_.bind(this),this.element=t.createElement("div"),this.element.classList.add(Vs()),e.viewProps.bindClassModifiers(this.element),this.formatter_=e.formatter,this.props_=e.props,this.cursor_=e.cursor,this.cursor_.emitter.on("change",this.onCursorChange_);const n=t.createElementNS(T,"svg");n.classList.add(Vs("g")),n.style.height=`calc(var(--bld-us) * ${e.lineCount})`,this.element.appendChild(n),this.svgElem_=n;const i=t.createElementNS(T,"polyline");this.svgElem_.appendChild(i),this.lineElem_=i;const s=t.createElement("div");s.classList.add(Vs("t"),b("tt")()),this.element.appendChild(s),this.tooltipElem_=s,e.value.emitter.on("change",this.onValueUpdate_),this.value=e.value,this.update_()}get graphElement(){return this.svgElem_}update_(){const t=this.svgElem_.getBoundingClientRect(),e=this.value.rawValue.length-1,n=this.props_.get("minValue"),i=this.props_.get("maxValue"),s=[];this.value.rawValue.forEach(((o,r)=>{if(void 0===o)return;const a=qe(r,0,e,0,t.width),l=qe(o,n,i,t.height,0);s.push([a,l].join(","))})),this.lineElem_.setAttributeNS(null,"points",s.join(" "));const o=this.tooltipElem_,r=this.value.rawValue[this.cursor_.rawValue];if(void 0===r)return void o.classList.remove(Vs("t","a"));const a=qe(this.cursor_.rawValue,0,e,0,t.width),l=qe(r,n,i,t.height,0);o.style.left=`${a}px`,o.style.top=`${l}px`,o.textContent=`${this.formatter_(r)}`,o.classList.contains(Vs("t","a"))||(o.classList.add(Vs("t","a"),Vs("t","in")),F(o),o.classList.remove(Vs("t","in")))}onValueUpdate_(){this.update_()}onCursorChange_(){this.update_()}}class Ms{constructor(t,e){if(this.onGraphMouseMove_=this.onGraphMouseMove_.bind(this),this.onGraphMouseLeave_=this.onGraphMouseLeave_.bind(this),this.onGraphPointerDown_=this.onGraphPointerDown_.bind(this),this.onGraphPointerMove_=this.onGraphPointerMove_.bind(this),this.onGraphPointerUp_=this.onGraphPointerUp_.bind(this),this.props_=e.props,this.value=e.value,this.viewProps=e.viewProps,this.cursor_=V(-1),this.view=new Ls(t,{cursor:this.cursor_,formatter:e.formatter,lineCount:e.lineCount,props:this.props_,value:this.value,viewProps:this.viewProps}),$(t)){const t=new ze(this.view.element);t.emitter.on("down",this.onGraphPointerDown_),t.emitter.on("move",this.onGraphPointerMove_),t.emitter.on("up",this.onGraphPointerUp_)}else this.view.element.addEventListener("mousemove",this.onGraphMouseMove_),this.view.element.addEventListener("mouseleave",this.onGraphMouseLeave_)}onGraphMouseLeave_(){this.cursor_.rawValue=-1}onGraphMouseMove_(t){const e=this.view.element.getBoundingClientRect();this.cursor_.rawValue=Math.floor(qe(t.offsetX,0,e.width,0,this.value.rawValue.length))}onGraphPointerDown_(t){this.onGraphPointerMove_(t)}onGraphPointerMove_(t){t.data.point?this.cursor_.rawValue=Math.floor(qe(t.data.point.x,0,t.data.bounds.width,0,this.value.rawValue.length)):this.cursor_.rawValue=-1}onGraphPointerUp_(){this.cursor_.rawValue=-1}}function Ss(t){return"format"in t&&!a(t.format)?t.format:Re(2)}function As(t){return"view"in t&&"graph"===t.view}const Ds={id:"monitor-number",type:"monitor",accept:(t,e)=>{if("number"!=typeof t)return null;const n=A,i=D(e,{format:n.optional.function,lineCount:n.optional.number,max:n.optional.number,min:n.optional.number,view:n.optional.string});return i?{initialValue:t,params:i}:null},binding:{defaultBufferSize:t=>As(t)?64:1,reader:t=>De},controller:t=>As(t.params)?function(t){var e,n,i;return new Ms(t.document,{formatter:Ss(t.params),lineCount:null!==(e=t.params.lineCount)&&void 0!==e?e:fs.monitor.defaultLineCount,props:L.fromObject({maxValue:null!==(n="max"in t.params?t.params.max:null)&&void 0!==n?n:100,minValue:null!==(i="min"in t.params?t.params.min:null)&&void 0!==i?i:0}),value:t.value,viewProps:t.viewProps})}(t):function(t){var e;return 1===t.value.rawValue.length?new ks(t.document,{formatter:Ss(t.params),value:t.value,viewProps:t.viewProps}):new Cs(t.document,{formatter:Ss(t.params),lineCount:null!==(e=t.params.lineCount)&&void 0!==e?e:fs.monitor.defaultLineCount,value:t.value,viewProps:t.viewProps})}(t)},js={id:"monitor-string",type:"monitor",accept:(t,e)=>{if("string"!=typeof t)return null;const n=A,i=D(e,{lineCount:n.optional.number,multiline:n.optional.boolean});return i?{initialValue:t,params:i}:null},binding:{reader:t=>Ke},controller:t=>{var e;const n=t.value;return n.rawValue.length>1||"multiline"in t.params&&t.params.multiline?new Cs(t.document,{formatter:Ne,lineCount:null!==(e=t.params.lineCount)&&void 0!==e?e:fs.monitor.defaultLineCount,value:n,viewProps:t.viewProps}):new ks(t.document,{formatter:Ne,value:n,viewProps:t.viewProps})}};function Rs(t,e){return 0===e?new Ht:new zt(t,null!=e?e:fs.monitor.defaultInterval)}class Os{constructor(){this.pluginsMap_={blades:[],inputs:[],monitors:[]}}getAll(){return[...this.pluginsMap_.blades,...this.pluginsMap_.inputs,...this.pluginsMap_.monitors]}register(t){"blade"===t.type?this.pluginsMap_.blades.unshift(t):"input"===t.type?this.pluginsMap_.inputs.unshift(t):"monitor"===t.type&&this.pluginsMap_.monitors.unshift(t)}createInput(t,e,n){if(a(e.read()))throw new c({context:{key:e.key},type:"nomatchingcontroller"});const i=this.pluginsMap_.inputs.reduce(((i,s)=>null!=i?i:function(t,e){var n;const i=t.accept(e.target.read(),e.params);if(a(i))return null;const s=A,o={target:e.target,initialValue:i.initialValue,params:i.params},r=t.binding.reader(o),l=t.binding.constraint?t.binding.constraint(o):void 0,p=V(r(i.initialValue),{constraint:l,equals:t.binding.equals}),d=new qt({reader:r,target:e.target,value:p,writer:t.binding.writer(o)}),c=s.optional.boolean(e.params.disabled).value,h=s.optional.boolean(e.params.hidden).value,u=t.controller({constraint:l,document:e.document,initialValue:i.initialValue,params:i.params,value:d.value,viewProps:K.create({disabled:c,hidden:h})});return new pt(e.document,{binding:d,blade:nt(),props:L.fromObject({label:"label"in e.params?null!==(n=s.optional.string(e.params.label).value)&&void 0!==n?n:null:e.target.key}),valueController:u})}(s,{document:t,target:e,params:n})),null);if(i)return i;throw new c({context:{key:e.key},type:"nomatchingcontroller"})}createMonitor(t,e,n){const i=this.pluginsMap_.monitors.reduce(((i,s)=>null!=i?i:function(t,e){var n,i,s;const o=A,r=t.accept(e.target.read(),e.params);if(a(r))return null;const l={target:e.target,initialValue:r.initialValue,params:r.params},p=t.binding.reader(l),d=null!==(i=null!==(n=o.optional.number(e.params.bufferSize).value)&&void 0!==n?n:t.binding.defaultBufferSize&&t.binding.defaultBufferSize(r.params))&&void 0!==i?i:1,c=o.optional.number(e.params.interval).value,h=new Qt({reader:p,target:e.target,ticker:Rs(e.document,c),value:Yt(d)}),u=o.optional.boolean(e.params.disabled).value,v=o.optional.boolean(e.params.hidden).value,m=t.controller({document:e.document,params:r.params,value:h.value,viewProps:K.create({disabled:u,hidden:v})});return new ct(e.document,{binding:h,blade:nt(),props:L.fromObject({label:"label"in e.params?null!==(s=o.optional.string(e.params.label).value)&&void 0!==s?s:null:e.target.key}),valueController:m})}(s,{document:t,params:n,target:e})),null);if(i)return i;throw new c({context:{key:e.key},type:"nomatchingcontroller"})}createBlade(t,e){const n=this.pluginsMap_.blades.reduce(((n,i)=>null!=n?n:function(t,e){const n=t.accept(e.params);if(!n)return null;const i=A.optional.boolean(e.params.disabled).value,s=A.optional.boolean(e.params.hidden).value;return t.controller({blade:nt(),document:e.document,params:Object.assign(Object.assign({},n.params),{disabled:i,hidden:s}),viewProps:K.create({disabled:i,hidden:s})})}(i,{document:t,params:e})),null);if(!n)throw new c({type:"nomatchingview",context:{params:e}});return n}createBladeApi(t){if(t instanceof pt)return new lt(t);if(t instanceof ct)return new dt(t);if(t instanceof Ct)return new mt(t,this);const e=this.pluginsMap_.blades.reduce(((e,n)=>null!=e?e:n.api({controller:t,pool:this})),null);if(!e)throw c.shouldNeverHappen();return e}}function Is(t){return Wi.isObject(t)?new Wi(t.x,t.y):new Wi}function Ks(t,e){t.writeProperty("x",e.x),t.writeProperty("y",e.y)}function Ns(t,e){if(!t)return;const n=[],i=Xi(t,e);i&&n.push(i);const s=Qi(t);return s&&n.push(s),new Jt(n)}function Us(t,e){const[n,i]=t?function(t){const e=Wt(t,Zt);if(e)return[e.values.get("min"),e.values.get("max")];const n=Wt(t,ee);return n?[n.minValue,n.maxValue]:[void 0,void 0]}(t):[];if(!a(n)||!a(i))return Math.max(Math.abs(null!=n?n:0),Math.abs(null!=i?i:0));const s=un(t);return Math.max(10*Math.abs(s),10*Math.abs(e))}function Bs(t,e){const n=e instanceof zi?e.components[0]:void 0,i=e instanceof zi?e.components[1]:void 0,s=Us(n,t.x),o=Us(i,t.y);return Math.max(s,o)}function Ts(t,e){return{baseStep:un(e),constraint:e,textProps:L.fromObject({draggingScale:vn(e,t),formatter:Re(hn(e,t))})}}function Fs(t){if(!("y"in t))return!1;const e=t.y;return!!e&&("inverted"in e&&!!e.inverted)}const $s={id:"input-point2d",type:"input",accept:(t,e)=>{if(!Wi.isObject(t))return null;const n=A,i=D(e,{expanded:n.optional.boolean,picker:n.optional.custom(ln),x:n.optional.custom(pn),y:n.optional.object({inverted:n.optional.boolean,max:n.optional.number,min:n.optional.number,step:n.optional.number})});return i?{initialValue:t,params:i}:null},binding:{reader:t=>Is,constraint:t=>{return e=t.params,n=t.initialValue,new zi({assembly:Zi,components:[Ns("x"in e?e.x:void 0,n.x),Ns("y"in e?e.y:void 0,n.y)]});var e,n},equals:Wi.equals,writer:t=>Ks},controller:t=>{const e=t.document,n=t.value,i=t.constraint;if(!(i instanceof zi))throw c.shouldNeverHappen();const s="expanded"in t.params?t.params.expanded:void 0,o="picker"in t.params?t.params.picker:void 0;return new rs(e,{axes:[Ts(n.rawValue.x,i.components[0]),Ts(n.rawValue.y,i.components[1])],expanded:null!=s&&s,invertsY:Fs(t.params),maxValue:Bs(n.rawValue,i),parser:Ae,pickerLayout:null!=o?o:"popup",value:n,viewProps:t.viewProps})}};class Hs extends e{constructor(t){super(t),this.emitter_=new v,this.controller_.valueController.value.emitter.on("change",(t=>{this.emitter_.emit("change",{event:new i(this,t.rawValue)})}))}get label(){return this.controller_.props.get("label")}set label(t){this.controller_.props.set("label",t)}get options(){return this.controller_.valueController.props.get("options")}set options(t){this.controller_.valueController.props.set("options",t)}get value(){return this.controller_.valueController.value.rawValue}set value(t){this.controller_.valueController.value.rawValue=t}on(t,e){const n=e.bind(this);return this.emitter_.on(t,(t=>{n(t.event)})),this}}class zs extends e{constructor(t){super(t),this.emitter_=new v,this.controller_.valueController.value.emitter.on("change",(t=>{this.emitter_.emit("change",{event:new i(this,t.rawValue)})}))}get label(){return this.controller_.props.get("label")}set label(t){this.controller_.props.set("label",t)}get maxValue(){return this.controller_.valueController.sliderController.props.get("maxValue")}set maxValue(t){this.controller_.valueController.sliderController.props.set("maxValue",t)}get minValue(){return this.controller_.valueController.sliderController.props.get("minValue")}set minValue(t){this.controller_.valueController.sliderController.props.set("minValue",t)}get value(){return this.controller_.valueController.value.rawValue}set value(t){this.controller_.valueController.value.rawValue=t}on(t,e){const n=e.bind(this);return this.emitter_.on(t,(t=>{n(t.event)})),this}}class qs extends e{constructor(t){super(t),this.emitter_=new v,this.controller_.valueController.value.emitter.on("change",(t=>{this.emitter_.emit("change",{event:new i(this,t.rawValue)})}))}get label(){return this.controller_.props.get("label")}set label(t){this.controller_.props.set("label",t)}get formatter(){return this.controller_.valueController.props.get("formatter")}set formatter(t){this.controller_.valueController.props.set("formatter",t)}get value(){return this.controller_.valueController.value.rawValue}set value(t){this.controller_.valueController.value.rawValue=t}on(t,e){const n=e.bind(this);return this.emitter_.on(t,(t=>{n(t.event)})),this}}const Gs={id:"list",type:"blade",accept(t){const e=A,n=D(t,{options:e.required.custom(an),value:e.required.raw,view:e.required.constant("list"),label:e.optional.string});return n?{params:n}:null},controller(t){const e=new te(dn(t.params.options)),n=V(t.params.value,{constraint:e}),i=new oe(t.document,{props:new L({options:e.values.value("options")}),value:n,viewProps:t.viewProps});return new Vt(t.document,{blade:t.blade,props:L.fromObject({label:t.params.label}),valueController:i})},api:t=>t.controller instanceof Vt&&t.controller.valueController instanceof oe?new Hs(t.controller):null};class Ys extends bt{constructor(t,e){super(t,e)}get element(){return this.controller_.view.element}importPreset(t){!function(t,e){t.forEach((t=>{const n=e[t.target.presetKey];void 0!==n&&t.writer(t.target,t.reader(n))}))}(this.controller_.rackController.rack.find(pt).map((t=>t.binding)),t),this.refresh()}exportPreset(){return function(t){return t.reduce(((t,e)=>Object.assign(t,{[e.presetKey]:e.read()})),{})}(this.controller_.rackController.rack.find(pt).map((t=>t.binding.target)))}refresh(){this.controller_.rackController.rack.find(pt).forEach((t=>{t.binding.read()})),this.controller_.rackController.rack.find(ct).forEach((t=>{t.binding.read()}))}}class Xs extends kt{constructor(t,e){super(t,{expanded:e.expanded,blade:e.blade,props:e.props,root:!0,viewProps:e.viewProps})}}const Qs={id:"slider",type:"blade",accept(t){const e=A,n=D(t,{max:e.required.number,min:e.required.number,view:e.required.constant("slider"),format:e.optional.function,label:e.optional.string,value:e.optional.number});return n?{params:n}:null},controller(t){var e,n;const i=null!==(e=t.params.value)&&void 0!==e?e:0,s=new Zt({max:t.params.max,min:t.params.min}),o=new on(t.document,{baseStep:1,parser:Ae,sliderProps:new L({maxValue:s.values.value("max"),minValue:s.values.value("min")}),textProps:L.fromObject({draggingScale:vn(void 0,i),formatter:null!==(n=t.params.format)&&void 0!==n?n:je}),value:V(i,{constraint:s}),viewProps:t.viewProps});return new Vt(t.document,{blade:t.blade,props:L.fromObject({label:t.params.label}),valueController:o})},api:t=>t.controller instanceof Vt&&t.controller.valueController instanceof on?new zs(t.controller):null},Js={id:"text",type:"blade",accept(t){const e=A,n=D(t,{parse:e.required.function,value:e.required.raw,view:e.required.constant("text"),format:e.optional.function,label:e.optional.string});return n?{params:n}:null},controller(t){var e;const n=new ce(t.document,{parser:t.params.parse,props:L.fromObject({formatter:null!==(e=t.params.format)&&void 0!==e?e:t=>String(t)}),value:V(t.params.value),viewProps:t.viewProps});return new Vt(t.document,{blade:t.blade,props:L.fromObject({label:t.params.label}),valueController:n})},api:t=>t.controller instanceof Vt&&t.controller.valueController instanceof ce?new qs(t.controller):null};function Ws(t,e,n){if(t.querySelector(`style[data-tp-style=${e}]`))return;const i=t.createElement("style");i.dataset.tpStyle=e,i.textContent=n,t.head.appendChild(i)}const Zs=new class{constructor(t){const[e,n]=t.split("-"),i=e.split(".");this.major=parseInt(i[0],10),this.minor=parseInt(i[1],10),this.patch=parseInt(i[2],10),this.prerelease=null!=n?n:null}toString(){const t=[this.major,this.minor,this.patch].join(".");return null!==this.prerelease?[t,this.prerelease].join("-"):t}}("3.1.10");t.BladeApi=e,t.ButtonApi=u,t.FolderApi=bt,t.InputBindingApi=lt,t.ListApi=Hs,t.MonitorBindingApi=dt,t.Pane=class extends Ys{constructor(t){var e,n;const i=null!=t?t:{},s=null!==(e=i.document)&&void 0!==e?e:H(),o=function(){const t=new Os;return[$s,hs,_s,gs,Ji,Hi,$i,Bi,gn,Es,js,Ds,tt,Et,Dt,$t].forEach((e=>{t.register(e)})),t}();super(new Xs(s,{expanded:i.expanded,blade:nt(),props:L.fromObject({title:i.title}),viewProps:K.create()}),o),this.pool_=o,this.containerElem_=null!==(n=i.container)&&void 0!==n?n:function(t){const e=t.createElement("div");return e.classList.add(b("dfw")()),t.body&&t.body.appendChild(e),e}(s),this.containerElem_.appendChild(this.element),this.doc_=s,this.usesDefaultWrapper_=!i.container,this.setUpDefaultPlugins_()}get document(){if(!this.doc_)throw c.alreadyDisposed();return this.doc_}dispose(){const t=this.containerElem_;if(!t)throw c.alreadyDisposed();if(this.usesDefaultWrapper_){const e=t.parentElement;e&&e.removeChild(t)}this.containerElem_=null,this.doc_=null,super.dispose()}registerPlugin(t){("plugin"in t?[t.plugin]:"plugins"in t?t.plugins:[]).forEach((t=>{this.pool_.register(t),this.embedPluginStyle_(t)}))}embedPluginStyle_(t){t.css&&Ws(this.document,`plugin-${t.id}`,t.css)}setUpDefaultPlugins_(){Ws(this.document,"default",'.tp-tbiv_b,.tp-coltxtv_ms,.tp-ckbv_i,.tp-rotv_b,.tp-fldv_b,.tp-mllv_i,.tp-sglv_i,.tp-grlv_g,.tp-txtv_i,.tp-p2dpv_p,.tp-colswv_sw,.tp-p2dv_b,.tp-btnv_b,.tp-lstv_s{-webkit-appearance:none;-moz-appearance:none;appearance:none;background-color:rgba(0,0,0,0);border-width:0;font-family:inherit;font-size:inherit;font-weight:inherit;margin:0;outline:none;padding:0}.tp-p2dv_b,.tp-btnv_b,.tp-lstv_s{background-color:var(--btn-bg);border-radius:var(--elm-br);color:var(--btn-fg);cursor:pointer;display:block;font-weight:bold;height:var(--bld-us);line-height:var(--bld-us);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tp-p2dv_b:hover,.tp-btnv_b:hover,.tp-lstv_s:hover{background-color:var(--btn-bg-h)}.tp-p2dv_b:focus,.tp-btnv_b:focus,.tp-lstv_s:focus{background-color:var(--btn-bg-f)}.tp-p2dv_b:active,.tp-btnv_b:active,.tp-lstv_s:active{background-color:var(--btn-bg-a)}.tp-p2dv_b:disabled,.tp-btnv_b:disabled,.tp-lstv_s:disabled{opacity:.5}.tp-txtv_i,.tp-p2dpv_p,.tp-colswv_sw{background-color:var(--in-bg);border-radius:var(--elm-br);box-sizing:border-box;color:var(--in-fg);font-family:inherit;height:var(--bld-us);line-height:var(--bld-us);min-width:0;width:100%}.tp-txtv_i:hover,.tp-p2dpv_p:hover,.tp-colswv_sw:hover{background-color:var(--in-bg-h)}.tp-txtv_i:focus,.tp-p2dpv_p:focus,.tp-colswv_sw:focus{background-color:var(--in-bg-f)}.tp-txtv_i:active,.tp-p2dpv_p:active,.tp-colswv_sw:active{background-color:var(--in-bg-a)}.tp-txtv_i:disabled,.tp-p2dpv_p:disabled,.tp-colswv_sw:disabled{opacity:.5}.tp-mllv_i,.tp-sglv_i,.tp-grlv_g{background-color:var(--mo-bg);border-radius:var(--elm-br);box-sizing:border-box;color:var(--mo-fg);height:var(--bld-us);scrollbar-color:currentColor rgba(0,0,0,0);scrollbar-width:thin;width:100%}.tp-mllv_i::-webkit-scrollbar,.tp-sglv_i::-webkit-scrollbar,.tp-grlv_g::-webkit-scrollbar{height:8px;width:8px}.tp-mllv_i::-webkit-scrollbar-corner,.tp-sglv_i::-webkit-scrollbar-corner,.tp-grlv_g::-webkit-scrollbar-corner{background-color:rgba(0,0,0,0)}.tp-mllv_i::-webkit-scrollbar-thumb,.tp-sglv_i::-webkit-scrollbar-thumb,.tp-grlv_g::-webkit-scrollbar-thumb{background-clip:padding-box;background-color:currentColor;border:rgba(0,0,0,0) solid 2px;border-radius:4px}.tp-rotv{--font-family: var(--tp-font-family, Roboto Mono, Source Code Pro, Menlo, Courier, monospace);--bs-br: var(--tp-base-border-radius, 6px);--cnt-h-p: var(--tp-container-horizontal-padding, 4px);--cnt-v-p: var(--tp-container-vertical-padding, 4px);--elm-br: var(--tp-element-border-radius, 2px);--bld-s: var(--tp-blade-spacing, 4px);--bld-us: var(--tp-blade-unit-size, 20px);--bs-bg: var(--tp-base-background-color, hsl(230, 7%, 17%));--bs-sh: var(--tp-base-shadow-color, rgba(0, 0, 0, 0.2));--btn-bg: var(--tp-button-background-color, hsl(230, 7%, 70%));--btn-bg-a: var(--tp-button-background-color-active, #d6d7db);--btn-bg-f: var(--tp-button-background-color-focus, #c8cad0);--btn-bg-h: var(--tp-button-background-color-hover, #bbbcc4);--btn-fg: var(--tp-button-foreground-color, hsl(230, 7%, 17%));--cnt-bg: var(--tp-container-background-color, rgba(187, 188, 196, 0.1));--cnt-bg-a: var(--tp-container-background-color-active, rgba(187, 188, 196, 0.25));--cnt-bg-f: var(--tp-container-background-color-focus, rgba(187, 188, 196, 0.2));--cnt-bg-h: var(--tp-container-background-color-hover, rgba(187, 188, 196, 0.15));--cnt-fg: var(--tp-container-foreground-color, hsl(230, 7%, 75%));--in-bg: var(--tp-input-background-color, rgba(187, 188, 196, 0.1));--in-bg-a: var(--tp-input-background-color-active, rgba(187, 188, 196, 0.25));--in-bg-f: var(--tp-input-background-color-focus, rgba(187, 188, 196, 0.2));--in-bg-h: var(--tp-input-background-color-hover, rgba(187, 188, 196, 0.15));--in-fg: var(--tp-input-foreground-color, hsl(230, 7%, 75%));--lbl-fg: var(--tp-label-foreground-color, rgba(187, 188, 196, 0.7));--mo-bg: var(--tp-monitor-background-color, rgba(0, 0, 0, 0.2));--mo-fg: var(--tp-monitor-foreground-color, rgba(187, 188, 196, 0.7));--grv-fg: var(--tp-groove-foreground-color, rgba(187, 188, 196, 0.1))}.tp-rotv_c>.tp-cntv.tp-v-lst,.tp-tabv_c .tp-brkv>.tp-cntv.tp-v-lst,.tp-fldv_c>.tp-cntv.tp-v-lst{margin-bottom:calc(-1*var(--cnt-v-p))}.tp-rotv_c>.tp-fldv.tp-v-lst .tp-fldv_c,.tp-tabv_c .tp-brkv>.tp-fldv.tp-v-lst .tp-fldv_c,.tp-fldv_c>.tp-fldv.tp-v-lst .tp-fldv_c{border-bottom-left-radius:0}.tp-rotv_c>.tp-fldv.tp-v-lst .tp-fldv_b,.tp-tabv_c .tp-brkv>.tp-fldv.tp-v-lst .tp-fldv_b,.tp-fldv_c>.tp-fldv.tp-v-lst .tp-fldv_b{border-bottom-left-radius:0}.tp-rotv_c>*:not(.tp-v-fst),.tp-tabv_c .tp-brkv>*:not(.tp-v-fst),.tp-fldv_c>*:not(.tp-v-fst){margin-top:var(--bld-s)}.tp-rotv_c>.tp-sprv:not(.tp-v-fst),.tp-tabv_c .tp-brkv>.tp-sprv:not(.tp-v-fst),.tp-fldv_c>.tp-sprv:not(.tp-v-fst),.tp-rotv_c>.tp-cntv:not(.tp-v-fst),.tp-tabv_c .tp-brkv>.tp-cntv:not(.tp-v-fst),.tp-fldv_c>.tp-cntv:not(.tp-v-fst){margin-top:var(--cnt-v-p)}.tp-rotv_c>.tp-sprv+*:not(.tp-v-hidden),.tp-tabv_c .tp-brkv>.tp-sprv+*:not(.tp-v-hidden),.tp-fldv_c>.tp-sprv+*:not(.tp-v-hidden),.tp-rotv_c>.tp-cntv+*:not(.tp-v-hidden),.tp-tabv_c .tp-brkv>.tp-cntv+*:not(.tp-v-hidden),.tp-fldv_c>.tp-cntv+*:not(.tp-v-hidden){margin-top:var(--cnt-v-p)}.tp-rotv_c>.tp-sprv:not(.tp-v-hidden)+.tp-sprv,.tp-tabv_c .tp-brkv>.tp-sprv:not(.tp-v-hidden)+.tp-sprv,.tp-fldv_c>.tp-sprv:not(.tp-v-hidden)+.tp-sprv,.tp-rotv_c>.tp-cntv:not(.tp-v-hidden)+.tp-cntv,.tp-tabv_c .tp-brkv>.tp-cntv:not(.tp-v-hidden)+.tp-cntv,.tp-fldv_c>.tp-cntv:not(.tp-v-hidden)+.tp-cntv{margin-top:0}.tp-tabv_c .tp-brkv>.tp-cntv,.tp-fldv_c>.tp-cntv{margin-left:4px}.tp-tabv_c .tp-brkv>.tp-fldv>.tp-fldv_b,.tp-fldv_c>.tp-fldv>.tp-fldv_b{border-top-left-radius:var(--elm-br);border-bottom-left-radius:var(--elm-br)}.tp-tabv_c .tp-brkv>.tp-fldv.tp-fldv-expanded>.tp-fldv_b,.tp-fldv_c>.tp-fldv.tp-fldv-expanded>.tp-fldv_b{border-bottom-left-radius:0}.tp-tabv_c .tp-brkv .tp-fldv>.tp-fldv_c,.tp-fldv_c .tp-fldv>.tp-fldv_c{border-bottom-left-radius:var(--elm-br)}.tp-tabv_c .tp-brkv>.tp-cntv+.tp-fldv>.tp-fldv_b,.tp-fldv_c>.tp-cntv+.tp-fldv>.tp-fldv_b{border-top-left-radius:0}.tp-tabv_c .tp-brkv>.tp-cntv+.tp-tabv>.tp-tabv_t,.tp-fldv_c>.tp-cntv+.tp-tabv>.tp-tabv_t{border-top-left-radius:0}.tp-tabv_c .tp-brkv>.tp-tabv>.tp-tabv_t,.tp-fldv_c>.tp-tabv>.tp-tabv_t{border-top-left-radius:var(--elm-br)}.tp-tabv_c .tp-brkv .tp-tabv>.tp-tabv_c,.tp-fldv_c .tp-tabv>.tp-tabv_c{border-bottom-left-radius:var(--elm-br)}.tp-rotv_b,.tp-fldv_b{background-color:var(--cnt-bg);color:var(--cnt-fg);cursor:pointer;display:block;height:calc(var(--bld-us) + 4px);line-height:calc(var(--bld-us) + 4px);overflow:hidden;padding-left:var(--cnt-h-p);padding-right:calc(4px + var(--bld-us) + var(--cnt-h-p));position:relative;text-align:left;text-overflow:ellipsis;white-space:nowrap;width:100%;transition:border-radius .2s ease-in-out .2s}.tp-rotv_b:hover,.tp-fldv_b:hover{background-color:var(--cnt-bg-h)}.tp-rotv_b:focus,.tp-fldv_b:focus{background-color:var(--cnt-bg-f)}.tp-rotv_b:active,.tp-fldv_b:active{background-color:var(--cnt-bg-a)}.tp-rotv_b:disabled,.tp-fldv_b:disabled{opacity:.5}.tp-rotv_m,.tp-fldv_m{background:linear-gradient(to left, var(--cnt-fg), var(--cnt-fg) 2px, transparent 2px, transparent 4px, var(--cnt-fg) 4px);border-radius:2px;bottom:0;content:"";display:block;height:6px;right:calc(var(--cnt-h-p) + (var(--bld-us) + 4px - 6px)/2 - 2px);margin:auto;opacity:.5;position:absolute;top:0;transform:rotate(90deg);transition:transform .2s ease-in-out;width:6px}.tp-rotv.tp-rotv-expanded .tp-rotv_m,.tp-fldv.tp-fldv-expanded>.tp-fldv_b>.tp-fldv_m{transform:none}.tp-rotv_c,.tp-fldv_c{box-sizing:border-box;height:0;opacity:0;overflow:hidden;padding-bottom:0;padding-top:0;position:relative;transition:height .2s ease-in-out,opacity .2s linear,padding .2s ease-in-out}.tp-rotv.tp-rotv-cpl:not(.tp-rotv-expanded) .tp-rotv_c,.tp-fldv.tp-fldv-cpl:not(.tp-fldv-expanded)>.tp-fldv_c{display:none}.tp-rotv.tp-rotv-expanded .tp-rotv_c,.tp-fldv.tp-fldv-expanded>.tp-fldv_c{opacity:1;padding-bottom:var(--cnt-v-p);padding-top:var(--cnt-v-p);transform:none;overflow:visible;transition:height .2s ease-in-out,opacity .2s linear .2s,padding .2s ease-in-out}.tp-lstv,.tp-coltxtv_m{position:relative}.tp-lstv_s{padding:0 20px 0 4px;width:100%}.tp-lstv_m,.tp-coltxtv_mm{bottom:0;margin:auto;pointer-events:none;position:absolute;right:2px;top:0}.tp-lstv_m svg,.tp-coltxtv_mm svg{bottom:0;height:16px;margin:auto;position:absolute;right:0;top:0;width:16px}.tp-lstv_m svg path,.tp-coltxtv_mm svg path{fill:currentColor}.tp-pndtxtv,.tp-coltxtv_w{display:flex}.tp-pndtxtv_a,.tp-coltxtv_c{width:100%}.tp-pndtxtv_a+.tp-pndtxtv_a,.tp-coltxtv_c+.tp-pndtxtv_a,.tp-pndtxtv_a+.tp-coltxtv_c,.tp-coltxtv_c+.tp-coltxtv_c{margin-left:2px}.tp-btnv_b{width:100%}.tp-btnv_t{text-align:center}.tp-ckbv_l{display:block;position:relative}.tp-ckbv_i{left:0;opacity:0;position:absolute;top:0}.tp-ckbv_w{background-color:var(--in-bg);border-radius:var(--elm-br);cursor:pointer;display:block;height:var(--bld-us);position:relative;width:var(--bld-us)}.tp-ckbv_w svg{bottom:0;display:block;height:16px;left:0;margin:auto;opacity:0;position:absolute;right:0;top:0;width:16px}.tp-ckbv_w svg path{fill:none;stroke:var(--in-fg);stroke-width:2}.tp-ckbv_i:hover+.tp-ckbv_w{background-color:var(--in-bg-h)}.tp-ckbv_i:focus+.tp-ckbv_w{background-color:var(--in-bg-f)}.tp-ckbv_i:active+.tp-ckbv_w{background-color:var(--in-bg-a)}.tp-ckbv_i:checked+.tp-ckbv_w svg{opacity:1}.tp-ckbv.tp-v-disabled .tp-ckbv_w{opacity:.5}.tp-colv{position:relative}.tp-colv_h{display:flex}.tp-colv_s{flex-grow:0;flex-shrink:0;width:var(--bld-us)}.tp-colv_t{flex:1;margin-left:4px}.tp-colv_p{height:0;margin-top:0;opacity:0;overflow:hidden;transition:height .2s ease-in-out,opacity .2s linear,margin .2s ease-in-out}.tp-colv.tp-colv-expanded.tp-colv-cpl .tp-colv_p{overflow:visible}.tp-colv.tp-colv-expanded .tp-colv_p{margin-top:var(--bld-s);opacity:1}.tp-colv .tp-popv{left:calc(-1*var(--cnt-h-p));right:calc(-1*var(--cnt-h-p));top:var(--bld-us)}.tp-colpv_h,.tp-colpv_ap{margin-left:6px;margin-right:6px}.tp-colpv_h{margin-top:var(--bld-s)}.tp-colpv_rgb{display:flex;margin-top:var(--bld-s);width:100%}.tp-colpv_a{display:flex;margin-top:var(--cnt-v-p);padding-top:calc(var(--cnt-v-p) + 2px);position:relative}.tp-colpv_a::before{background-color:var(--grv-fg);content:"";height:2px;left:calc(-1*var(--cnt-h-p));position:absolute;right:calc(-1*var(--cnt-h-p));top:0}.tp-colpv.tp-v-disabled .tp-colpv_a::before{opacity:.5}.tp-colpv_ap{align-items:center;display:flex;flex:3}.tp-colpv_at{flex:1;margin-left:4px}.tp-svpv{border-radius:var(--elm-br);outline:none;overflow:hidden;position:relative}.tp-svpv.tp-v-disabled{opacity:.5}.tp-svpv_c{cursor:crosshair;display:block;height:calc(var(--bld-us)*4);width:100%}.tp-svpv_m{border-radius:100%;border:rgba(255,255,255,.75) solid 2px;box-sizing:border-box;filter:drop-shadow(0 0 1px rgba(0, 0, 0, 0.3));height:12px;margin-left:-6px;margin-top:-6px;pointer-events:none;position:absolute;width:12px}.tp-svpv:focus .tp-svpv_m{border-color:#fff}.tp-hplv{cursor:pointer;height:var(--bld-us);outline:none;position:relative}.tp-hplv.tp-v-disabled{opacity:.5}.tp-hplv_c{background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAAABCAYAAABubagXAAAAQ0lEQVQoU2P8z8Dwn0GCgQEDi2OK/RBgYHjBgIpfovFh8j8YBIgzFGQxuqEgPhaDOT5gOhPkdCxOZeBg+IDFZZiGAgCaSSMYtcRHLgAAAABJRU5ErkJggg==);background-position:left top;background-repeat:no-repeat;background-size:100% 100%;border-radius:2px;display:block;height:4px;left:0;margin-top:-2px;position:absolute;top:50%;width:100%}.tp-hplv_m{border-radius:var(--elm-br);border:rgba(255,255,255,.75) solid 2px;box-shadow:0 0 2px rgba(0,0,0,.1);box-sizing:border-box;height:12px;left:50%;margin-left:-6px;margin-top:-6px;pointer-events:none;position:absolute;top:50%;width:12px}.tp-hplv:focus .tp-hplv_m{border-color:#fff}.tp-aplv{cursor:pointer;height:var(--bld-us);outline:none;position:relative;width:100%}.tp-aplv.tp-v-disabled{opacity:.5}.tp-aplv_b{background-color:#fff;background-image:linear-gradient(to top right, #ddd 25%, transparent 25%, transparent 75%, #ddd 75%),linear-gradient(to top right, #ddd 25%, transparent 25%, transparent 75%, #ddd 75%);background-size:4px 4px;background-position:0 0,2px 2px;border-radius:2px;display:block;height:4px;left:0;margin-top:-2px;overflow:hidden;position:absolute;top:50%;width:100%}.tp-aplv_c{bottom:0;left:0;position:absolute;right:0;top:0}.tp-aplv_m{background-color:#fff;background-image:linear-gradient(to top right, #ddd 25%, transparent 25%, transparent 75%, #ddd 75%),linear-gradient(to top right, #ddd 25%, transparent 25%, transparent 75%, #ddd 75%);background-size:12px 12px;background-position:0 0,6px 6px;border-radius:var(--elm-br);box-shadow:0 0 2px rgba(0,0,0,.1);height:12px;left:50%;margin-left:-6px;margin-top:-6px;overflow:hidden;pointer-events:none;position:absolute;top:50%;width:12px}.tp-aplv_p{border-radius:var(--elm-br);border:rgba(255,255,255,.75) solid 2px;box-sizing:border-box;bottom:0;left:0;position:absolute;right:0;top:0}.tp-aplv:focus .tp-aplv_p{border-color:#fff}.tp-colswv{background-color:#fff;background-image:linear-gradient(to top right, #ddd 25%, transparent 25%, transparent 75%, #ddd 75%),linear-gradient(to top right, #ddd 25%, transparent 25%, transparent 75%, #ddd 75%);background-size:10px 10px;background-position:0 0,5px 5px;border-radius:var(--elm-br);overflow:hidden}.tp-colswv.tp-v-disabled{opacity:.5}.tp-colswv_sw{border-radius:0}.tp-colswv_b{-webkit-appearance:none;-moz-appearance:none;appearance:none;background-color:rgba(0,0,0,0);border-width:0;cursor:pointer;display:block;height:var(--bld-us);left:0;margin:0;outline:none;padding:0;position:absolute;top:0;width:var(--bld-us)}.tp-colswv_b:focus::after{border:rgba(255,255,255,.75) solid 2px;border-radius:var(--elm-br);bottom:0;content:"";display:block;left:0;position:absolute;right:0;top:0}.tp-coltxtv{display:flex;width:100%}.tp-coltxtv_m{margin-right:4px}.tp-coltxtv_ms{border-radius:var(--elm-br);color:var(--lbl-fg);cursor:pointer;height:var(--bld-us);line-height:var(--bld-us);padding:0 18px 0 4px}.tp-coltxtv_ms:hover{background-color:var(--in-bg-h)}.tp-coltxtv_ms:focus{background-color:var(--in-bg-f)}.tp-coltxtv_ms:active{background-color:var(--in-bg-a)}.tp-coltxtv_mm{color:var(--lbl-fg)}.tp-coltxtv.tp-v-disabled .tp-coltxtv_mm{opacity:.5}.tp-coltxtv_w{flex:1}.tp-dfwv{position:absolute;top:8px;right:8px;width:256px}.tp-fldv{position:relative}.tp-fldv.tp-fldv-not .tp-fldv_b{display:none}.tp-fldv_t{padding-left:4px}.tp-fldv_b:disabled .tp-fldv_m{display:none}.tp-fldv_c{padding-left:4px}.tp-fldv_i{bottom:0;color:var(--cnt-bg);left:0;overflow:hidden;position:absolute;top:calc(var(--bld-us) + 4px);width:var(--bs-br)}.tp-fldv_i::before{background-color:currentColor;bottom:0;content:"";left:0;position:absolute;top:0;width:4px}.tp-fldv_b:hover+.tp-fldv_i{color:var(--cnt-bg-h)}.tp-fldv_b:focus+.tp-fldv_i{color:var(--cnt-bg-f)}.tp-fldv_b:active+.tp-fldv_i{color:var(--cnt-bg-a)}.tp-fldv.tp-v-disabled>.tp-fldv_i{opacity:.5}.tp-grlv{position:relative}.tp-grlv_g{display:block;height:calc(var(--bld-us)*3)}.tp-grlv_g polyline{fill:none;stroke:var(--mo-fg);stroke-linejoin:round}.tp-grlv_t{margin-top:-4px;transition:left .05s,top .05s;visibility:hidden}.tp-grlv_t.tp-grlv_t-a{visibility:visible}.tp-grlv_t.tp-grlv_t-in{transition:none}.tp-grlv.tp-v-disabled .tp-grlv_g{opacity:.5}.tp-grlv .tp-ttv{background-color:var(--mo-fg)}.tp-grlv .tp-ttv::before{border-top-color:var(--mo-fg)}.tp-lblv{align-items:center;display:flex;line-height:1.3;padding-left:var(--cnt-h-p);padding-right:var(--cnt-h-p)}.tp-lblv.tp-lblv-nol{display:block}.tp-lblv_l{color:var(--lbl-fg);flex:1;-webkit-hyphens:auto;hyphens:auto;overflow:hidden;padding-left:4px;padding-right:16px}.tp-lblv.tp-v-disabled .tp-lblv_l{opacity:.5}.tp-lblv.tp-lblv-nol .tp-lblv_l{display:none}.tp-lblv_v{align-self:flex-start;flex-grow:0;flex-shrink:0;width:160px}.tp-lblv.tp-lblv-nol .tp-lblv_v{width:100%}.tp-lstv_s{padding:0 20px 0 4px;width:100%}.tp-lstv_m{color:var(--btn-fg)}.tp-sglv_i{padding:0 4px}.tp-sglv.tp-v-disabled .tp-sglv_i{opacity:.5}.tp-mllv_i{display:block;height:calc(var(--bld-us)*3);line-height:var(--bld-us);padding:0 4px;resize:none;white-space:pre}.tp-mllv.tp-v-disabled .tp-mllv_i{opacity:.5}.tp-p2dv{position:relative}.tp-p2dv_h{display:flex}.tp-p2dv_b{height:var(--bld-us);margin-right:4px;position:relative;width:var(--bld-us)}.tp-p2dv_b svg{display:block;height:16px;left:50%;margin-left:-8px;margin-top:-8px;position:absolute;top:50%;width:16px}.tp-p2dv_b svg path{stroke:currentColor;stroke-width:2}.tp-p2dv_b svg circle{fill:currentColor}.tp-p2dv_t{flex:1}.tp-p2dv_p{height:0;margin-top:0;opacity:0;overflow:hidden;transition:height .2s ease-in-out,opacity .2s linear,margin .2s ease-in-out}.tp-p2dv.tp-p2dv-expanded .tp-p2dv_p{margin-top:var(--bld-s);opacity:1}.tp-p2dv .tp-popv{left:calc(-1*var(--cnt-h-p));right:calc(-1*var(--cnt-h-p));top:var(--bld-us)}.tp-p2dpv{padding-left:calc(var(--bld-us) + 4px)}.tp-p2dpv_p{cursor:crosshair;height:0;overflow:hidden;padding-bottom:100%;position:relative}.tp-p2dpv.tp-v-disabled .tp-p2dpv_p{opacity:.5}.tp-p2dpv_g{display:block;height:100%;left:0;pointer-events:none;position:absolute;top:0;width:100%}.tp-p2dpv_ax{opacity:.1;stroke:var(--in-fg);stroke-dasharray:1}.tp-p2dpv_l{opacity:.5;stroke:var(--in-fg);stroke-dasharray:1}.tp-p2dpv_m{border:var(--in-fg) solid 1px;border-radius:50%;box-sizing:border-box;height:4px;margin-left:-2px;margin-top:-2px;position:absolute;width:4px}.tp-p2dpv_p:focus .tp-p2dpv_m{background-color:var(--in-fg);border-width:0}.tp-popv{background-color:var(--bs-bg);border-radius:6px;box-shadow:0 2px 4px var(--bs-sh);display:none;max-width:168px;padding:var(--cnt-v-p) var(--cnt-h-p);position:absolute;visibility:hidden;z-index:1000}.tp-popv.tp-popv-v{display:block;visibility:visible}.tp-sprv_r{background-color:var(--grv-fg);border-width:0;display:block;height:2px;margin:0;width:100%}.tp-sprv.tp-v-disabled .tp-sprv_r{opacity:.5}.tp-sldv.tp-v-disabled{opacity:.5}.tp-sldv_t{box-sizing:border-box;cursor:pointer;height:var(--bld-us);margin:0 6px;outline:none;position:relative}.tp-sldv_t::before{background-color:var(--in-bg);border-radius:1px;bottom:0;content:"";display:block;height:2px;left:0;margin:auto;position:absolute;right:0;top:0}.tp-sldv_k{height:100%;left:0;position:absolute;top:0}.tp-sldv_k::before{background-color:var(--in-fg);border-radius:1px;bottom:0;content:"";display:block;height:2px;left:0;margin-bottom:auto;margin-top:auto;position:absolute;right:0;top:0}.tp-sldv_k::after{background-color:var(--btn-bg);border-radius:var(--elm-br);bottom:0;content:"";display:block;height:12px;margin-bottom:auto;margin-top:auto;position:absolute;right:-6px;top:0;width:12px}.tp-sldv_t:hover .tp-sldv_k::after{background-color:var(--btn-bg-h)}.tp-sldv_t:focus .tp-sldv_k::after{background-color:var(--btn-bg-f)}.tp-sldv_t:active .tp-sldv_k::after{background-color:var(--btn-bg-a)}.tp-sldtxtv{display:flex}.tp-sldtxtv_s{flex:2}.tp-sldtxtv_t{flex:1;margin-left:4px}.tp-tabv{position:relative}.tp-tabv_t{align-items:flex-end;color:var(--cnt-bg);display:flex;overflow:hidden;position:relative}.tp-tabv_t:hover{color:var(--cnt-bg-h)}.tp-tabv_t:has(*:focus){color:var(--cnt-bg-f)}.tp-tabv_t:has(*:active){color:var(--cnt-bg-a)}.tp-tabv_t::before{background-color:currentColor;bottom:0;content:"";height:2px;left:0;pointer-events:none;position:absolute;right:0}.tp-tabv.tp-v-disabled .tp-tabv_t::before{opacity:.5}.tp-tabv.tp-tabv-nop .tp-tabv_t{height:calc(var(--bld-us) + 4px);position:relative}.tp-tabv.tp-tabv-nop .tp-tabv_t::before{background-color:var(--cnt-bg);bottom:0;content:"";height:2px;left:0;position:absolute;right:0}.tp-tabv_c{padding-bottom:var(--cnt-v-p);padding-left:4px;padding-top:var(--cnt-v-p)}.tp-tabv_i{bottom:0;color:var(--cnt-bg);left:0;overflow:hidden;position:absolute;top:calc(var(--bld-us) + 4px);width:var(--bs-br)}.tp-tabv_i::before{background-color:currentColor;bottom:0;content:"";left:0;position:absolute;top:0;width:4px}.tp-tabv_t:hover+.tp-tabv_i{color:var(--cnt-bg-h)}.tp-tabv_t:has(*:focus)+.tp-tabv_i{color:var(--cnt-bg-f)}.tp-tabv_t:has(*:active)+.tp-tabv_i{color:var(--cnt-bg-a)}.tp-tabv.tp-v-disabled>.tp-tabv_i{opacity:.5}.tp-tbiv{flex:1;min-width:0;position:relative}.tp-tbiv+.tp-tbiv{margin-left:2px}.tp-tbiv+.tp-tbiv.tp-v-disabled::before{opacity:.5}.tp-tbiv_b{display:block;padding-left:calc(var(--cnt-h-p) + 4px);padding-right:calc(var(--cnt-h-p) + 4px);position:relative;width:100%}.tp-tbiv_b:disabled{opacity:.5}.tp-tbiv_b::before{background-color:var(--cnt-bg);bottom:2px;content:"";left:0;pointer-events:none;position:absolute;right:0;top:0}.tp-tbiv_b:hover::before{background-color:var(--cnt-bg-h)}.tp-tbiv_b:focus::before{background-color:var(--cnt-bg-f)}.tp-tbiv_b:active::before{background-color:var(--cnt-bg-a)}.tp-tbiv_t{color:var(--cnt-fg);height:calc(var(--bld-us) + 4px);line-height:calc(var(--bld-us) + 4px);opacity:.5;overflow:hidden;text-overflow:ellipsis}.tp-tbiv.tp-tbiv-sel .tp-tbiv_t{opacity:1}.tp-txtv{position:relative}.tp-txtv_i{padding:0 4px}.tp-txtv.tp-txtv-fst .tp-txtv_i{border-bottom-right-radius:0;border-top-right-radius:0}.tp-txtv.tp-txtv-mid .tp-txtv_i{border-radius:0}.tp-txtv.tp-txtv-lst .tp-txtv_i{border-bottom-left-radius:0;border-top-left-radius:0}.tp-txtv.tp-txtv-num .tp-txtv_i{text-align:right}.tp-txtv.tp-txtv-drg .tp-txtv_i{opacity:.3}.tp-txtv_k{cursor:pointer;height:100%;left:-3px;position:absolute;top:0;width:12px}.tp-txtv_k::before{background-color:var(--in-fg);border-radius:1px;bottom:0;content:"";height:calc(var(--bld-us) - 4px);left:50%;margin-bottom:auto;margin-left:-1px;margin-top:auto;opacity:.1;position:absolute;top:0;transition:border-radius .1s,height .1s,transform .1s,width .1s;width:2px}.tp-txtv_k:hover::before,.tp-txtv.tp-txtv-drg .tp-txtv_k::before{opacity:1}.tp-txtv.tp-txtv-drg .tp-txtv_k::before{border-radius:50%;height:4px;transform:translateX(-1px);width:4px}.tp-txtv_g{bottom:0;display:block;height:8px;left:50%;margin:auto;overflow:visible;pointer-events:none;position:absolute;top:0;visibility:hidden;width:100%}.tp-txtv.tp-txtv-drg .tp-txtv_g{visibility:visible}.tp-txtv_gb{fill:none;stroke:var(--in-fg);stroke-dasharray:1}.tp-txtv_gh{fill:none;stroke:var(--in-fg)}.tp-txtv .tp-ttv{margin-left:6px;visibility:hidden}.tp-txtv.tp-txtv-drg .tp-ttv{visibility:visible}.tp-ttv{background-color:var(--in-fg);border-radius:var(--elm-br);color:var(--bs-bg);padding:2px 4px;pointer-events:none;position:absolute;transform:translate(-50%, -100%)}.tp-ttv::before{border-color:var(--in-fg) rgba(0,0,0,0) rgba(0,0,0,0) rgba(0,0,0,0);border-style:solid;border-width:2px;box-sizing:border-box;content:"";font-size:.9em;height:4px;left:50%;margin-left:-2px;position:absolute;top:100%;width:4px}.tp-rotv{background-color:var(--bs-bg);border-radius:var(--bs-br);box-shadow:0 2px 4px var(--bs-sh);font-family:var(--font-family);font-size:11px;font-weight:500;line-height:1;text-align:left}.tp-rotv_b{border-bottom-left-radius:var(--bs-br);border-bottom-right-radius:var(--bs-br);border-top-left-radius:var(--bs-br);border-top-right-radius:var(--bs-br);padding-left:calc(4px + var(--bld-us) + var(--cnt-h-p));text-align:center}.tp-rotv.tp-rotv-expanded .tp-rotv_b{border-bottom-left-radius:0;border-bottom-right-radius:0}.tp-rotv.tp-rotv-not .tp-rotv_b{display:none}.tp-rotv_b:disabled .tp-rotv_m{display:none}.tp-rotv_c>.tp-fldv.tp-v-lst>.tp-fldv_c{border-bottom-left-radius:var(--bs-br);border-bottom-right-radius:var(--bs-br)}.tp-rotv_c>.tp-fldv.tp-v-lst>.tp-fldv_i{border-bottom-left-radius:var(--bs-br)}.tp-rotv_c>.tp-fldv.tp-v-lst:not(.tp-fldv-expanded)>.tp-fldv_b{border-bottom-left-radius:var(--bs-br);border-bottom-right-radius:var(--bs-br)}.tp-rotv_c .tp-fldv.tp-v-vlst:not(.tp-fldv-expanded)>.tp-fldv_b{border-bottom-right-radius:var(--bs-br)}.tp-rotv.tp-rotv-not .tp-rotv_c>.tp-fldv.tp-v-fst{margin-top:calc(-1*var(--cnt-v-p))}.tp-rotv.tp-rotv-not .tp-rotv_c>.tp-fldv.tp-v-fst>.tp-fldv_b{border-top-left-radius:var(--bs-br);border-top-right-radius:var(--bs-br)}.tp-rotv_c>.tp-tabv.tp-v-lst>.tp-tabv_c{border-bottom-left-radius:var(--bs-br);border-bottom-right-radius:var(--bs-br)}.tp-rotv_c>.tp-tabv.tp-v-lst>.tp-tabv_i{border-bottom-left-radius:var(--bs-br)}.tp-rotv.tp-rotv-not .tp-rotv_c>.tp-tabv.tp-v-fst{margin-top:calc(-1*var(--cnt-v-p))}.tp-rotv.tp-rotv-not .tp-rotv_c>.tp-tabv.tp-v-fst>.tp-tabv_t{border-top-left-radius:var(--bs-br);border-top-right-radius:var(--bs-br)}.tp-rotv.tp-v-disabled,.tp-rotv .tp-v-disabled{pointer-events:none}.tp-rotv.tp-v-hidden,.tp-rotv .tp-v-hidden{display:none}'),this.pool_.getAll().forEach((t=>{this.embedPluginStyle_(t)})),this.registerPlugin({plugins:[Qs,Gs,$t,Js]})}},t.SeparatorApi=Lt,t.SliderApi=zs,t.TabApi=Nt,t.TabPageApi=Kt,t.TextApi=qs,t.TpChangeEvent=i,t.VERSION=Zs,Object.defineProperty(t,"__esModule",{value:!0})}));
